@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Tracker - Project GlyphMotion</title>
+    <link rel="icon" type="image/x-icon" href="images/project-glyph-motion.ico">
+    <link rel="manifest" href="manifest.json"> <!-- PWA: Link to manifest file -->
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Define custom cubic-bezier for a more "springy" feel */
+        .cubic-ease-in-out {
+            transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1.25); /* More pronounced overshoot for opening */
+        }
+        .cubic-ease-out {
+            transition-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53); /* Snappy closing, slight bounce */
+        }
+        .subtle-spring {
+            transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Gentle spring for small interactions */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0A0F; /* Very dark background from the new theme */
+            color: #EDEDF3; /* Light text color */
+            position: relative;
+            min-height: 100vh;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start; /* Align content to top, allowing footer to push down */
+            padding: 1rem;
+            scroll-behavior: smooth;
+        }
+
+        /* Background Glow Elements - Reused from index.html */
+        .background-glow-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -10;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .glow-element {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.2;
+            mix-blend-mode: screen;
+            filter: blur(100px);
+            will-change: transform, opacity;
+        }
+        .glow-1 {
+            width: clamp(400px, 60vw, 800px);
+            height: clamp(400px, 60vw, 800px);
+            background: radial-gradient(circle at center, #FDA136 0%, rgba(253, 161, 54, 0) 70%);
+            filter: blur(120px);
+            top: -20%;
+            left: -15%;
+            animation: subtleDrift 35s infinite alternate ease-in-out;
+        }
+        .glow-2 {
+            width: clamp(350px, 50vw, 700px);
+            height: clamp(350px, 50vw, 700px);
+            background: radial-gradient(circle at center, #FF5733 0%, rgba(255, 87, 51, 0) 70%);
+            filter: blur(100px);
+            bottom: -15%;
+            right: -10%;
+            animation: subtleDrift 40s infinite alternate-reverse ease-in-out 2s;
+        }
+        .glow-3 {
+            width: clamp(300px, 40vw, 500px);
+            height: clamp(300px, 40vw, 500px);
+            background: radial-gradient(circle at center, #FF8C00 0%, rgba(255, 140, 0, 0) 70%);
+            filter: blur(90px);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.15;
+            animation: subtlePulse 20s infinite alternate ease-in-out;
+        }
+        .glow-4 {
+            width: clamp(250px, 35vw, 450px);
+            height: clamp(250px, 35vw, 450px);
+            background: radial-gradient(circle at center, #00BFFF 0%, rgba(0, 191, 255, 0) 70%);
+            filter: blur(110px);
+            top: 10%;
+            right: 5%;
+            animation: subtleDrift 30s infinite alternate-reverse ease-in-out 1s;
+        }
+        .glow-5 {
+            width: clamp(200px, 30vw, 400px);
+            height: clamp(200px, 30vw, 400px);
+            background: radial-gradient(circle at center, #8A2BE2 0%, rgba(138, 43, 226, 0) 70%);
+            filter: blur(95px);
+            bottom: 5%;
+            left: 5%;
+            animation: subtlePulse 25s infinite alternate ease-in-out 3s;
+        }
+
+        @keyframes subtleDrift {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.1; }
+            50% { opacity: 0.25; }
+            100% { transform: translate(calc(8vw - 20px), calc(8vh - 10px)) scale(1.2); opacity: 0.1; }
+        }
+        @keyframes subtlePulse {
+            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.1; }
+            100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.2; }
+        }
+
+        /* Particle effect - Reused from index.html */
+        .particle-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -11;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .particle {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: particle-fade-move 15s infinite ease-in-out alternate;
+            filter: blur(1px);
+        }
+        .particle:nth-child(1) { width: 3px; height: 3px; top: 10%; left: 20%; animation-delay: 0s; }
+        .particle:nth-child(2) { width: 2px; height: 2px; top: 30%; left: 50%; animation-delay: 2s; }
+        .particle:nth-child(3) { width: 4px; height: 4px; top: 60%; left: 80%; animation-delay: 4s; }
+        .particle:nth-child(4) { width: 3px; height: 3px; top: 80%; left: 10%; animation-delay: 6s; }
+        .particle:nth-child(5) { width: 2px; height: 2px; top: 40%; left: 90%; animation-delay: 8s; }
+        .particle:nth-child(6) { width: 4px; height: 4px; top: 5%; left: 70%; animation-delay: 10s; }
+        .particle:nth-child(7) { width: 3px; height: 3px; top: 95%; left: 40%; animation-delay: 12s; }
+        .particle:nth-child(8) { width: 2px; height: 2px; top: 70%; left: 30%; animation-delay: 14s; }
+
+        @keyframes particle-fade-move {
+            0% { opacity: 0; transform: translate(0, 0); }
+            20% { opacity: 0.2; }
+            80% { opacity: 0.2; }
+            100% { opacity: 0; transform: translate(10vw, 10vh); }
+        }
+
+        /* Main content card styling - Reused from index.html */
+        .content-card {
+            background-color: rgba(10, 10, 15, 0.85);
+            border: 1px solid rgba(253, 161, 54, 0.25);
+            border-radius: 0.75rem;
+            color: #EDEDF3;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 10;
+            flex-grow: 1;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+            will-change: opacity, transform;
+        }
+        .content-card.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Page Title specific style - Reused from index.html */
+        .page-title {
+            font-family: 'Press Start 2P', cursive;
+            font-weight: normal;
+            background: linear-gradient(to right, #FDA136, #FFD700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 3px rgba(0,0,0,0.3);
+            line-height: 1.3;
+        }
+
+        /* Glasmorphism effect base class - Reused from index.html */
+        .glass-effect {
+            background-color: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Info banner styling - Reused from index.html */
+        .info-banner {
+            background-color: rgba(253, 161, 54, 0.1);
+            border: 1px solid rgba(253, 161, 54, 0.3);
+            color: #FED7AA;
+            border-left-width: 4px;
+            border-left-color: #FDA136;
+        }
+        .info-banner.error-banner {
+            background-color: rgba(255, 0, 0, 0.1);
+            border-color: rgba(255, 0, 0, 0.3);
+            border-left-color: #FF5733;
+            color: #FFD7D7;
+        }
+        .info-banner.success-banner { /* Added for success messages */
+            background-color: rgba(52, 211, 153, 0.1);
+            border-color: rgba(52, 211, 153, 0.3);
+            border-left-color: #34D399;
+            color: #C6F6D5;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            border: 4px solid rgba(253, 161, 54, 0.2);
+            border-top: 4px solid #FDA136;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Go Back button styling - Reused from index.html, adjusted to fit context */
+        .btn {
+            @apply font-semibold py-2 px-4 shadow-md transition-transform duration-300 subtle-spring;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.4);
+        }
+        .btn-custom-primary {
+            @apply bg-gradient-to-br from-orange-500 to-amber-500 text-white focus:ring-orange-400 shadow-orange-600/40 hover:from-orange-600 hover:to-amber-600;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+        }
+        .btn-danger { /* Added danger button style */
+            @apply bg-gradient-to-br from-red-500 to-rose-500 text-white focus:ring-red-400 shadow-red-600/40 hover:from-red-600 hover:to-rose-600;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+        }
+
+        /* Style for the new "Additional Info" button (outlined) */
+        .toggle-btn-style { /* Reusing toggle-btn-style from index.html */
+            @apply px-0 py-0 text-xs transition-all duration-300 subtle-spring;
+            border-radius: 0.375rem; /* Equivalent to rounded-md for slight roundness */
+            background-color: transparent; /* Fully transparent background */
+            color: #FDA136; /* Orange text color */
+            box-shadow: none; /* No shadow */
+            border: 1px solid transparent; /* Ensure a border is always there for smooth transition */
+            display: inline-flex; /* Use inline-flex for button content alignment */
+            align-items: center; /* Vertically align content */
+            gap: 0.25rem; /* Space between icon and text */
+        }
+        .toggle-btn-style:hover {
+            /* Removed glow effects for hover */
+            transform: translateY(-1px); /* Slight lift on hover */
+            background-color: rgba(253, 161, 54, 0.1); /* Subtle orange tint on hover */
+            border-color: #FDA136; /* Introduce border on hover */
+        }
+        /* Removed .active style for these buttons as requested */
+        .separator {
+            color: #FDA116; /* Orange color for the dot */
+            font-size: 1.5rem; /* Make the dot larger */
+            margin: 0 0.25rem; /* Reduced space around the dot */
+        }
+
+        /* Ripple effect for buttons */
+        .btn::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3); /* White ripple */
+            animation: ripple 0.6s linear forwards;
+            opacity: 0;
+            transform: scale(0);
+            pointer-events: none; /* Do not interfere with clicks */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+        }
+        .btn.clicked::after {
+            animation: ripple 0.6s linear forwards;
+        }
+        @keyframes ripple {
+            0% {
+                transform: translate(-50%, -50%) scale(0.1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1.5);
+                opacity: 0;
+            }
+        }
+
+
+        /* Progress Bar (reused from index.html) */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 4px;
+            width: 0%;
+            z-index: 1003;
+            transition: width 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            opacity: 0;
+            will-change: width, opacity;
+            background-color: #FDA136;
+        }
+        #pollProgressBar {
+            background-color: #FDA136;
+            transition: width linear;
+        }
+
+
+        /* Central Message Overlay (reused from index.html) */
+        #centralMessageOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1002;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        #centralMessageContent {
+            background-color: rgba(10, 10, 15, 0.95);
+            border: 1px solid rgba(253, 161, 54, 0.5);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-width: 80%;
+            color: #EDEDF3;
+            font-size: 1.25rem;
+            font-weight: 500;
+            transform: translateY(-20px);
+            opacity: 0;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1.25), opacity 0.4s ease-out;
+            will-change: transform, opacity;
+        }
+
+        #centralMessageOverlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #centralMessageOverlay.show #centralMessageContent {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        #centralMessageOverlay.hide #centralMessageContent {
+            transform: translateY(20px);
+            opacity: 0;
+            transition: transform 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 0.3s ease-in;
+        }
+
+        /* Footer animation */
+        .footer-animated {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+            will-change: opacity, transform;
+        }
+        .footer-animated.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* New style for the outlined logged-in username span */
+        .logged-in-text-outline {
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 0.25rem 0.75rem;
+            margin-right: 0.5rem;
+            display: inline-block;
+            background-color: rgba(255, 255, 255, 0.03);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease-out;
+        }
+        .logged-in-text-outline:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 0 2px rgba(253, 161, 54, 0.2);
+        }
+
+        /* New Tracker Card Styles */
+        .tracker-card-grid {
+            display: grid;
+            grid-template-columns: 1fr; /* Default to single column for mobile */
+            gap: 2rem; /* More space between cards */
+            margin-top: 1.5rem;
+        }
+
+        @media (min-width: 640px) { /* sm breakpoint */
+            .tracker-card-grid {
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* 2-3 columns on small screens */
+            }
+        }
+        @media (min-width: 1024px) { /* lg breakpoint */
+            .tracker-card-grid {
+                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); /* 3-4 columns on larger screens */
+            }
+        }
+        @media (min-width: 1280px) { /* xl breakpoint */
+            .tracker-card-grid {
+                grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); /* Even wider for very large screens */
+            }
+        }
+
+        .tracker-card {
+            background-color: rgba(15, 15, 20, 0.9); /* Darker background for card */
+            border: 1px solid rgba(253, 161, 54, 0.3); /* Orange border */
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4); /* Deeper shadow */
+            display: flex;
+            flex-direction: column;
+            gap: 1rem; /* Space between sections inside card */
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+            will-change: transform, box-shadow;
+            opacity: 0; /* Hidden for entrance animation */
+            transform: translateY(20px); /* Start slightly below */
+            animation: cardEntrance 0.6s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Applied by JS with delay */
+        }
+        .tracker-card:hover {
+            transform: translateY(-5px) scale(1.01);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+            border-color: #FFD700;
+        }
+        /* Keyframe for card entrance */
+        @keyframes cardEntrance {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .card-section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #FDA136; /* Orange color for section titles */
+            border-bottom: 1px dashed rgba(253, 161, 54, 0.15); /* Subtle dashed underline */
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-detail-item {
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
+            gap: 0.5rem;
+            align-items: baseline; /* Align value with label */
+            font-size: 0.95rem; /* Slightly larger text */
+            color: #E0E0E0; /* Slightly lighter text for details */
+        }
+        .card-detail-label {
+            font-weight: 500;
+            color: #FFD700; /* Gold for labels */
+            flex-shrink: 0; /* Prevent label from shrinking */
+        }
+        .card-detail-value {
+            word-break: break-all; /* Ensure long values wrap */
+        }
+        .card-detail-value.sha-container {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            font-size: 0.85rem;
+            color: #B0B0B0;
+            user-select: none;
+            background-color: rgba(0, 0, 0, 0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.2rem;
+            display: flex; /* Use flexbox to position text and icon */
+            justify-content: space-between; /* Push icon to the right */
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease-out;
+        }
+        .card-detail-value.sha-container:hover {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+        .card-detail-value .copy-icon {
+            color: #71717A;
+            font-size: 0.75rem;
+            opacity: 0.7;
+            transition: color 0.2s ease-in-out, opacity 0.2s ease-in-out, transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1.275);
+            flex-shrink: 0;
+            margin-left: 0.5rem;
+        }
+        .card-detail-value.sha-container:hover .copy-icon {
+            opacity: 1;
+            color: #FDA136;
+            transform: scale(1.1);
+        }
+        .copy-icon.copied-success {
+            color: #34D399 !important;
+            opacity: 1 !important;
+            transform: scale(1.2) !important;
+        }
+
+        /* Styling for map links in the default view (tracker cards) */
+        .card-map-link-container { /* New container for individual map links within Lat/Lon row */
+            display: flex;
+            align-items: center;
+            gap: 0.3rem; /* Space between icon and text */
+            color: #00BFFF; /* Deep Sky Blue for maps */
+            text-decoration: none;
+            font-size: 0.95rem; /* Match detail item text size */
+            transition: color 0.2s ease, transform 0.2s subtle-spring;
+            padding: 0.2rem 0.4rem; /* Small padding around the link */
+            border-radius: 0.25rem; /* Slight rounding */
+        }
+        .card-map-link-container:hover {
+            color: #FFD700; /* Gold on hover */
+            transform: translateY(-2px);
+            background-color: rgba(255,255,255,0.05); /* Subtle background on hover */
+        }
+        .card-map-link-container.earth {
+            color: #34D399; /* Green for earth */
+        }
+        .card-map-link-container.earth:hover {
+            color: #FFD700;
+        }
+        /* No specific margin-right for icons here, gap on parent handles it */
+
+
+        /* Responsive behavior for map links within Lat/Lon row */
+        /* Adjusted .lat-lon-row and .lat-lon-links-group for new inline label/value */
+        .lat-lon-value-and-links { /* New container to hold the value span and the links group */
+            display: flex;
+            flex-direction: column; /* Stack value and links vertically */
+            gap: 0.5rem; /* Space between value and links */
+            flex-grow: 1; /* Allow it to take available space */
+        }
+        .lat-lon-links-group {
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping of links */
+            gap: 0.75rem; /* Space between links when inline */
+            align-items: center;
+            /* Changed from justify-content: center to flex-start for left alignment */
+            justify-content: flex-start; /* Align links to the left */
+        }
+        
+        /* For 2-column layout (medium screens) and general mobile, links should stack */
+        @media (min-width: 640px) { /* sm breakpoint */
+             .lat-lon-links-group {
+                flex-direction: row; /* Keep links inline when space allows */
+                gap: 0.75rem; /* Space between links */
+            }
+        }
+        /* For 3-column layout (large screens and up), links should stack */
+        @media (min-width: 1024px) { /* lg breakpoint */
+            .tracker-card-grid.lg\:grid-cols-3 .lat-lon-links-group {
+                flex-direction: column; /* Stack links vertically */
+                align-items: flex-start;
+                gap: 0.25rem; /* Smaller gap between stacked links */
+            }
+        }
+        /* Override specific .card-detail-item for lat/lon to be row-based */
+        .card-detail-item.lat-lon-item {
+            flex-direction: row; /* Make label and value/links container inline */
+            align-items: baseline; /* Align label and value at their baselines */
+            gap: 0.75rem; /* Space between label and the value/links container */
+        }
+        .card-detail-item.lat-lon-item .card-detail-label {
+            margin-bottom: 0; /* Remove default margin-bottom from label */
+        }
+
+
+        .card-actions-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            /* Changed from justify-content: flex-end to flex-start for left alignment */
+            justify-content: flex-start; /* Align actions to the left */
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+        .card-actions-row .btn {
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px; /* Slightly less rounded for actions */
+        }
+        /* Style for the "Go to Video" button in the card */
+        .card-go-to-video-btn {
+            @apply bg-gradient-to-br from-orange-500 to-amber-500 text-white focus:ring-orange-400 shadow-orange-600/40 hover:from-orange-600 hover:to-amber-600;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+        }
+
+        .no-data-message {
+            text-align: center;
+            color: #9CA3AF;
+            margin-top: 2rem;
+            font-size: 1.125rem;
+        }
+
+        /* Styles for the new Info Modal (Popup) */
+        #infoModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        #infoModal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        /* New keyframes for confirmation modal pop-in/out */
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            80% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes popOut {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0; }
+        }
+
+        #infoModalContent {
+            background-color: rgba(15, 15, 20, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            width: clamp(300px, 98vw, 1200px);
+            max-height: 95vh;
+            overflow-y: auto;
+            color: #EDEDF3;
+            
+            transform: scale(0);
+            opacity: 0;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1.25), opacity 0.4s ease-out; 
+            will-change: transform, opacity;
+            
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        #infoModal.show #infoModalContent {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* For closing animation of info modal */
+        #infoModal.closing #infoModalContent {
+            transform: scale(0);
+            opacity: 0;
+            transition: transform 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 0.3s ease-in;
+        }
+
+        .info-modal-close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            color: #EDEDF3;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease, transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1.25);
+            will-change: background-color, transform;
+        }
+        .info-modal-close-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: rotate(90deg);
+        }
+
+        .info-detail-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(253, 161, 54, 0.2);
+            margin-top: 1rem;
+        }
+        .info-detail-grid div {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 0.3rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .info-detail-grid strong {
+            color: #FDA136;
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.8rem;
+        }
+        @media (min-width: 640px) { /* sm breakpoint */
+            .info-detail-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        @media (min-width: 1024px) { /* lg breakpoint */
+            .info-detail-grid {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+        .map-links-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            justify-content: center;
+        }
+        .map-link-btn {
+            @apply bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+        }
+        .map-link-btn.earth {
+            @apply bg-green-600 hover:bg-green-700;
+        }
+        /* Explicitly define margin-right for icons in the popup map links */
+        .info-modal-map-link-icon {
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen py-8 px-4">
+    <div class="progress-bar" id="pageLoadProgressBar"></div>
+    <div class="progress-bar" id="pollProgressBar"></div>
+
+    <div class="background-glow-container">
+        <div class="glow-element glow-1"></div>
+        <div class="glow-element glow-2"></div>
+        <div class="glow-element glow-3"></div>
+        <div class="glow-element glow-4"></div>
+        <div class="glow-element glow-5"></div>
+    </div>
+
+    <div class="particle-container">
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div>
+    </div>
+
+    <div id="mainContentCard" class="container mx-auto max-w-7xl content-card p-8 md:p-10 shadow-2xl relative z-10 flex flex-col">
+        <header class="mb-8 text-center relative">
+            <h1 class="text-3xl sm:text-4xl md:text-4xl page-title mb-6">Admin Tracker</h1>
+            <p class="text-center text-slate-300 mb-4">
+                View processed video commits and request origins.
+            </p>
+            <div id="adminTrackerControls" class="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4 mb-0">
+                <span id="loggedInUsername" class="text-sm font-medium text-orange-300 hidden"></span>
+                <button id="refreshDataBtn" class="btn btn-custom-primary py-2 px-4 text-sm">
+                    <i class="fas fa-sync-alt mr-2"></i> Refresh
+                </button>
+                <!-- Removed logoutAllAdminsBtn as per user request -->
+                <button id="goBackBtn"
+                        class="btn btn-custom-primary py-2 px-4 text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Back to Home
+                </button>
+            </div>
+            <div class="flex items-center space-x-0 justify-center mb-6 mt-4 lg:block hidden">
+                <button id="toggleViewModeButton" class="toggle-btn-style">
+                    <i class="fas fa-expand-alt mr-1"></i> Enlarge View
+                </button>
+                <span class="separator">•</span>
+                <button id="toggleLayoutButton" class="toggle-btn-style">
+                    <i class="fas fa-th-large mr-1"></i> Show 2 Columns
+                </button>
+            </div>
+        </header>
+
+        <div id="statusArea" class="mt-8 p-4 info-banner rounded-lg hidden text-sm flex items-start">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-orange-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd" /></svg>
+            <p id="statusMessage" class="font-medium"></p>
+        </div>
+
+        <div id="errorArea" class="mt-4 p-4 info-banner error-banner rounded-lg hidden text-sm flex items-start">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-red-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94l-1.72-1.72Z" clip-rule="evenodd" /></svg>
+            <p id="errorMessage" class="font-medium"></p>
+        </div>
+
+        <div id="loadingSpinner" class="spinner"></div>
+        <p id="noDataMessage" class="no-data-message hidden">No tracking data available yet. Process some videos!</p>
+
+        <div id="trackerCardsContainer" class="tracker-card-grid">
+            </div>
+    </div>
+
+    <div class="w-full text-center text-slate-500 text-sm font-medium mt-8 py-4 footer-animated">
+        Made with ❤️ by Sayan and Shitij
+    </div>
+    <div class="w-full text-center text-slate-600 text-sm mt-2 mb-4 footer-animated">
+        This project is based on the <a href="https://github.com/ultralytics/ultralytics"
+        class="text-blue-400 hover:underline">Ultralytics YOLO v8(m)</a>,
+        an acclaimed real-time object detection and image segmentation model.
+    </div>
+
+    <div id="centralMessageOverlay" class="hidden">
+        <div id="centralMessageContent">
+            <p id="centralMessageText"></p>
+        </div>
+    </div>
+
+    <div id="infoModal" class="hidden">
+        <div id="infoModalContent">
+            <button id="infoModalCloseBtn" class="info-modal-close-btn">×</button>
+            <h3 class="text-xl font-bold mb-4 text-orange-400">Additional Geolocation Details</h3>
+            <div id="infoModalDetailsContent" class="info-detail-grid">
+                </div>
+            <div id="infoModalMapLinksContainer" class="map-links-container">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const trackerCardsContainer = document.getElementById('trackerCardsContainer');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const noDataMessage = document.getElementById('noDataMessage');
+        const goBackBtn = document.getElementById('goBackBtn');
+        const mainContentCard = document.getElementById('mainContentCard');
+        const footerElements = document.querySelectorAll('.footer-animated');
+        const pageLoadProgressBar = document.getElementById('pageLoadProgressBar');
+        const pollProgressBar = document.getElementById('pollProgressBar');
+        const loggedInUsernameSpan = document.getElementById('loggedInUsername');
+        const refreshDataBtn = document.getElementById('refreshDataBtn');
+        const toggleLayoutButton = document.getElementById('toggleLayoutButton');
+        const toggleViewModeButton = document.getElementById('toggleViewModeButton');
+        // Removed logoutAllAdminsBtn constant as the button is removed from HTML
+
+        const centralMessageOverlay = document.getElementById('centralMessageOverlay');
+        const centralMessageText = document.getElementById('centralMessageText');
+        const centralMessageContent = document.getElementById('centralMessageContent');
+
+        const infoModal = document.getElementById('infoModal');
+        const infoModalCloseBtn = document.getElementById('infoModalCloseBtn');
+        const infoModalDetailsContent = document.getElementById('infoModalDetailsContent');
+        const infoModalMapLinksContainer = document.getElementById('infoModalMapLinksContainer');
+
+
+        const NGROK_PUBLIC_URL = 'https://home.projectglyphmotion.studio';
+        const LOCAL_TRACKER_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_data';
+        const LOCAL_LOGOUT_ALL_ADMINS_ENDPOINT = NGROK_PUBLIC_URL + '/logout_all_admins'; 
+        const GITHUB_PAGES_REPO_URL = 'https://projectglyphmotion.studio/';
+
+        const POLLING_INTERVAL_DURATION_SECONDS = 1;
+
+        let isThreeColumnLayout = false;
+        let isCompactView = true;
+
+        let isAdminLoggedIn = false;
+        let loggedInUsername = '';
+        let isAdminMaster = false;
+        let sessionTimeoutEnabled = false;
+        let sessionDurationDays = 0;
+
+
+        // Master Admin Usernames (Frontend reference for UI logic - backend validates definitively)
+        const MASTER_ADMIN_USERNAMES_FRONTEND = ["SHITIJ.dev", "sayann70"];
+
+
+        // Helper function to make authenticated fetch requests
+        async function authenticatedFetch(url, options = {}) {
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                showCentralMessage('Session expired or not logged in. Please log in again.', true);
+                setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
+                throw new Error('Not authenticated');
+            }
+
+            const headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${token}`
+            };
+
+            const response = await fetch(url, { ...options, headers });
+
+            if (response.status === 401) {
+                showCentralMessage('Session expired or invalid. Please log in again.', true);
+                clearAdminSession();
+                setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
+                throw new Error('Authentication failed');
+            }
+
+            return response;
+        }
+
+        function clearAdminSession() {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUsername');
+            localStorage.removeItem('sessionTimeoutEnabled');
+            localStorage.removeItem('sessionDurationDays');
+            isAdminLoggedIn = false;
+            loggedInUsername = '';
+            isAdminMaster = false;
+        }
+
+
+        function showCentralMessage(message, isError = false) {
+            centralMessageText.innerHTML = message;
+            centralMessageOverlay.classList.remove('hide');
+            centralMessageOverlay.classList.add('show');
+
+            if (isError) {
+                centralMessageContent.style.borderColor = 'rgba(255, 87, 51, 0.5)';
+                centralMessageContent.style.color = '#FFD7D7';
+            } else {
+                centralMessageContent.style.borderColor = 'rgba(253, 161, 54, 0.5)';
+                centralMessageContent.style.color = '#EDEDF3';
+            }
+
+            setTimeout(() => {
+                centralMessageOverlay.classList.add('hide');
+                setTimeout(() => {
+                    centralMessageOverlay.classList.remove('show', 'hide');
+                }, 300);
+            }, 3000);
+        }
+
+        function copyToClipboard(text, iconElement) {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            let copySuccess = false;
+            try {
+                copySuccess = document.execCommand('copy');
+            } catch (err) {
+                console.error('Failed to copy text:', err);
+            }
+            document.body.removeChild(tempInput);
+
+            if (copySuccess) {
+                iconElement.classList.add('copied-success');
+                iconElement.classList.remove('fa-copy');
+                iconElement.classList.add('fa-check');
+                setTimeout(() => {
+                    iconElement.classList.remove('copied-success');
+                    iconElement.classList.remove('fa-check');
+                    iconElement.classList.add('fa-copy');
+                }, 1500);
+            } else {
+                iconElement.classList.remove('fa-copy');
+                iconElement.classList.add('fa-times');
+                iconElement.style.color = '#EF4444';
+                setTimeout(() => {
+                    iconElement.classList.remove('fa-times');
+                    iconElement.classList.add('fa-copy');
+                    iconElement.style.color = '';
+                }, 1500);
+            }
+        }
+
+        function formatTimestamp(unixTimestamp) {
+            if (!unixTimestamp) return 'N/A';
+            const date = new Date(unixTimestamp * 1000);
+            const options = {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric',
+                second: 'numeric',
+                hour12: true
+            };
+            return date.toLocaleString(undefined, options);
+        }
+
+        function startPollProgressBar() {
+            pollProgressBar.style.transition = 'none';
+            pollProgressBar.style.width = '0%';
+            pollProgressBar.style.opacity = '1';
+
+            void pollProgressBar.offsetWidth;
+
+            pollProgressBar.style.transition = `width ${POLLING_INTERVAL_DURATION_SECONDS}s linear, opacity 0.3s ease-in-out`;
+            pollProgressBar.style.width = '100%';
+
+            setTimeout(() => {
+                pollProgressBar.style.opacity = '0';
+            }, POLLING_INTERVAL_DURATION_SECONDS * 1000);
+        }
+
+        async function fetchTrackingData() {
+            startPollProgressBar();
+
+            loadingSpinner.classList.remove('hidden');
+            noDataMessage.classList.add('hidden');
+            trackerCardsContainer.classList.add('hidden');
+            document.getElementById('statusArea').classList.add('hidden');
+            document.getElementById('errorArea').classList.add('hidden');
+
+            try {
+                const response = await authenticatedFetch(LOCAL_TRACKER_DATA_ENDPOINT);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `Server error: ${response.status}`);
+                }
+                const data = await response.json();
+                renderTrackingData(data.trackingData);
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = `Failed to load tracking data: ${error.message}`;
+                document.getElementById('errorArea').classList.remove('hidden');
+                noDataMessage.textContent = 'Failed to load tracking data. Please ensure you are logged in and the server is running.';
+                noDataMessage.classList.remove('hidden');
+                trackerCardsContainer.classList.add('hidden');
+            } finally {
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        function renderTrackingData(data) {
+            trackerCardsContainer.innerHTML = '';
+            if (data && data.length > 0) {
+                trackerCardsContainer.classList.remove('hidden');
+                noDataMessage.classList.add('hidden');
+
+                data.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                data.forEach((entry, index) => {
+                    const geolocation = entry.geolocation || {};
+                    const card = document.createElement('div');
+                    card.className = 'tracker-card';
+                    card.style.animationDelay = `${index * 0.08}s`;
+
+                    const latLonValue = (geolocation.lat && geolocation.lon && geolocation.lat !== 'N/A' && geolocation.lon !== 'N/A')
+                        ? `${parseFloat(geolocation.lat).toFixed(4)}, ${parseFloat(geolocation.lon).toFixed(4)}`
+                        : 'N/A';
+
+                    // Prepare map links HTML separately to ensure they are consistently aligned left within their group
+                    const mapLinksHtml = (geolocation.lat && geolocation.lon && geolocation.lat !== 'N/A' && geolocation.lon !== 'N/A')
+                        ? `
+                            <div class="lat-lon-links-group">
+                                <a href="https://www.google.com/maps/search/?api=1&query=${geolocation.lat},${geolocation.lon}" target="_blank" class="card-map-link-container" title="View on Google Maps">
+                                    <i class="fas fa-map-marker-alt mr-2"></i> Google Maps
+                                </a>
+                                <a href="https://earth.google.com/web/@${geolocation.lat},${geolocation.lon},0a,10000d,1000y,0h,0t,0r/data=..." target="_blank" class="card-map-link-container earth" title="View on Google Earth">
+                                    <i class="fas fa-globe-americas mr-2"></i> Google Earth
+                                </a>
+                            </div>
+                        `
+                        : '';
+
+                    card.innerHTML = `
+                        <div class="card-section-title">
+                            <i class="fas fa-clock"></i> General Info
+                        </div>
+                        <div class="card-detail-item">
+                            <span class="card-detail-label">Date & Time:</span>
+                            <span class="card-detail-value">${formatTimestamp(entry.timestamp)}</span>
+                        </div>
+                        <div class="card-detail-item">
+                            <span class="card-detail-label">Video Title:</span>
+                            <span class="card-detail-value">${entry.videoTitle || 'N/A'}</span>
+                        </div>
+                        <div class="card-detail-item">
+                            <span class="card-detail-label">Commit SHA:</span>
+                            <span class="card-detail-value sha-container">
+                                <span class="actual-sha-text">${entry.commitSha || 'N/A'}</span>
+                                ${entry.commitSha ? '<i class="far fa-copy copy-icon"></i>' : ''}
+                            </span>
+                        </div>
+                        <div class="card-detail-item">
+                            <span class="card-detail-label">IP Address:</span>
+                            <span class="card-detail-value">${entry.ipAddress || 'N/A'}</span>
+                        </div>
+                        <div class="card-detail-item">
+                            <span class="card-detail-label">Location:</span>
+                            <span class="card-detail-value">
+                                ${geolocation.city || 'N/A'}${geolocation.city && geolocation.regionName ? ', ' : ''}${geolocation.regionName || 'N/A'}${geolocation.country && (geolocation.city || geolocation.regionName) ? ', ' : ''}${geolocation.country || 'N/A'}
+                            </span>
+                        </div>
+                        <div class="card-detail-item lat-lon-item">
+                            <span class="card-detail-label">Lat/Lon:</span>
+                            <span class="card-detail-value">${latLonValue}</span>
+                        </div>
+                        <!-- Separate div for map links to control their alignment independently -->
+                        <div class="lat-lon-map-links-section">
+                            ${mapLinksHtml}
+                        </div>
+                        <div class="card-actions-row justify-start items-center">
+                            <!-- Removed 'Go to Video' button as per user request -->
+                            <button class="toggle-btn-style show-additional-info-btn" data-geolocation='${JSON.stringify(geolocation)}'>
+                                <i class="fas fa-info-circle mr-1"></i> Additional Info
+                            </button>
+                        </div>
+                    `;
+                    trackerCardsContainer.appendChild(card);
+
+                    // Add event listener for copy SHA icon
+                    const copyIcon = card.querySelector('.copy-icon');
+                    if (copyIcon) {
+                        copyIcon.addEventListener('click', (e) => {
+                            const shaText = e.currentTarget.closest('.sha-container').querySelector('.actual-sha-text').textContent;
+                            copyToClipboard(shaText, e.currentTarget);
+                        });
+                    }
+
+                    // Add event listener for "Additional Info" button
+                    const additionalInfoBtn = card.querySelector('.show-additional-info-btn');
+                    if (additionalInfoBtn) {
+                        additionalInfoBtn.addEventListener('click', (e) => {
+                            const geolocationData = JSON.parse(e.currentTarget.dataset.geolocation);
+                            const originX = e.clientX;
+                            const originY = e.clientY;
+                            showInfoModal(geolocationData, originX, originY);
+                        });
+                    }
+                });
+            } else {
+                noDataMessage.classList.remove('hidden');
+                trackerCardsContainer.classList.add('hidden');
+            }
+            updateTrackerCardsLayout();
+            updateViewModeLayout();
+        }
+
+        function updateTrackerCardsLayout() {
+            trackerCardsContainer.classList.remove('lg:grid-cols-3', 'lg:grid-cols-2');
+            if (isThreeColumnLayout) {
+                trackerCardsContainer.classList.add('lg:grid-cols-3');
+                toggleLayoutButton.innerHTML = '<i class="fas fa-th-list mr-1"></i> Show 2 Columns';
+            } else {
+                trackerCardsContainer.classList.add('lg:grid-cols-2');
+                toggleLayoutButton.innerHTML = '<i class="fas fa-th-large mr-1"></i> Show 3 Columns';
+            }
+        }
+
+        function updateViewModeLayout() {
+            mainContentCard.classList.remove('max-w-7xl', 'max-w-full');
+            if (isCompactView) {
+                mainContentCard.classList.add('max-w-7xl');
+                toggleViewModeButton.innerHTML = '<i class="fas fa-expand-alt mr-1"></i> Enlarge View';
+            } else {
+                mainContentCard.classList.add('max-w-full');
+                toggleViewModeButton.innerHTML = '<i class="fas fa-compress-alt mr-1"></i> Compact View';
+            }
+        }
+
+
+        function showInfoModal(geolocationData, originX, originY) {
+            infoModal.classList.remove('closing');
+            infoModal.classList.add('show');
+
+            if (originX !== undefined && originY !== undefined) {
+                infoModalContent.style.transformOrigin = `${originX}px ${originY}px`;
+            } else {
+                infoModalContent.style.transformOrigin = 'center center';
+            }
+
+            infoModalDetailsContent.innerHTML = '';
+            infoModalMapLinksContainer.innerHTML = '';
+
+            const geo = geolocationData || {};
+
+            infoModalDetailsContent.innerHTML = `
+                <div><strong>IP Query:</strong> ${geo.query || 'N/A'}</div>
+                <div><strong>Country Code:</strong> ${geo.countryCode || 'N/A'}</div>
+                <div><strong>Region Code:</strong> ${geo.region || 'N/A'}</div>
+                <div><strong>District:</strong> ${geo.district || 'N/A'}</div>
+                <div><strong>Zip Code:</strong> ${geo.zip || 'N/A'}</div>
+                <div><strong>Timezone:</strong> ${geo.timezone || 'N/A'}</div>
+                <div><strong>Offset:</strong> ${geo.offset !== 'N/A' ? geo.offset / 3600 + ' hours' : 'N/A'}</div>
+                <div><strong>Currency:</strong> ${geo.currency || 'N/A'}</div>
+                <div><strong>ISP:</strong> ${geo.isp || 'N/A'}</div>
+                <div><strong>Organization:</strong> ${geo.org || 'N/A'}</div>
+                <div><strong>AS:</strong> ${geo.as || 'N/A'}</div>
+                <div><strong>AS Name:</strong> ${geo.asname || 'N/A'}</div>
+                <div><strong>Mobile:</strong> ${geo.mobile !== 'N/A' ? (geo.mobile ? 'Yes' : 'No') : 'N/A'}</div>
+                <div><strong>Proxy:</strong> ${geo.proxy !== 'N/A' ? (geo.proxy ? 'Yes' : 'No') : 'N/A'}</div>
+                <div><strong>Hosting:</strong> ${geo.hosting !== 'N/A' ? (geo.hosting ? 'Yes' : 'No') : 'N/A'}</div>
+                <div><strong>Status:</strong> ${geo.status || 'N/A'}</div>
+                <div class="col-span-full"><strong>Message:</strong> ${geo.message || 'N/A'}</div>
+            `;
+
+            if (geo.lat && geo.lon && geo.lat !== 'N/A' && geo.lon !== 'N/A') {
+                const mapsLink = document.createElement('a');
+                mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${geo.lat},${geo.lon}`;
+                mapsLink.target = '_blank';
+                mapsLink.className = 'map-link-btn';
+                mapsLink.innerHTML = '<i class="fas fa-map-marker-alt mr-2 info-modal-map-link-icon"></i> View on Google Maps';
+                infoModalMapLinksContainer.appendChild(mapsLink);
+
+                const earthLink = document.createElement('a');
+                earthLink.href = `https://earth.google.com/web/@${geo.lat},${geo.lon},0a,10000d,1000y,0h,0t,0r/data=...`;
+                earthLink.target = '_blank';
+                earthLink.className = 'map-link-btn earth';
+                earthLink.innerHTML = '<i class="fas fa-globe-americas mr-2 info-modal-map-link-icon"></i> View on Google Earth';
+                infoModalMapLinksContainer.appendChild(earthLink);
+            } else {
+                infoModalMapLinksContainer.innerHTML = '<p class="text-sm text-slate-400 col-span-full text-center">Map links not available (Lat/Lon missing).</p>';
+            }
+        }
+
+        function closeInfoModal() {
+            infoModal.classList.add('closing');
+            setTimeout(() => {
+                infoModal.classList.remove('show', 'closing');
+                infoModalContent.style.transformOrigin = '';
+            }, 300);
+        }
+        infoModalCloseBtn.addEventListener('click', closeInfoModal);
+
+        infoModal.addEventListener('click', (event) => {
+            if (event.target === infoModal) {
+                closeInfoModal();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                if (infoModal.classList.contains('show')) {
+                    closeInfoModal();
+                } else if (!document.getElementById('centralMessageOverlay').classList.contains('hidden')) {
+                    centralMessageOverlay.classList.add('hide');
+                    setTimeout(() => {
+                        centralMessageOverlay.classList.remove('show', 'hide');
+                    }, 300);
+                }
+            }
+        });
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('adminToken');
+            loggedInUsername = localStorage.getItem('adminUsername');
+            sessionTimeoutEnabled = localStorage.getItem('sessionTimeoutEnabled') === 'true';
+            sessionDurationDays = parseInt(localStorage.getItem('sessionDurationDays') || '0', 10);
+
+            if (token && loggedInUsername) {
+                isAdminLoggedIn = true;
+                isAdminMaster = MASTER_ADMIN_USERNAMES_FRONTEND.includes(loggedInUsername);
+
+                if (sessionTimeoutEnabled) {
+                    try {
+                        const payload = JSON.parse(atob(token.split('.')[1]));
+                        if (payload.exp && (Date.now() / 1000) > payload.exp) {
+                            showCentralMessage('Your session has expired. Please log in again.', true);
+                            clearAdminSession();
+                            isAdminLoggedIn = false;
+                            setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
+                        }
+                    } catch (e) {
+                        console.error("Error parsing JWT expiry from localStorage, treating as expired.", e);
+                        showCentralMessage('Session is invalid. Please log in again.', true);
+                        clearAdminSession();
+                        isAdminLoggedIn = false;
+                        setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
+                    }
+                }
+            }
+            
+            if (!isAdminLoggedIn) {
+                window.location.href = 'admin.html';
+                return;
+            } else {
+                if (loggedInUsername) {
+                    loggedInUsernameSpan.textContent = `Logged in as: ${loggedInUsername}`;
+                    loggedInUsernameSpan.classList.remove('hidden');
+                    loggedInUsernameSpan.classList.add('logged-in-text-outline');
+                }
+                // Removed display logic for logoutAllAdminsBtn
+            }
+
+            const savedViewMode = localStorage.getItem('adminTrackerIsCompactView');
+            if (savedViewMode !== null) {
+                isCompactView = JSON.parse(savedViewMode);
+            }
+            const savedLayout = localStorage.getItem('adminTrackerIsThreeColumnLayout');
+            if (savedLayout !== null) {
+                isThreeColumnLayout = JSON.parse(savedLayout);
+            }
+
+            fetchTrackingData();
+
+            mainContentCard.classList.add('animate-in');
+            footerElements.forEach(el => el.classList.add('animate-in'));
+        });
+
+        window.addEventListener('beforeunload', () => {
+        });
+
+        goBackBtn.addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+
+        document.querySelectorAll('.btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                const btn = this;
+                btn.classList.remove('clicked');
+                void btn.offsetWidth;
+                btn.classList.add('clicked');
+                setTimeout(() => {
+                    btn.classList.remove('clicked');
+                }, 600);
+            });
+        });
+
+        refreshDataBtn.addEventListener('click', () => {
+            fetchTrackingData();
+        });
+
+        toggleLayoutButton.addEventListener('click', () => {
+            isThreeColumnLayout = !isThreeColumnLayout;
+            updateTrackerCardsLayout();
+            localStorage.setItem('adminTrackerIsThreeColumnLayout', isThreeColumnLayout);
+        });
+
+        toggleViewModeButton.addEventListener('click', () => {
+            isCompactView = !isCompactView;
+            updateViewModeLayout();
+            localStorage.setItem('adminTrackerIsCompactView', isCompactView);
+        });
+
+        // Removed Logout All Admins button click listener
+
+        // PWA: Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Correct path for GitHub Project Pages with custom domain
+                const serviceWorkerScriptPath = '/projectglyphmotion.github.io/service-worker.js';
+                const serviceWorkerScope = '/projectglyphmotion.github.io/'; // Scope should match your project's base path
+
+                navigator.serviceWorker.register(serviceWorkerScriptPath, { scope: serviceWorkerScope })
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+
+        // PWA Install Prompt Logic (New)
+        let deferredPrompt; // Variable to store the event
+
+        const pwaInstallPrompt = document.getElementById('pwaInstallPrompt');
+        const installButton = pwaInstallPrompt.querySelector('.install-button');
+        const dismissButton = pwaInstallPrompt.querySelector('.dismiss-button');
+
+        // Check if the app is already installed
+        function isAppInstalled() {
+            // This is a common way to check if the app is running in standalone mode (installed PWA)
+            return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+        }
+
+        // Function to show the install prompt UI
+        function showInstallPrompt() {
+            // Only show if not already installed and deferredPrompt exists
+            if (!isAppInstalled() && deferredPrompt) {
+                pwaInstallPrompt.classList.add('show');
+                pwaInstallPrompt.classList.remove('hide');
+            }
+        }
+
+        // Function to hide the install prompt UI
+        function hideInstallPrompt() {
+            pwaInstallPrompt.classList.add('hide');
+            // Remove 'show' after transition for proper re-appearance if needed later
+            setTimeout(() => {
+                pwaInstallPrompt.classList.remove('show');
+            }, 300); // Match CSS transition duration
+        }
+
+        // Listen for the beforeinstallprompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Stash the event so it can be triggered later.
+            deferredPrompt = e;
+            // Update UI to notify the user they can install the app
+            showInstallPrompt();
+            console.log('[PWA] beforeinstallprompt fired, showing custom prompt.');
+        });
+
+        // Handle the install button click
+        installButton.addEventListener('click', async () => {
+            hideInstallPrompt(); // Hide the custom prompt
+
+            if (deferredPrompt) {
+                // Show the browser's native install prompt
+                deferredPrompt.prompt();
+                // Wait for the user to respond to the prompt
+                const { outcome } = await deferredPrompt.userChoice;
+                // Optionally, send analytics event with outcome of user choice
+                console.log(`[PWA] User response to install prompt: ${outcome}`);
+                // Clear the deferredPrompt variable, as it can only be used once.
+                deferredPrompt = null;
+
+                // Hide the prompt if the user accepts or dismisses it
+                if (outcome === 'accepted') {
+                    showCentralMessage('GlyphMotion installed successfully! Find it on your home screen.', false);
+                } else {
+                    showCentralMessage('Installation declined.', true);
+                }
+            }
+        });
+
+        // Handle the dismiss button click
+        dismissButton.addEventListener('click', () => {
+            hideInstallPrompt();
+            // Optionally, remember that the user dismissed the prompt
+            // For example, using localStorage to not show it again for some time
+            localStorage.setItem('pwaDismissedTimestamp', Date.now());
+            console.log('[PWA] Install prompt dismissed.');
+        });
+
+        // Hide the prompt if the app is already installed when the page loads
+        if (isAppInstalled()) {
+            pwaInstallPrompt.style.display = 'none'; // Directly hide if already installed
+            console.log('[PWA] App is already installed, hiding install prompt.');
+        } else {
+            // Check if the user previously dismissed the prompt (e.g., within the last 24 hours)
+            const dismissedTimestamp = localStorage.getItem('pwaDismissedTimestamp');
+            const oneDay = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+            if (dismissedTimestamp && (Date.now() - parseInt(dismissedTimestamp, 10) < oneDay)) {
+                pwaInstallPrompt.style.display = 'none'; // Keep hidden if dismissed recently
+                console.log('[PWA] Install prompt dismissed recently, keeping hidden.');
+            }
+        }
+    </script>
+</body>
+</html>

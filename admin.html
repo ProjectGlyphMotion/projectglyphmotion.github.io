@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Project GlyphMotion</title>
+    <link rel="icon" type="image/x-icon" href="images/project-glyph-motion.ico">
+    <link rel="manifest" href="manifest.json"> <!-- PWA: Link to manifest file -->
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <!-- Font Awesome for eye icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0A0F; /* Very dark background */
+            color: #EDEDF3; /* Light text color */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            overflow: hidden; /* Prevent scroll for glow effects */
+        }
+
+        /* Background Glow Elements */
+        .background-glow-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -10; /* Behind content */
+            overflow: hidden;
+            pointer-events: none; /* Don't interfere with mouse events */
+        }
+        .glow-element {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.2;
+            mix-blend-mode: screen; /* For vibrant overlay effect */
+            filter: blur(100px); /* Heavy blur */
+            will-change: transform, opacity; /* Optimize animations */
+        }
+        .glow-1 {
+            width: clamp(400px, 60vw, 800px);
+            height: clamp(400px, 60vw, 800px);
+            background: radial-gradient(circle at center, #FDA136 0%, rgba(253, 161, 54, 0) 70%);
+            filter: blur(120px);
+            top: -20%;
+            left: -15%;
+            animation: subtleDrift 35s infinite alternate ease-in-out;
+        }
+        .glow-2 {
+            width: clamp(350px, 50vw, 700px);
+            height: clamp(350px, 50vw, 700px);
+            background: radial-gradient(circle at center, #FF5733 0%, rgba(255, 87, 51, 0) 70%);
+            filter: blur(100px);
+            bottom: -15%;
+            right: -10%;
+            animation: subtleDrift 40s infinite alternate-reverse ease-in-out 2s;
+        }
+        .glow-3 {
+            width: clamp(300px, 40vw, 500px);
+            height: clamp(300px, 40vw, 500px);
+            background: radial-gradient(circle at center, #FF8C00 0%, rgba(255, 140, 0, 0) 70%);
+            filter: blur(90px);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.15;
+            animation: subtlePulse 20s infinite alternate ease-in-out;
+        }
+        @keyframes subtleDrift {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.1; }
+            50% { opacity: 0.25; }
+            100% { transform: translate(calc(8vw - 20px), calc(8vh - 10px)) scale(1.2); opacity: 0.1; }
+        }
+        @keyframes subtlePulse {
+            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.1; }
+            100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.2; }
+        }
+
+        .content-card {
+            background-color: rgba(10, 10, 15, 0.85);
+            border: 1px solid rgba(253, 161, 54, 0.25);
+            border-radius: 0.75rem;
+            color: #EDEDF3;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 10;
+        }
+
+        .page-title {
+            font-family: 'Press Start 2P', cursive;
+            font-weight: normal;
+            background: linear-gradient(to right, #FDA136, #FFD700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 3px rgba(0,0,0,0.3);
+            line-height: 1; /* Adjusted for single line appearance */
+            white-space: nowrap; /* Ensure text stays on one line */
+        }
+
+        .btn {
+            @apply font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-103;
+        }
+        .btn-custom-primary {
+            @apply bg-gradient-to-br from-orange-500 to-amber-500 text-white focus:ring-orange-400 shadow-orange-600/40 hover:from-orange-600 hover:to-amber-600;
+        }
+        .info-banner.error-banner {
+            background-color: rgba(255, 0, 0, 0.1);
+            border-color: rgba(255, 0, 0, 0.3);
+            border-left-color: #FF5733;
+            color: #FFD7D7;
+        }
+        /* Style for password toggle icon */
+        .password-toggle-container {
+            position: relative;
+        }
+        .password-toggle-icon {
+            position: absolute;
+            right: 12px;
+            /* Adjusted transform to move it slightly down for better centering */
+            top: calc(50% + 15px); /* Nudge down by 15px */
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #9CA3AF; /* Tailwind gray-400 */
+        }
+    </style>
+</head>
+<body class="min-h-screen py-8 px-4">
+    <div class="background-glow-container">
+        <div class="glow-element glow-1"></div>
+        <div class="glow-element glow-2"></div>
+        <div class="glow-element glow-3"></div>
+    </div>
+
+    <div class="container mx-auto max-w-lg content-card p-8 md:p-10 shadow-2xl relative z-10">
+        <header class="mb-8 text-center">
+            <h1 class="text-2xl sm:text-3xl md:text-4xl page-title mb-6">Admin Login</h1>
+            <p class="text-center text-slate-300">
+                Access the video management panel.
+            </p>
+            <a href="documentation.html" class="btn btn-custom-primary py-2 px-4 text-sm ml-4">
+            <i class="fas fa-book mr-2"></i> View Documentation
+        </a>
+        </header>
+
+        <form id="adminLoginForm" class="space-y-6">
+            <div>
+                <label for="adminUsernameInput" class="block text-sm font-medium text-slate-300 mb-2">
+                    Username
+                </label>
+                <input type="text" id="adminUsernameInput" name="username" placeholder="Enter admin username"
+                       class="mt-1 block w-full px-4 py-2 border border-orange-500/40 bg-slate-800 text-EDEDF3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-150 ease-in-out text-sm placeholder-slate-400 shadow-inner"
+                       required>
+            </div>
+            <div class="password-toggle-container">
+                <label for="adminPasswordInput" class="block text-sm font-medium text-slate-300 mb-2">
+                    Password
+                </label>
+                <input type="password" id="adminPasswordInput" name="password" placeholder="Enter admin password"
+                       class="mt-1 block w-full px-4 py-2 border border-orange-500/40 bg-slate-800 text-EDEDF3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-150 ease-in-out text-sm placeholder-slate-400 shadow-inner"
+                       required>
+                <span class="password-toggle-icon" id="togglePassword">
+                    <i class="fas fa-eye"></i>
+                </span>
+            </div>
+            <button type="submit" id="adminLoginButton"
+                    class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-lg font-medium bg-gradient-to-br from-orange-500 to-amber-500 text-white focus:ring-orange-400 shadow-orange-600/40 hover:from-orange-600 hover:to-amber-600 transition-all duration-200 ease-in-out transform hover:scale-103 focus:outline-none focus:ring-2 focus:ring-opacity-75">
+                Login
+            </button>
+        </form>
+
+        <div id="loginStatusMessage" class="mt-4 p-4 info-banner error-banner rounded-lg hidden text-sm flex items-start">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-red-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94l-1.72-1.72Z" clip-rule="evenodd" /></svg>
+            <p id="messageText" class="font-medium"></p>
+        </div>
+    </div>
+
+    <script>
+        const adminLoginForm = document.getElementById('adminLoginForm');
+        const adminUsernameInput = document.getElementById('adminUsernameInput');
+        const adminPasswordInput = document.getElementById('adminPasswordInput');
+        const adminLoginButton = document.getElementById('adminLoginButton');
+        const loginStatusMessage = document.getElementById('loginStatusMessage');
+        const messageText = document.getElementById('messageText');
+        const togglePassword = document.getElementById('togglePassword');
+
+        // IMPORTANT: This should be your custom domain for the backend tunnel
+        const NGROK_PUBLIC_URL = 'https://home.projectglyphmotion.studio'; // This value is updated by web_server_public.py
+        const LOCAL_LOGIN_ENDPOINT = NGROK_PUBLIC_URL + '/login';
+
+        function showLoginMessage(message, isError = true) {
+            messageText.textContent = message;
+            loginStatusMessage.classList.remove('hidden');
+            if (isError) {
+                loginStatusMessage.classList.add('error-banner');
+                loginStatusMessage.classList.remove('success-banner'); // Ensure success banner class is removed
+                loginStatusMessage.querySelector('svg').innerHTML = `<path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94l-1.72-1.72Z" clip-rule="evenodd" />`; // Error icon
+            } else {
+                loginStatusMessage.classList.remove('error-banner');
+                loginStatusMessage.classList.add('success-banner'); // Add a success banner class
+                loginStatusMessage.style.backgroundColor = 'rgba(52, 211, 153, 0.1)'; // Greenish for success
+                loginStatusMessage.style.borderColor = 'rgba(52, 211, 153, 0.3)';
+                loginStatusMessage.style.borderLeftColor = '#34D399';
+                loginStatusMessage.querySelector('svg').innerHTML = `<path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" />`; // Checkmark icon
+            }
+        }
+
+        adminLoginForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            loginStatusMessage.classList.add('hidden'); // Hide previous messages
+            adminLoginButton.disabled = true; // Disable button during login attempt
+            adminLoginButton.textContent = 'Logging in...';
+
+            const username = adminUsernameInput.value;
+            const password = adminPasswordInput.value;
+
+            try {
+                const response = await fetch(LOCAL_LOGIN_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username: username, password: password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showLoginMessage('Login successful! Redirecting...', false);
+                    // Store token, username, and session settings in localStorage
+                    localStorage.setItem('adminToken', data.token);
+                    localStorage.setItem('adminUsername', data.username);
+                    localStorage.setItem('sessionTimeoutEnabled', data.sessionTimeoutEnabled);
+                    localStorage.setItem('sessionDurationDays', data.sessionDurationDays); // Store duration as well
+
+                    // Redirect to index.html after a short delay
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1000);
+                } else {
+                    showLoginMessage(data.message || 'Login failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error during login fetch:', error);
+                showLoginMessage('Network error or server unreachable. Please try again later.');
+            } finally {
+                adminLoginButton.disabled = false;
+                adminLoginButton.textContent = 'Login';
+            }
+        });
+
+        // Toggle password visibility
+        togglePassword.addEventListener('click', function () {
+            const type = adminPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            adminPasswordInput.setAttribute('type', type);
+            // Toggle the eye icon
+            this.querySelector('i').classList.toggle('fa-eye');
+            this.querySelector('i').classList.toggle('fa-eye-slash');
+        });
+
+        // PWA: Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Correct path for GitHub Project Pages with custom domain
+                const serviceWorkerScriptPath = '/projectglyphmotion.github.io/service-worker.js';
+                const serviceWorkerScope = '/projectglyphmotion.github.io/'; // Scope should match your project's base path
+
+                navigator.serviceWorker.register(serviceWorkerScriptPath, { scope: serviceWorkerScope })
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+
+        // PWA Install Prompt Logic (New)
+        let deferredPrompt; // Variable to store the event
+
+        const pwaInstallPrompt = document.getElementById('pwaInstallPrompt');
+        const installButton = pwaInstallPrompt.querySelector('.install-button');
+        const dismissButton = pwaInstallPrompt.querySelector('.dismiss-button');
+
+        // Check if the app is already installed
+        function isAppInstalled() {
+            // This is a common way to check if the app is running in standalone mode (installed PWA)
+            return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+        }
+
+        // Function to show the install prompt UI
+        function showInstallPrompt() {
+            // Only show if not already installed and deferredPrompt exists
+            if (!isAppInstalled() && deferredPrompt) {
+                pwaInstallPrompt.classList.add('show');
+                pwaInstallPrompt.classList.remove('hide');
+            }
+        }
+
+        // Function to hide the install prompt UI
+        function hideInstallPrompt() {
+            pwaInstallPrompt.classList.add('hide');
+            // Remove 'show' after transition for proper re-appearance if needed later
+            setTimeout(() => {
+                pwaInstallPrompt.classList.remove('show');
+            }, 300); // Match CSS transition duration
+        }
+
+        // Listen for the beforeinstallprompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Stash the event so it can be triggered later.
+            deferredPrompt = e;
+            // Update UI to notify the user they can install the app
+            showInstallPrompt();
+            console.log('[PWA] beforeinstallprompt fired, showing custom prompt.');
+        });
+
+        // Handle the install button click
+        installButton.addEventListener('click', async () => {
+            hideInstallPrompt(); // Hide the custom prompt
+
+            if (deferredPrompt) {
+                // Show the browser's native install prompt
+                deferredPrompt.prompt();
+                // Wait for the user to respond to the prompt
+                const { outcome } = await deferredPrompt.userChoice;
+                // Optionally, send analytics event with outcome of user choice
+                console.log(`[PWA] User response to install prompt: ${outcome}`);
+                // Clear the deferredPrompt variable, as it can only be used once.
+                deferredPrompt = null;
+
+                // Hide the prompt if the user accepts or dismisses it
+                if (outcome === 'accepted') {
+                    showCentralMessage('GlyphMotion installed successfully! Find it on your home screen.', false);
+                } else {
+                    showCentralMessage('Installation declined.', true);
+                }
+            }
+        });
+
+        // Handle the dismiss button click
+        dismissButton.addEventListener('click', () => {
+            hideInstallPrompt();
+            // Optionally, remember that the user dismissed the prompt
+            // For example, using localStorage to not show it again for some time
+            localStorage.setItem('pwaDismissedTimestamp', Date.now());
+            console.log('[PWA] Install prompt dismissed.');
+        });
+
+        // Hide the prompt if the app is already installed when the page loads
+        if (isAppInstalled()) {
+            pwaInstallPrompt.style.display = 'none'; // Directly hide if already installed
+            console.log('[PWA] App is already installed, hiding install prompt.');
+        } else {
+            // Check if the user previously dismissed the prompt (e.g., within the last 24 hours)
+            const dismissedTimestamp = localStorage.getItem('pwaDismissedTimestamp');
+            const oneDay = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+            if (dismissedTimestamp && (Date.now() - parseInt(dismissedTimestamp, 10) < oneDay)) {
+                pwaInstallPrompt.style.display = 'none'; // Keep hidden if dismissed recently
+                console.log('[PWA] Install prompt dismissed recently, keeping hidden.');
+            }
+        }
+    </script>
+</body>
+</html>

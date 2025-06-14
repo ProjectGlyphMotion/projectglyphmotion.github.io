@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project GlyphMotion - Documentation</title>
+    <link rel="icon" type="image/svg+xml" href="images/project-glyph-motion.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Link SF Pro Display and SF Pro Text for Apple-like typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* SF Pro Display - For Headings */
+        @font-face {
+            font-family: 'SF Pro Text';
+            src: url('fonts/SFPROTEXTREGULAR.OTF') format('opentype');
+            font-weight: 400; /* Regular */
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'SF Pro Text';
+            src: url('fonts/SFPROTEXTMEDIUM.OTF') format('opentype');
+            font-weight: 500; /* Medium */
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'SF Pro Text';
+            src: url('fonts/SFPROTEXTSEMIBOLD.OTF') format('opentype'); /* Assuming italic for semibold if specified, otherwise use regular semibold */
+            font-weight: 600; /* Semibold */
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'SF Pro Text';
+            src: url('fonts/SFPROTEXTBOLD.OTF') format('opentype');
+            font-weight: 700; /* Bold */
+            font-display: swap;
+        }
+
+        /* SF Pro Text - For Body Text */
+        @font-face {
+            font-family: 'SF Pro Text';
+            src: url('fonts/SFPROTEXTREGULAR.OTF') format('opentype'); /* Corrected to SF Pro Text Regular */
+            font-weight: 400; /* Regular */
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'SF Pro Text';
+            src: url('fonts/SFPROTEXTMEDIUM.OTF') format('opentype'); /* Corrected to SF Pro Text Medium */
+            font-weight: 500; /* Medium */
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'SF Pro Text';
+            src: url('fonts/SFPROTEXTSEMIBOLD.OTF') format('opentype'); /* Corrected to SF Pro Text Semibold */
+            font-weight: 600; /* Semibold */
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'SF Pro Text';
+            src: url('fonts/SFPROTEXTBOLD.OTF') format('opentype'); /* Corrected to SF Pro Text Bold */
+            font-weight: 700; /* Bold */
+            font-display: swap;
+        }
+
+
+        /* Define custom cubic-bezier for a more "springy" feel */
+        .cubic-ease-in-out {
+            transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1.25);
+        }
+        .cubic-ease-out {
+            transition-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53);
+        }
+        .subtle-spring {
+            transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        body {
+            font-family: 'SF Pro Text', sans-serif; /* Primary font for body */
+            background-color: #0B0A0F; /* Fixed very dark background for the body */
+            color: #EDEDF3; /* Light text color */
+            position: relative;
+            min-height: 100vh;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 1rem;
+            scroll-behavior: smooth;
+        }
+
+        /* Background Glow Elements - Fine-tuned for more liquid effect */
+        .background-glow-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -10;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .glow-element {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.25; /* Slightly more opaque for richer glow */
+            mix-blend-mode: screen;
+            filter: blur(150px); /* Increased blur for softer, larger glows */
+            will-change: transform, opacity;
+        }
+        .glow-1 {
+            width: clamp(500px, 70vw, 900px); /* Larger dimensions */
+            height: clamp(500px, 70vw, 900px);
+            background: radial-gradient(circle at center, #FDA136 0%, rgba(253, 161, 54, 0) 75%); /* Softer falloff */
+            filter: blur(180px); /* Even more blur */
+            top: -25%;
+            left: -20%;
+            animation: subtleDrift 40s infinite alternate ease-in-out; /* Slower animation */
+        }
+        .glow-2 {
+            width: clamp(450px, 65vw, 850px);
+            height: clamp(450px, 65vw, 850px);
+            background: radial-gradient(circle at center, #FF5733 0%, rgba(255, 87, 51, 0) 75%);
+            filter: blur(160px);
+            bottom: -20%;
+            right: -15%;
+            animation: subtleDrift 45s infinite alternate-reverse ease-in-out 3s; /* Slower and delayed */
+        }
+        .glow-3 {
+            width: clamp(350px, 50vw, 600px);
+            height: clamp(350px, 50vw, 600px);
+            background: radial-gradient(circle at center, #FF8C00 0%, rgba(255, 140, 0, 0) 75%);
+            filter: blur(140px);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.2; /* More pronounced pulse */
+            animation: subtlePulse 25s infinite alternate ease-in-out;
+        }
+        .glow-4 {
+            width: clamp(300px, 45vw, 550px);
+            height: clamp(300px, 45vw, 550px);
+            background: radial-gradient(circle at center, #00BFFF 0%, rgba(0, 191, 255, 0) 75%);
+            filter: blur(170px);
+            top: 15%;
+            right: 10%;
+            animation: subtleDrift 38s infinite alternate-reverse ease-in-out 1.5s;
+        }
+        .glow-5 {
+            width: clamp(250px, 40vw, 500px);
+            height: clamp(250px, 40vw, 500px);
+            background: radial-gradient(circle at center, #8A2BE2 0%, rgba(138, 43, 226, 0) 75%);
+            filter: blur(155px);
+            bottom: 10%;
+            left: 10%;
+            animation: subtlePulse 30s infinite alternate ease-in-out 5s;
+        }
+
+        @keyframes subtleDrift {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.15; }
+            50% { opacity: 0.35; } /* Stronger opacity during drift */
+            100% { transform: translate(calc(10vw - 30px), calc(10vh - 20px)) scale(1.3); opacity: 0.15; } /* More pronounced drift and scale */
+        }
+        @keyframes subtlePulse {
+            0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.15; }
+            100% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.25; } /* Stronger pulse */
+        }
+
+        /* Particle effect - Adjusted for subtlety and integration */
+        .particle-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -11;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .particle {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.08); /* Slightly less visible */
+            border-radius: 50%;
+            animation: particle-fade-move 20s infinite ease-in-out alternate; /* Slower movement */
+            filter: blur(0.5px); /* Even more subtle blur */
+        }
+        /* Particle sizes and positions remain, but animation speed changed */
+        .particle:nth-child(1) { width: 3px; height: 3px; top: 10%; left: 20%; animation-delay: 0s; }
+        .particle:nth-child(2) { width: 2px; height: 2px; top: 30%; left: 50%; animation-delay: 4s; }
+        .particle:nth-child(3) { width: 4px; height: 4px; top: 60%; left: 80%; animation-delay: 8s; }
+        .particle:nth-child(4) { width: 3px; height: 3px; top: 80%; left: 10%; animation-delay: 12s; }
+        .particle:nth-child(5) { width: 2px; height: 2px; top: 40%; left: 90%; animation-delay: 16s; }
+        .particle:nth-child(6) { width: 4px; height: 4px; top: 5%; left: 70%; animation-delay: 20s; }
+        .particle:nth-child(7) { width: 3px; height: 3px; top: 95%; left: 40%; animation-delay: 24s; }
+        .particle:nth-child(8) { width: 2px; height: 2px; top: 70%; left: 30%; animation-delay: 28s; }
+
+        @keyframes particle-fade-move {
+            0% { opacity: 0; transform: translate(0, 0); }
+            20% { opacity: 0.15; } /* Less opaque peak */
+            80% { opacity: 0.15; }
+            100% { opacity: 0; transform: translate(12vw, 12vh); } /* Further drift */
+        }
+
+        /* Glassmorphism content card - Refined for Liquid Glass */
+        .content-card {
+            background-color: rgba(10, 10, 15, 0.2); /* Even more transparent for liquid look */
+            backdrop-filter: blur(40px) saturate(1.8); /* Stronger blur, increased saturation for vibrancy */
+            border: 1px solid rgba(255, 255, 255, 0.03); /* Extremely subtle light border */
+            border-radius: 1rem; /* More rounded corners for softness */
+            color: #EDEDF3;
+            box-shadow: 
+                0 6px 15px rgba(0, 0, 0, 0.5), /* Main deeper shadow */
+                inset 0 1px 4px rgba(255, 255, 255, 0.08), /* Subtle inner highlight for convexity */
+                inset 0 -1px 4px rgba(0, 0, 0, 0.3); /* Subtle inner shadow for depth */
+            position: relative;
+            z-index: 10;
+            flex-grow: 1;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.7s cubic-bezier(0.25, 0.8, 0.25, 1.25), transform 0.7s cubic-bezier(0.25, 0.8, 0.25, 1.25); /* Slightly longer transition */
+            will-change: opacity, transform;
+        }
+        .content-card.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Page Title */
+        .page-title {
+            font-family: 'Press Start 2P', cursive;
+            font-weight: normal;
+            background: linear-gradient(to right, #FDA136, #FFD700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.7); /* Even deeper shadow for pop */
+            line-height: 1.3;
+        }
+
+        /* Documentation content */
+        .doc-content {
+            padding: 1rem;
+        }
+        .doc-content h2 {
+            font-family: 'SF Pro Display', sans-serif; /* Changed to SF Pro Display */
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #FDA136;
+            border-bottom: 2px solid rgba(253, 161, 54, 0.25); /* Softer border */
+            padding-bottom: 0.75rem;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            letter-spacing: 0.025em;
+        }
+        @media (min-width: 768px) {
+            .doc-content h2 { font-size: 2rem; }
+        }
+
+        .doc-content h3 {
+            font-family: 'SF Pro Display', sans-serif; /* Changed to SF Pro Display */
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #FFD700;
+            margin-top: 2rem;
+            margin-bottom: 0.75rem;
+            letter-spacing: 0.015em;
+        }
+        @media (min-width: 768px) {
+            .doc-content h3 { font-size: 1.5rem; }
+        }
+
+        .doc-content p {
+            font-family: 'SF Pro Text', sans-serif; /* Ensures SF Pro Text for paragraphs */
+            font-size: 1rem;
+            line-height: 1.8;
+            color: #E0E0E0;
+            margin-bottom: 1.25rem;
+            word-break: break-word;
+        }
+        @media (min-width: 768px) {
+            .doc-content p { font-size: 1.125rem; }
+        }
+
+        .doc-content ul, .doc-content ol {
+            font-family: 'SF Pro Text', sans-serif; /* Ensures SF Pro Text for lists */
+            padding-left: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (min-width: 768px) {
+            .doc-content ul, .doc-content ol { padding-left: 2rem; }
+        }
+
+        .doc-content ul li, .doc-content ol li {
+            font-family: 'SF Pro Text', sans-serif; /* Ensures SF Pro Text for list items */
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #EDEDF3;
+        }
+        @media (min-width: 640px) {
+            .doc-content ul li, .doc-content ol li { font-size: 1.05rem; }
+        }
+
+        .doc-content strong {
+            color: #FFFFFF;
+            font-weight: 700;
+        }
+        .doc-content em {
+            color: #FFB070;
+        }
+        .doc-content a {
+            color: #00BFFF;
+            text-decoration: underline;
+            transition: color 0.2s ease, text-decoration 0.2s ease;
+        }
+        .doc-content a:hover {
+            color: #FFD700;
+            text-decoration: none;
+        }
+
+        /* Red Warning Box Style - Liquid Glass */
+        .doc-content .warning-box {
+            background-color: rgba(220, 38, 38, 0.1); /* Even more transparent */
+            backdrop-filter: blur(30px) saturate(2); /* Stronger blur, more saturation */
+            border: 1px solid rgba(220, 38, 38, 0.15); /* Very subtle border */
+            border-left-width: 4px;
+            border-left-color: #DC2626; /* red-600 */
+            color: #FCA5A5; /* red-300 */
+            padding: 1.5rem;
+            border-radius: 1rem; /* More rounded */
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            box-shadow: 
+                0 5px 20px rgba(0, 0, 0, 0.4), /* Deeper shadow */
+                inset 0 1px 4px rgba(255, 255, 255, 0.08); /* Subtle inner highlight */
+            transition: box-shadow 0.4s ease-in-out, background-color 0.4s ease-in-out, border-color 0.4s ease-in-out; /* Silky smooth transition added */
+        }
+        .doc-content .warning-box:hover {
+            background-color: rgba(220, 38, 38, 0.25); /* Slightly less transparent on hover */
+            border-color: rgba(220, 38, 38, 0.4); /* Border slightly more visible on hover */
+            box-shadow: 
+                0 8px 25px rgba(0, 0, 0, 0.5), /* Even deeper hover shadow */
+                inset 0 1px 6px rgba(255, 255, 255, 0.12); /* More prominent inner highlight */
+        }
+
+        .doc-content .warning-box svg {
+            color: #EF4444; /* red-500 */
+            width: 2.2rem; /* Slightly larger icon */
+            height: 2.2rem;
+            margin-right: 1.2rem;
+            flex-shrink: 0;
+            filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)); /* Stronger glow for icon */
+        }
+        
+        /* Blue Info Box Style - Liquid Glass */
+        .doc-content .info-box {
+            background-color: rgba(59, 130, 246, 0.1); /* Even more transparent */
+            backdrop-filter: blur(30px) saturate(2); /* Stronger blur, more saturation */
+            border: 1px solid rgba(59, 130, 246, 0.15); /* Very subtle border */
+            border-left-width: 4px;
+            border-left-color: #3B82F6; /* blue-500 */
+            color: #93C5FD; /* blue-300 */
+            padding: 1.5rem;
+            border-radius: 1rem; /* More rounded */
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            box-shadow: 
+                0 5px 20px rgba(0, 0, 0, 0.4), /* Deeper shadow */
+                inset 0 1px 4px rgba(255, 255, 255, 0.08); /* Subtle inner highlight */
+            transition: box-shadow 0.4s ease-in-out, background-color 0.4s ease-in-out, border-color 0.4s ease-in-out; /* Silky smooth transition added */
+        }
+        .doc-content .info-box:hover {
+            background-color: rgba(59, 130, 246, 0.25); /* Slightly less transparent on hover */
+            border-color: rgba(59, 130, 246, 0.4); /* Border slightly more visible on hover */
+            box-shadow: 
+                0 8px 25px rgba(0, 0, 0, 0.5), /* Even deeper hover shadow */
+                inset 0 1px 6px rgba(255, 255, 255, 0.12); /* More prominent inner highlight */
+        }
+
+        .doc-content .info-box svg {
+            color: #60A5FA; /* blue-400 */
+            width: 2.2rem; /* Slightly larger icon */
+            height: 2.2rem;
+            margin-right: 1.2rem;
+            flex-shrink: 0;
+            filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.6)); /* Stronger glow for icon */
+        }
+
+
+        /* Code block container and button with Liquid Glass */
+        .code-block-container {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+        
+        .doc-content pre {
+            background-color: rgba(0, 0, 0, 0.2); /* More transparent background */
+            backdrop-filter: blur(35px) saturate(2); /* Even stronger blur, more saturation */
+            border: 1px solid rgba(255, 255, 255, 0.06); /* Even more subtle border */
+            border-radius: 1rem;
+            padding: 1.5rem;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; /* Ensured monospace for code */
+            font-size: 0.95rem; /* Slightly larger font */
+            line-height: 1.7; /* Increased line height */
+            overflow-x: auto;
+            box-shadow: 
+                0 6px 25px rgba(0, 0, 0, 0.5),
+                inset 0 1px 4px rgba(255, 255, 255, 0.08); /* More refined shadows */
+            transition: box-shadow 0.3s ease-in-out; /* Added transition for glow */
+        }
+
+        /* Keyframes for copied code block glow */
+        @keyframes copiedCodeBlockGlow {
+            0% {
+                box-shadow: 
+                    0 6px 25px rgba(0, 0, 0, 0.5),
+                    inset 0 1px 4px rgba(255, 255, 255, 0.08),
+                    0 0 0px 0px rgba(255, 255, 255, 0.2); /* No glow */
+            }
+            50% {
+                box-shadow: 
+                    0 6px 25px rgba(0, 0, 0, 0.5),
+                    inset 0 1px 4px rgba(255, 255, 255, 0.08),
+                    0 0 15px 5px rgba(255, 255, 255, 0.5); /* Stronger glow */
+            }
+            100% {
+                box-shadow: 
+                    0 6px 25px rgba(0, 0, 0, 0.5),
+                    inset 0 1px 4px rgba(255, 255, 255, 0.08),
+                    0 0 0px 0px rgba(255, 255, 255, 0.2); /* Fade out glow */
+            }
+        }
+        
+        .code-block-container.glow-on-copy pre {
+            animation: copiedCodeBlockGlow 1.5s ease-out forwards; /* Match copy message duration */
+        }
+
+        .code-block-container .copy-code-btn {
+            position: absolute;
+            bottom: 1rem; /* Adjusted bottom position */
+            right: 1rem; /* Adjusted right position */
+            padding: 0.4rem 0.8rem; /* Slightly larger button */
+            font-size: 0.85rem; /* Slightly larger font */
+            font-weight: 600;
+            color: white;
+            background-color: rgba(17, 24, 39, 0.5); /* More transparent background */
+            backdrop-filter: blur(10px) saturate(1.5); /* Stronger blur on button */
+            border-radius: 0.6rem; /* More rounded */
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out, background-color 0.2s ease, transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1.25); /* Added transform transition */
+            z-index: 10;
+            border: 1px solid rgba(255, 255, 255, 0.1); /* Softer border */
+        }
+
+        .code-block-container:hover .copy-code-btn {
+            opacity: 1; /* Fully visible on hover */
+            transform: translateY(-3px); /* More pronounced lift */
+        }
+        
+        .copy-code-btn:hover {
+            background-color: rgba(17, 24, 39, 0.7); /* Slightly less transparent on hover */
+            transform: translateY(-4px) scale(1.08); /* More pronounced lift and scale */
+        }
+        
+        .copy-code-btn.copied {
+            background-color: #10B981; /* Green-500 for success */
+            opacity: 1;
+            transform: translateY(0) scale(1); /* Snap back after animation */
+        }
+
+        .doc-content code {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; /* Ensures monospace for code */
+            color: #34D399;
+        }
+        .doc-content p code, .doc-content li code, .doc-content h3 code {
+            background-color: rgba(255, 255, 255, 0.04); /* More transparent inline code */
+            color: #93C5FD;
+            padding: 0.2em 0.4em;
+            border-radius: 0.25rem;
+            word-break: break-all;
+        }
+        
+        .doc-content ol li {
+            counter-increment: list-item;
+        }
+        .doc-content ol li::before {
+            content: counters(list-item, ".") ". ";
+            font-weight: bold;
+            color: #FDA136;
+            margin-right: 0.5rem;
+        }
+
+        /* General button styling - Liquid Glass */
+        .btn {
+            @apply font-semibold py-2 px-4 shadow-md transition-transform duration-300 subtle-spring;
+            border-radius: 16px; /* Even more rounded for softer look */
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease, background-color 0.3s ease;
+            background-color: rgba(253, 161, 54, 0.4); /* More transparent base */
+            backdrop-filter: blur(10px) saturate(1.5); /* Stronger blur and saturation */
+            border: 1px solid rgba(255, 255, 255, 0.08); /* Very subtle border */
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5), inset 0 1px 3px rgba(255,255,255,0.1); /* More refined shadows */
+            color: white; /* Ensure text color is consistent */
+        }
+        .btn:hover {
+            transform: translateY(-4px) scale(1.05); /* More pronounced lift and scale */
+            box-shadow: 0 12px 30px rgba(0,0,0,0.7), inset 0 1px 5px rgba(255,255,255,0.15); /* Deeper hover shadow */
+            background-color: rgba(253, 161, 54, 0.6); /* Less transparent on hover */
+        }
+        .btn-custom-primary {
+            background: linear-gradient(to bottom right, rgba(253, 161, 54, 0.5), rgba(255, 215, 0, 0.5)); /* More transparent gradient */
+        }
+        .btn-custom-primary:hover {
+            background: linear-gradient(to bottom right, rgba(253, 161, 54, 0.7), rgba(255, 215, 0, 0.7)); /* Stronger gradient on hover */
+        }
+
+        /* New glossy reflection for buttons */
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                120deg,
+                transparent 30%,
+                rgba(255, 255, 255, 0.15) 50%,
+                transparent 70%
+            );
+            transform: translateX(-100%) skewX(-30deg);
+            transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1.25);
+            pointer-events: none;
+        }
+
+        .btn:hover::before {
+            transform: translateX(100%) skewX(-30deg);
+        }
+
+        /* Footer animation */
+        .footer-animated {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+            will-change: opacity, transform;
+        }
+        .footer-animated.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Styles for the new SVG diagram */
+        .diagram-container {
+            width: 100%;
+            overflow-x: auto; /* Allow horizontal scrolling on small screens */
+            padding: 2rem 0; /* Add some vertical padding */
+        }
+
+        .project-diagram {
+            min-width: 1200px; /* Minimum width for the SVG to ensure readability */
+            height: 1000px; /* Adjust height as needed */
+            background-color: rgba(0, 0, 0, 0.15); /* Subtle background for the diagram area */
+            border-radius: 1rem;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5), inset 0 1px 5px rgba(255,255,255,0.08);
+            padding: 20px;
+            box-sizing: border-box;
+            font-family: 'SF Pro Text', sans-serif;
+            margin: 2rem auto; /* Center the diagram */
+        }
+
+        .diagram-node {
+            fill: rgba(10, 10, 15, 0.8); /* Darker node background */
+            stroke: #FDA136; /* Orange border */
+            stroke-width: 2;
+            rx: 10; /* Rounded corners */
+            ry: 10;
+            filter: url(#glow); /* Apply glow filter */
+        }
+
+        .diagram-node-text {
+            fill: #EDEDF3; /* Light text color */
+            font-size: 16px;
+            font-weight: 600;
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+
+        .diagram-sub-text {
+            fill: #C0C0C0; /* Slightly dimmer text for details */
+            font-size: 12px;
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+
+        .diagram-arrow {
+            stroke: #00BFFF; /* Blue for arrows */
+            stroke-width: 2;
+            marker-end: url(#arrowhead);
+        }
+
+        .diagram-line-text {
+            fill: #93C5FD; /* Light blue for line labels */
+            font-size: 11px;
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+
+        .diagram-section-label {
+            fill: #FFD700; /* Gold for section labels */
+            font-size: 20px;
+            font-weight: bold;
+            text-anchor: middle;
+        }
+
+        .diagram-section-boundary {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.1); /* Subtle dashed boundary */
+            stroke-width: 1;
+            stroke-dasharray: 5,5;
+            rx: 15;
+            ry: 15;
+        }
+
+        /* Glow filter definition */
+        .diagram-filters {
+            filter: url(#node-glow);
+        }
+
+        /* Specific node colors/styles */
+        .node-frontend { fill: rgba(10, 10, 15, 0.9); stroke: #3B82F6; } /* Blue tint */
+        .node-backend { fill: rgba(10, 10, 15, 0.9); stroke: #FDA136; } /* Orange tint */
+        .node-external { fill: rgba(10, 10, 15, 0.9); stroke: #10B981; } /* Green tint */
+        .node-pwa { fill: rgba(10, 10, 15, 0.9); stroke: #8A2BE2; } /* Purple tint */
+        .node-storage { fill: rgba(10, 10, 15, 0.9); stroke: #FF8C00; } /* Dark orange tint */
+
+        /* Arrow styles */
+        .arrow-data-flow { stroke: #00BFFF; } /* Standard data flow */
+        .arrow-control-flow { stroke: #FFD700; } /* Control/command flow */
+        .arrow-update { stroke: #34D399; } /* Update flow */
+        .arrow-telegram { stroke: #229ED9; } /* Telegram specific */
+
+        /* New Highlighted Link Style */
+        .highlighted-link-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem; /* Space below the link */
+        }
+        .highlighted-link {
+            font-family: 'SF Pro Text', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #FFD700; /* Gold color */
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px; /* Less round now */
+            background: linear-gradient(45deg, rgba(253, 161, 54, 0.2), rgba(255, 215, 0, 0.1));
+            backdrop-filter: blur(10px);
+            border: 2px solid #FDA136; /* Orange border */
+            box-shadow: 0 0 15px rgba(253, 161, 54, 0.4); /* Soft glow */
+            transition: all 0.3s ease-in-out;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .highlighted-link:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 0 25px rgba(253, 161, 54, 0.7); /* Stronger glow on hover */
+            background: linear-gradient(45deg, rgba(253, 161, 54, 0.3), rgba(255, 215, 0, 0.2));
+            color: #FFFFFF; /* White text on hover */
+        }
+        .highlighted-link i {
+            font-size: 1.2em;
+            color: #FDA136; /* Icon color */
+            transition: color 0.3s ease-in-out;
+        }
+        .highlighted-link:hover i {
+            color: #FFD700; /* Icon color on hover */
+        }
+
+
+    </style>
+</head>
+<body class="min-h-screen py-8 px-4">
+    <div class="background-glow-container">
+        <div class="glow-element glow-1"></div>
+        <div class="glow-element glow-2"></div>
+        <div class="glow-element glow-3"></div>
+        <div class="glow-element glow-4"></div>
+        <div class="glow-element glow-5"></div>
+    </div>
+
+    <div class="particle-container">
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div>
+    </div>
+
+    <div id="mainContentCard" class="w-full px-4 sm:px-6 md:px-8 lg:px-12 content-card p-8 md:p-10 shadow-2xl relative z-10">
+        <header class="mb-8 text-center relative">
+            <h1 class="text-3xl sm:text-4xl md:text-4xl page-title mb-6">Project GlyphMotion</h1>
+            <p class="text-center text-slate-300 mb-4">
+                Comprehensive Documentation
+            </p>
+            <div class="flex justify-center mt-4">
+                <button id="goBackBtn" class="btn btn-custom-primary py-2 px-4 text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Go Back to App
+                </button>
+            </div>
+        </header>
+
+        <div class="doc-content">
+            <!-- New Highlighted Link -->
+            <div class="highlighted-link-container">
+                <a href="#visual-representation" class="highlighted-link smooth-scroll-link">
+                    <i class="fas fa-eye"></i> See How This Project Actually Works!
+                </a>
+            </div>
+
+            <p>This project provides a web-based interface for real-time object tracking in videos. Users can upload a video file or provide a video URL, which is then processed by a local backend system. The system leverages the Ultralytics YOLOv8(m) model for object detection and tracking and integrates with GitHub Pages and Google Drive for storing and serving processed results.</p>
+
+            <h2>Use Cases</h2>
+            <ul>
+                <li><strong>Video Production & Post-Production</strong> – Automates object tracking, significantly reducing manual effort.</li>
+                <li><strong>Security & Surveillance</strong> – Detects and tracks individuals or vehicles for anomaly detection and monitoring.</li>
+                <li><strong>Sports Analytics</strong> – Analyzes player movements, ball trajectories, and team strategies.</li>
+                <li><strong>Traffic Monitoring</strong> – Tracks vehicles to gather insights on traffic flow and incident detection.</li>
+                <li><strong>Retail Analytics</strong> – Monitors customer movement to optimize layouts and product placements.</li>
+                <li><strong>Robotics & Autonomous Systems</strong> – Provides real-time tracking for robotic navigation.</li>
+                <li><strong>Wildlife Monitoring</strong> – Tracks animal movements for ecological studies.</li>
+            </ul>
+
+            <h2>Features</h2>
+            <ul>
+                <li><strong>Video Upload & URL Input</strong> – Supports both local uploads and direct URLs.</li>
+                <li><strong>YouTube Video Support</strong> - Direct video uploads from YouTube URLs are supported via `yt-dlp` integration.</li>
+                <li><strong>Real-time Object Tracking</strong> – Uses YOLOv8(m) for efficient detection.</li>
+                <li><strong>Live Status Updates</strong> – Provides real-time feedback on processing.</li>
+                <li><strong>Processed Video Gallery</strong> – Hosts previously processed videos with links and downloads.</li>
+                <li><strong>Responsive Design</strong> – Works across desktop, tablet, and mobile devices.</li>
+                <li><strong>Progressive Web App (PWA) Support</strong> – Installable on desktop and mobile for an enhanced, app-like experience.</li>
+                <li><strong>Dynamic Layout Options</strong> – Toggle between 2-video or 3-video per row layouts.</li>
+                <li><strong>View Mode Toggle</strong> – Switch between compact and expanded views.</li>
+                <li><strong>Persistent Settings</strong> – Saves user preferences locally.</li>
+                <li><strong>GitHub Pages & Google Drive Integration</strong> – Automates metadata commits and manages storage.</li>
+                <li><strong>Telegram Bot Access</strong> – Allows interaction with the backend via Telegram.</li>
+                <li><strong>Admin Mode</strong> – Securely log in as an administrator to access advanced features like video deletion directly from the gallery.</li>
+                <li><strong>Secure Admin Authentication</strong> – Backend admin verification utilizes <code>bcrypt</code> hashing for robust password security.</li>
+                <li><strong>Admin Tracking Dashboard</strong> – A dedicated panel (<code>admin_tracker.html</code>) to view comprehensive details of all processed videos, including GitHub commit SHAs, client IP addresses, and geolocation data (country, city, ISP) of the original request.</li>
+                <li><strong>Admin Password Management</strong> – A script (<code>admin_hash_gen.py</code>) for securely adding new admin users or updating existing admin passwords.</li>
+                <li><strong>Master Admin Control</strong> – Master administrators can invalidate all active admin sessions with a single click from the website.</li>
+                <li><strong>Frame Count Restriction & Timeout</strong> – To ensure stable performance and prevent excessive processing times for very large videos, the backend includes a configurable frame count limit. Videos exceeding this limit will be rejected immediately after download. A timeout is also applied during frame count determination to prevent indefinite hangs. These settings are fully configurable in <code>tg.py</code>.</li>
+                <li><strong>Centralized Message Display:</strong> Frontend now uses a central, temporary message overlay to provide clear feedback for actions like video rejection, installation prompts, or other important system messages. The display duration of these messages is configurable.</li>
+            </ul>
+
+            <h2>Project Structure</h2>
+            <div class="code-block-container">
+                <pre><code class="language-plaintext">.
+├── index.html                  # Main web interface (frontend)
+├── admin.html                  # Admin login page
+├── admin_tracker.html          # Admin dashboard for tracking processed videos and request origins
+├── manifest.json               # PWA: Web App Manifest for installability
+├── service-worker.js           # PWA: Service Worker for offline capabilities and caching
+├── images/
+    └── project-glyph-motion.ico  # Favicon for the website
+    └── project-glyph-motion.png  # Project logo
+    └── project-glyph-motion-192x192.png   # PWA icon (192x192)
+    └── project-glyph-motion-512x512.png   # PWA icon (512x512)
+    └── project-glyph-motion-maskable.png  # PWA maskable icon
+    └── thumbnail_fallback.jpg  # Fallback thumbnail for videos
+├── input/                      # Directory for uploaded video files (processed by the backend)
+├── output/                     # Directory for processed video files (generated by the backend)
+├── yolov8m.pt                  # Actual Pre-trained YOLOv8(m) model file (for object tracking) : Ultralytics YOLOv8(m) model file
+├── tg.py (telegram.py)         # Backend orchestrator: handles web requests, triggers `ot.py`, integrates GitHub/Drive, and powers the Telegram bot.
+├── ot.py (object_tracker.py)   # Core video processor: performs object tracking with YOLOv8(m).
+├── gh.py (github.py)           # Manages GitHub commits and Google Drive integration.
+├── client_secret.json          # Google Drive API credentials (for authenticated access)
+├── config.yml                  # Configuration file for the backend (Paths and endpoints, etc.) [See the actual project config.yml for details]
+├── admin_auth.py               # Handles secure admin authentication (stores bcrypt hashes)
+├── admin_hash_gen.py           # Script to generate and update admin credentials directly in admin_auth.py
+├── documentation.html          # This documentation file
+├── requirements.txt            # Lists all Python dependencies
+├── web_server_public.py        # Python script to run the Flask web server and Cloudflare Tunnel (Automation of the whole backend)
+├── token.json                  # Google Drive API token file (for authenticated access)
+├── videos.json                 # JSON file containing metadata for processed videos (links, titles, etc.)
+├── tracking_data.json          # JSON file containing tracking data for processed videos (IP Address, Lat/Lon and object IDs, timestamps, etc.)
+├── .gitignore                  # Specifies files and directories to ignore in Git
+├── README.md                   # Project overview and setup instructions
+└──LICENSE                      # Project license file
+
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+
+            <div class="warning-box" data-ambient-color="#DC2626">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.982 7.024a.75.75 0 00-1.06 1.06L8.94 10l-1.018 1.018a.75.75 0 001.06 1.06L10 11.06l1.018 1.018a.75.75 0 001.06-1.06L11.06 10l1.018-1.018a.75.75 0 00-1.06-1.06L10 8.94 8.982 7.024z" clip-rule="evenodd" /></svg>
+                <p><strong>IMPORTANT WARNING:</strong> DO NOT MODIFY ANY CODE UNLESS EXPLICITLY INSTRUCTED. INCORRECT MODIFICATIONS CAN LEAD TO PROJECT FAILURE.</p>
+            </div>
+
+            <!-- IMPORTANT NOTE: GitHub Files vs. Local Files -->
+            <div class="info-box" data-ambient-color="#FFD700">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.982 7.024a.75.75 0 00-1.06 1.06L8.94 10l-1.018 1.018a.75.75 0 001.06 1.06L10 11.06l1.018 1.018a.75.75 0 001.06-1.06L11.06 10l1.018-1.018a.75.75 0 00-1.06-1.06L10 8.94 8.982 7.024z" clip-rule="evenodd" /></svg>
+                <p><strong>IMPORTANT NOTE ON FILE MANAGEMENT:</strong>
+                    Only <code>index.html</code>, <code>videos.json</code>, and the PWA files (<code>manifest.json</code>, <code>service-worker.js</code>) are strictly necessary to be uploaded to your GitHub repository and maintained there for the frontend.
+                    All other backend-related files (Python scripts, credentials, `tracking_data.json`, `config.yml`, etc.) are most recommended to be kept *only* on the local machine where the backend server is running. This ensures that no sensitive code or data is inadvertently pushed to GitHub, regardless of whether your repository is public or private.
+                </p>
+            </div>
+
+            <h2>How to Get a Free Custom Domain:</h2>
+            <p>If you're a student, you can often get a free custom domain through the <a href="https://www.namecheap.com/github-student-developer-pack/" target="_blank">GitHub Education Pack</a>. Popular registrars like <a href="https://www.namecheap.com/github-student-developer-pack/" target="_blank">Namecheap</a> or <a href="https://www.name.com/github-education" target="_blank">Name.com</a> offer free domains as part of this pack. <strong>You will typically need to verify your student status using your school/college ID card or academic email.</strong> Simply apply for the GitHub Education Pack, and once approved, you can claim your free domain.</p>
+
+            <h2>Frontend Setup (Website)</h2>
+            <p>The frontend consists of <code>index.html</code>, <code>admin.html</code>, and <code>admin_tracker.html</code> which use Tailwind CSS for styling and JavaScript for interactivity. It's recommended to set up the frontend first to understand the website's structure and then configure the backend.</p>
+
+            <div class="info-box" data-ambient-color="#3B82F6">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" /></svg>
+                <p><strong>Before proceeding with the website setup, it is crucial to read the <a href="#security-privacy-section" class="smooth-scroll-link">"Security and Data Privacy (Admin Tracker)"</a> section at the very end of this document to understand the implications of data collection and your responsibilities as a project owner.</strong></p>
+            </div>
+
+            <h3>1. Clone the Repository:</h3>
+            <div class="code-block-container">
+                <pre><code class="language-bash">git clone &lt;your-repository-url&gt;
+cd &lt;your-repository-name&gt;
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+
+            <h3>2. Favicon Path:</h3>
+            <p>Ensure the favicon path is correct in <code>index.html</code>, <code>admin.html</code>, and <code>admin_tracker.html</code>:</p>
+            <div class="code-block-container">
+                <pre><code class="language-html">&lt;link rel="icon" type="image/svg+xml" href="images/project-glyph-motion.ico"&gt;
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <p>Make sure the <code>images</code> folder and <code>project-glyph-motion.ico</code> file exist in your project's root directory relative to the HTML files.</p>
+
+            <h3>3. Configure Frontend JavaScript Variables in <code>index.html</code>, <code>admin.html</code>, and <code>admin_tracker.html</code>:</h3>
+            <p>Open these HTML files and locate the <code>&lt;script&gt;</code> section. You'll find important configuration variables. These URLs are examples; ensure they match your actual setup.</p>
+            <p>For <code>index.html</code>:</p>
+            <div class="code-block-container">
+                <pre><code class="language-javascript">
+// IMPORTANT: This should now be your custom domain for GitHub Pages
+const GITHUB_PAGES_REPO_URL = 'https://onehorizon.me/Project-GlyphMotion/'; // Example: Replace with your GitHub Pages URL
+const VIDEOS_JSON_PATH = 'videos.json';
+const POLLING_INTERVAL_VIDEOS = 10000; // Poll videos.json every 10 seconds
+const POLLING_INTERVAL_STATUS = 2000; // Poll live status every 2 seconds
+const POLLING_INTERVAL_SERVER_HEALTH = 5000; // Poll server health every 5 seconds (new)
+
+// IMPORTANT: This should be your custom domain for the backend tunnel
+const NGROK_PUBLIC_URL = 'https://vot.onehorizon.me'; // Example: Replace with your Cloudflare Tunnel custom domain
+
+const LOCAL_API_ENDPOINT = NGROK_PUBLIC_URL + '/process_web_video';
+const LOCAL_STATUS_ENDPOINT = NGROK_PUBLIC_URL + '/status';
+// ... other endpoints like LOCAL_DELETE_ENDPOINT, LOCAL_COMMIT_INFO_ENDPOINT, LOCAL_LOGOUT_ENDPOINT, etc.
+
+// Configuration for how long central messages are displayed (in milliseconds)
+const CENTRAL_MESSAGE_DISPLAY_DURATION_MS = 5000; // 5 seconds (configurable)
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <p>For <code>admin.html</code> and <code>admin_tracker.html</code>:</p>
+            <div class="code-block-container">
+                <pre><code class="language-javascript">
+// IMPORTANT: This should be your custom domain for the backend tunnel
+const NGROK_PUBLIC_URL = 'https://vot.onehorizon.me'; // Example: Replace with your Cloudflare Tunnel custom domain
+const LOCAL_LOGIN_ENDPOINT = NGROK_PUBLIC_URL + '/login'; // For admin.html
+const LOCAL_TRACKER_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_data'; // For admin_tracker.html
+// ... other relevant endpoints
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <ul>
+                <li><strong><code>GITHUB_PAGES_REPO_URL</code>:</strong> This URL specifies where your <code>videos.json</code> file (containing links to processed videos) is hosted. The value <code>https://onehorizon.me/Project-GlyphMotion/</code> is an <strong>example</strong>. After setting up your GitHub Pages, <strong>you MUST replace this with the base URL of your GitHub Pages site.</strong> For example, if your repository is <code>your-username/my-video-tracker</code>, and it's published to GitHub Pages, the URL might be <code>https://your-username.github.io/my-video-tracker/</code>. <strong>Ensure it ends with a trailing slash <code>/</code>.</strong></li>
+                <li><strong><code>NGROK_PUBLIC_URL</code>:</strong> Although named <code>NGROK_PUBLIC_URL</code>, this variable is used for your Cloudflare Tunnel domain. The value <code>https://vot.onehorizon.me</code> is an <strong>example</strong>. The <code>web_server_public.py</code> script will automatically update this value to your <code>CLOUDFLARE_CUSTOM_DOMAIN</code> when you run it. <code>LOCAL_API_ENDPOINT</code> and <code>LOCAL_STATUS_ENDPOINT</code> are derived from this.</li>
+                <li>The <code>POLLING_INTERVAL</code> variables control how frequently the frontend checks for updates from the backend and GitHub Pages.</li>
+                <li><strong><code>CENTRAL_MESSAGE_DISPLAY_DURATION_MS</code>:</strong> This new configurable value in <code>index.html</code> determines how long the central, temporary messages (e.g., video rejection, installation prompts) are displayed on the screen in milliseconds. Default is 5000ms (5 seconds).</li>
+                <li><strong>Master Admin UI Visibility:</strong> For the "Logout All Admins" button and other master admin options to be visible on the website, you must set the <code>MASTER_ADMIN_USERNAMES_FRONTEND</code> array in <code>index.html</code> to include the exact usernames of your master administrators. <strong>This is a frontend UI setting only.</strong><br/>Example (in <code>index.html</code>):
+<div class="code-block-container">
+    <pre><code class="language-javascript">const MASTER_ADMIN_USERNAMES_FRONTEND = ["your_master_admin_username_1", "your_master_admin_username_2"];
+</code></pre>
+    <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+</div></li>
+            </ul>
+
+            <h3>4. Progressive Web App (PWA) Integration:</h3>
+            <p>Project GlyphMotion supports Progressive Web App (PWA) features, allowing users to install the application to their home screen on both desktop and mobile devices for an enhanced, app-like experience. This is achieved through <code>manifest.json</code> and <code>service-worker.js</code>.</p>
+            <ul>
+                <li><strong><code>manifest.json</code>:</strong> This file provides metadata about your web application, including its name, icons, start URL, display mode, and theme colors. Browsers use this information to present your PWA as a native-like application. Ensure this file is correctly configured for your project's branding and desired behavior.</li>
+                <li><strong><code>service-worker.js</code>:</strong> This JavaScript file runs in the background, independent of the main browser thread. It enables powerful features like offline support, caching of assets, and push notifications. The service worker in this project is configured to cache essential application files, ensuring a faster loading experience on subsequent visits and basic offline functionality.</li>
+            </ul>
+            <p>No direct configuration is usually needed for <code>manifest.json</code> or <code>service-worker.js</code> unless you want to customize the PWA's appearance or caching strategy. Ensure these files are present in your project's root directory.</p>
+
+            <h3>5. Open the Website (Local Preview):</h3>
+            <p>You can simply open the <code>index.html</code> file in your web browser to see the frontend. The backend functionality will not work yet, but you can preview the UI.</p>
+
+            <h2>Backend Setup</h2>
+            <p>The backend system consists of <code>ot.py</code> (object_tracker.py), <code>tg.py</code> (telegram.py), <code>gh.py</code> (github.py), <code>admin_auth.py</code>, and <code>admin_hash_gen.py</code>.</p>
+
+            <h3>1. Install Python Dependencies:</h3>
+            <p>You can install all necessary Python dependencies by running the following command:</p>
+            <div class="code-block-container">
+                <pre><code class="language-bash">pip install -r requirements.txt
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <p>The <code>requirements.txt</code> file is located in the project's root directory and lists all required libraries, including:</p>
+            <ul>
+                <li><code>ultralytics</code>: The core library for YOLOv8(m) object tracking (used by <code>ot.py</code>).</li>
+                <li><code>Flask</code>: A micro web framework for building the backend API (used by <code>tg.py</code>).</li>
+                <li><code>Flask-Cors</code>: For handling Cross-Origin Resource Sharing.</li>
+                <li><code>python-dotenv</code>: To load environment variables (if you choose to use a <code>.env</code> file for secrets).</li>
+                <li><code>python-telegram-bot</code>: For building the Telegram bot functionality (used by <code>tg.py</code>).</li>
+                <li><code>GitPython</code>: For programmatically interacting with Git repositories (used by <code>gh.py</code>).</li>
+                <li><code>google-api-python-client</code>, <code>google-auth-httplib2</code>, <code>google-auth-oauthlib</code>: For Google Drive API integration (used by <code>gh.py</code>).</li>
+                <li><code>psutil</code>: For monitoring system resource usage (used by <code>ot.py</code>).</li>
+                <li><code>bcrypt</code>: For secure password hashing (used by <code>admin_auth.py</code> and <code>admin_hash_gen.py</code>).</li>
+                <li><code>pyjwt</code>: For JSON Web Token (JWT) handling (used by <code>tg.py</code> for session management).</li>
+                <li><code>yt-dlp</code>: For downloading videos from various web sources, including YouTube.</li>
+            </ul>
+
+            <h3>2. Configure <code>tg.py</code> (telegram.py):</h3>
+            <p>Open <code>tg.py</code> and update the following configuration variables. These settings are fully configurable to suit your needs:</p>
+            <div class="code-block-container">
+                <pre><code class="language-python">USE_GITHUB_PAGES = True  # Set to True to enable GitHub Pages integration (commits to repo, updates videos.json)
+
+# Frame Restriction Configuration
+FRAME_RESTRICTION_ENABLED = True # Set to True to enable frame count restriction
+FRAME_RESTRICTION_VALUE = 7000 # Max allowed frames for video processing
+FFPROBE_TIMEOUT_SECONDS = 30 # Timeout for ffprobe command in seconds
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <ul>
+                <li><strong><code>USE_GITHUB_PAGES</code>:</strong> This switch enables or disables the integration with GitHub Pages and Google Drive. Set to <code>True</code> to use it, <code>False</code> otherwise.</li>
+                <li><strong><code>FRAME_RESTRICTION_ENABLED</code>:</strong> Set to <code>True</code> to enable frame count checking for incoming videos. This helps prevent processing excessively long videos that might cause resource issues or timeouts. If <code>False</code>, no frame check will be performed.</li>
+                <li><strong><code>FRAME_RESTRICTION_VALUE</code>:</strong> If <code>FRAME_RESTRICTION_ENABLED</code> is <code>True</code>, this value defines the maximum number of frames a video can have to be accepted for processing. Videos exceeding this will be rejected with a user-friendly message.</li>
+                <li><strong><code>FFPROBE_TIMEOUT_SECONDS</code>:</strong> This new setting defines the maximum time (in seconds) allowed for `ffprobe` to determine the video's frame count. If `ffprobe` doesn't respond within this timeout, it will be killed, and the video will be rejected, preventing indefinite hangs on problematic files.</li>
+            </ul>
+            <p>The Telegram bot functionality is <strong>pre-configured</strong> within <code>tg.py</code>. You just need to provide your bot's unique token:</p>
+            <div class="code-block-container">
+                <pre><code class="language-python">TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN_HERE" # Replace with your bot token
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <p>You can obtain a bot token from BotFather on Telegram.</p>
+            <p>For admin functionality, ensure your <code>JWT_SECRET_KEY</code> is strong and random. Also, configure <code>MASTER_ADMIN_USERNAMES</code> if you want specific admins to have the ability to log out all other active sessions:</p>
+            <div class="code-block-container">
+                <pre><code class="language-python"># JWT Secret Key (VERY IMPORTANT: Replace with a strong, random key in production!)
+JWT_SECRET_KEY = 'YOUR_VERY_SECRET_JWT_KEY_HERE' # e.g., 'f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4'
+
+# Master Admin Usernames (only these users can trigger global logout and other master actions)
+# These users must also exist in ADMIN_CREDENTIALS in admin_auth.py
+MASTER_ADMIN_USERNAMES = {"your_admin_username_1", "your_admin_username_2"} # Add more usernames to this set
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <p>You can generate a cryptographically secure key by opening a Python terminal and running:</p>
+            <div class="code-block-container">
+                <pre><code class="language-python">import secrets
+secrets.token_hex(32)
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <p>Copy the output and paste it as the value for your <code>JWT_SECRET_KEY</code>.</p>
+
+
+            <h3>3. Configure <code>admin_auth.py</code> and <code>admin_hash_gen.py</code>:</h3>
+            <p>The <code>admin_auth.py</code> file holds the bcrypt hashes of your admin credentials. <strong>DO NOT</strong> manually edit the hashes here unless you understand the bcrypt format. Instead, use the <code>admin_hash_gen.py</code> script to manage admin users and their passwords securely.</p>
+            <p>Run <code>admin_hash_gen.py</code> to add your initial admin users:</p>
+            <div class="code-block-container">
+                <pre><code class="language-bash">python admin_hash_gen.py
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <p>Follow the prompts to create or update admin usernames and passwords. This script will automatically update <code>admin_auth.py</code> with the new bcrypt hashes.</p>
+            <p>You can also configure session timeout for admin logins in <code>admin_auth.py</code>:</p>
+            <div class="code-block-container">
+                <pre><code class="language-python">SESSION_TIMEOUT_ENABLED = True # Set to True or False
+SESSION_DURATION_DAYS = 7 # Example: 7 days
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+
+            <h3>4. Configure <code>gh.py</code> (github.py):</h3>
+            <p>Open <code>gh.py</code> and update the following configuration variables. <strong>It is highly recommended to use environment variables for sensitive information like <code>GITHUB_ACCESS_TOKEN</code> in a production environment.</strong></p>
+            <div class="code-block-container">
+                <pre><code class="language-python"># GitHub API
+_HARDCODED_GITHUB_ACCESS_TOKEN = "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN_HERE" # &lt;--- IMPORTANT: Replace with your actual GitHub PAT
+GITHUB_ACCESS_TOKEN = _HARDCODED_GITHUB_ACCESS_TOKEN if _HARDCODED_GITHUB_ACCESS_TOKEN != "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN_HERE" else os.getenv('GITHUB_ACCESS_TOKEN')
+
+_HARDCODED_GITHUB_USERNAME = "YOUR_GITHUB_USERNAME_HERE" # &lt;--- Replace with your GitHub username
+GITHUB_USERNAME = _HARDCODED_GITHUB_USERNAME if _HARDCODED_GITHUB_USERNAME != "YOUR_GITHUB_USERNAME_HERE" else os.getenv('GITHUB_USERNAME')
+
+_HARDCODED_GITHUB_REPO_NAME = "YOUR_GITHUB_REPO_NAME_HERE" # &lt;--- Replace with your repository name
+GITHUB_REPO_NAME = _HARDCODED_GITHUB_REPO_NAME if _HARDCODED_GITHUB_REPO_NAME != "YOUR_GITHUB_REPO_NAME_HERE" else os.getenv('GITHUB_REPO_NAME')
+
+# Branch to commit to (usually 'main' or 'master' for GitHub Pages)
+GITHUB_BRANCH = 'main'
+# Path to the JSON file in your GitHub repository that stores video metadata
+GITHUB_VIDEOS_JSON_PATH = 'videos.json'
+
+# Google Drive API
+# Ensure client_secret.json is in the same directory or provide its path
+GOOGLE_DRIVE_CLIENT_SECRET_FILE = 'client_secret.json'
+GOOGLE_DRIVE_TOKEN_FILE = 'token.json' # This file will be created after first authentication
+# Name of the parent folder in Google Drive for processed videos (e.g., 'ObjectTrackerMaster/output')
+GOOGLE_DRIVE_OUTPUT_FOLDER_NAME = 'ObjectTrackerMaster/output'
+</code></pre>
+                <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <ul>
+                <li><strong>Google Drive API Setup (Crucial for Public Access):</strong><br/>To enable <code>gh.py</code> to upload videos to your Google Drive and make them publicly accessible for embedding on your GitHub Pages site, you need to set up Google Drive API credentials.<br/><ol>
+                    <li><strong>Create a Project in Google Cloud Console:</strong> Go to the <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> and create a new project.</li>
+                    <li><strong>Enable Google Drive API:</strong> In your new project, navigate to "ApIs & Services" &gt; "Enabled APIs & Services". Search for "Google Drive API" and enable it.</li>
+                    <li><strong>Create OAuth Consent Screen:</strong> Go to "ApIs & Services" &gt; "OAuth consent screen".<br/>
+                        <ul>
+                            <li>Choose "External" user type.</li>
+                            <li>Fill in the required app information (app name, user support email, developer contact information).</li>
+                            <li>Add the scope <code>.../auth/drive.file</code>.</li>
+                            <li><strong>Set Publishing Status to "Production":</strong> This is critical! If your app remains in "Testing" status, only test users you explicitly add will be able to access the service. For anyone (including yourself on different machines or users of your public website) to be able to use the Google Drive integration, the OAuth consent screen <strong>MUST be in "Production" status</strong>.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Create Credentials:</strong> Go to "ApIs & Services" &gt; "Credentials".<br/>
+                        <ul>
+                            <li>Click "CREATE CREDENTIALS" and choose "OAuth client ID".</li>
+                            <li>Select "Desktop app" as the application type.</li>
+                            <li>Give it a name and click "Create".</li>
+                            <li>You will be presented with your client ID and client secret. Download the <code>client_secret.json</code> file. <strong>This file often has a long name (e.g., <code>client_secret_xxxxxxxxxxxx.apps.googleusercontent.com.json</code>). Please rename it to <code>client_secret.json</code> and place it in the same directory as your <code>gh.py</code> script.</strong></li>
+                        </ul>
+                    </li>
+                    <li><strong>First-time Authentication:</strong> The first time <code>gh.py</code> runs and attempts to upload a video, it will open a browser window asking you to authenticate with your Google account. This will generate a <code>token.json</code> file in the same directory, which stores your credentials for future use.</li>
+                </ol>
+                <strong>Important Security Note about <code>token.json</code> and <code>client_secret.json</code>:</strong><br/>These files contain sensitive authentication credentials that allow programmatic access to your Google Drive. <strong>DO NOT commit <code>token.json</code> or <code>client_secret.json</code> to your Git repository, even if it's private.</strong> If these files are ever exposed, it could compromise your Google Drive account. These files are generated locally and should remain local to the machine running the backend. If you need to transfer your setup to another machine, transfer them securely (e.g., via a secure copy protocol), not through Git.<br/><strong>To prevent accidental commits, it is highly recommended to add <code>client_secret.json</code> and <code>token.json</code> to your project's <code>.gitignore</code> file:</strong>
+<div class="code-block-container">
+    <pre><code class="language-plaintext"># .gitignore
+client_secret.json
+token.json
+</code></pre>
+    <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+</div>
+                <strong>Important Considerations for Google Drive Storage:</strong><br/>
+                <ul>
+                    <li><strong>Your Account Space:</strong> When <code>gh.py</code> uploads processed videos, they will be stored in your Google Drive account, consuming your available storage space. Keep this in mind, especially for large or numerous video files.</li>
+                    <li><strong>Folder Structure:</strong> <code>gh.py</code> is configured to create a folder named <code>ObjectTrackerMaster</code> in your Google Drive, and inside it, a subfolder named <code>output</code>. All processed video files will be saved within this <code>ObjectTrackerMaster/output</code> folder.</li>
+                </ul>
+                </li>
+            </ul>
+
+            <h3>5. Cloudflare Tunnel Setup:</h3>
+            <ul>
+                <li><strong>Install <code>cloudflared</code> CLI:</strong> Follow the instructions for your operating system on the <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/" target="_blank">Cloudflare Tunnel documentation</a>.</li>
+                <li><strong>Authenticate <code>cloudflared</code>:</strong><br/>
+<div class="code-block-container">
+    <pre><code class="language-bash">cloudflared tunnel login
+</code></pre>
+    <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+</div>
+<p>This will open a browser window to authenticate with your Cloudflare account.</p></li>
+                <li><strong>Create a Tunnel (if you haven't already):</strong><br/>When creating your tunnel, use the name <code>project-glyph-motion-tunnel</code>:<br/>
+<div class="code-block-container">
+    <pre><code class="language-bash">cloudflared tunnel create project-glyph-motion-tunnel
+</code></pre>
+    <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+</div>
+<p>This will generate a tunnel ID and a credential file.</p></li>
+                <li><strong>Configure DNS for your Custom Domain:</strong><br/>Before running the tunnel, you need to configure your custom domain to point to Cloudflare's nameservers. This step is crucial for Cloudflare to manage traffic for your domain.<br/><ol>
+                    <li><strong>Get Cloudflare Nameservers:</strong> After adding your domain to Cloudflare, Cloudflare will provide you with two nameservers (e.g., <code>john.ns.cloudflare.com</code> and <code>mary.ns.cloudflare.com</code>).</li>
+                    <li><strong>Update Nameservers at your Domain Registrar:</strong> Go to your domain registrar's website (e.g., Namecheap, Name.com). Find the DNS management or nameserver settings for your domain.</li>
+                    <li><strong>Replace Existing Nameservers:</strong> Change the existing nameservers to the ones provided by Cloudflare. Save the changes.</li>
+                    <li><strong>Add CNAME Record in Cloudflare DNS:</strong> In your Cloudflare DNS settings, add a CNAME record for your chosen subdomain (e.g., <code>vot</code>). The <code>Target</code> for this CNAME record will be your tunnel's UUID followed by <code>.cfargotunnel.com</code>.<br/>
+                        <ul>
+                            <li><strong>Type:</strong> <code>CNAME</code></li>
+                            <li><strong>Name:</strong> <code>your_subdomain</code> (e.g., <code>vot</code>)</li>
+                            <li><strong>Target:</strong> <code>&lt;YOUR_TUNNEL_UUID_HERE&gt;.cfargotunnel.com</code> (e.g., <code>a1b2c3d4-e5f6-7890-1234-567890abcdef.cfargotunnel.com</code>)</li>
+                            <li><strong>Proxy Status:</strong> Ensure it's set to "Proxied" (orange cloud icon).</li>
+                        </ul>
+                    </li>
+                    <li><strong>Propagation:</strong> DNS changes can take up to 10 minutes to propagate globally, though it's often faster. You can actively check the propagation status using <a href="https://www.whatsmydns.net/" target="_blank">whatsmydns.net</a>. Also, remember to check the "Start Propagation Check" option in your Cloudflare settings. Your domain won't work with Cloudflare Tunnel until this propagation is complete.</li>
+                </ol>
+                </li>
+                <li><strong>Create a <code>config.yml</code> file:</strong> Save this <code>config.yml</code> file inside your project folder (<code>Project-Glyph-Motion</code>). This file tells Cloudflare Tunnel where to route traffic. <strong>Note: The tunnel configuration (<code>cloudflared tunnel create</code> and <code>config.yml</code> setup) is a one-time process.</strong><br/>
+<div class="code-block-container">
+    <pre><code class="language-yaml"># config.yml
+# Save this file inside your Project-Glyph-Motion project folder.
+
+# The ID of your Cloudflare Tunnel.
+# You will get this UUID when you run 'cloudflared tunnel create project-glyph-motion-tunnel'.
+tunnel: &lt;YOUR_TUNNEL_ID_HERE&gt; # Example: a1b2c3d4-e5f6-7890-1234-567890abcdef
+
+# The path to your Cloudflare Tunnel credentials file.
+# This was generated when you run 'cloudflared login'.
+# Example: /home/user/.cloudflared/a1b2c3d4-e5f6-7890-1234-567890abcdef.json
+credentials-file: /path/to/your/.cloudflared/&lt;YOUR_TUNNEL_ID_HERE&gt;.json
+
+# Ingress rules define how traffic is routed through your tunnel.
+ingress:
+  # This rule routes traffic from your custom domain to your local tg.py server.
+  # IMPORTANT: Replace 'your-custom-domain.com' with the actual custom domain
+  # (e.g., vot.onehorizon.me) that you will register and add to Cloudflare.
+  - hostname: your-custom-domain.com
+    service: http://localhost:5000   # Your Flask app's local address (tg.py's port)
+
+  # This rule is a fallback. If no other ingress rule matches, Cloudflare will return a 404.
+  - service: http_status:404
+</code></pre>
+    <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+</div>
+<p><strong>Important:</strong> Ensure your custom domain/subdomain (<code>hostname</code>) is properly configured in your Cloudflare DNS settings and pointed to the tunnel.</p></li>
+                <li><strong>Run the Cloudflare Tunnel Server (First Step for Backend Operation):</strong><br/>Open a <strong>new terminal window</strong>. Navigate to your project folder and run the following command. The exact path to <code>cloudflared</code> might vary, but <code>/usr/local/bin/cloudflared</code> is a common default.<br/>
+<div class="code-block-container">
+    <pre><code class="language-bash">sudo /usr/local/bin/cloudflared --config config.yml tunnel run project-glyph-motion-tunnel
+</code></pre>
+    <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+</div>
+<p>(Use <code>python3</code> for Linux/Ubuntu or <code>python</code> for Windows if <code>python3</code> is not the default)</p></li>
+            </ul>
+
+            <h3>6. Run the Backend Orchestrator (<code>tg.py</code> / telegram.py):</h3>
+            <p>Open a <strong>new terminal window</strong>. Navigate to your project folder and run:</p>
+            <div class="code-block-container">
+                <pre><code class="language-bash">python tg.py
+</code></pre>
+    <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+</div>
+<p>(Use <code>python3</code> for Linux/Ubuntu or <code>python</code> for Windows if <code>python3</code> is not the default)</p></li>
+            </ul>
+
+            <h2>Usage</h2>
+            <h3>1. Ensure Backend System is Running:</h3>
+            <p>Make sure your <code>tg.py</code> server is running locally AND the Cloudflare Tunnel is established. The "Server Status" indicator on the website should show "Online`.</p>
+            <p><strong>To bring your backend system back online after stopping it, simply run these two commands (in separate terminal windows) from your project folder:</strong></p>
+            <ol>
+                <li><strong>Start Cloudflare Tunnel:</strong><br/>
+<div class="code-block-container">
+    <pre><code class="language-bash">sudo /usr/local/bin/cloudflared --config config.yml tunnel run project-glyph-motion-tunnel
+</code></pre>
+    <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+</div>
+<p>(Use <code>python3</code> for Linux/Ubuntu or <code>python</code> for Windows if <code>python3</code> is not the default)</p></li>
+                <li><strong>Start Backend Orchestrator:</strong><br/>
+<div class="code-block-container">
+    <pre><code class="language-bash">python tg.py
+</code></pre>
+    <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+</div>
+<p>(Use <code>python3</code> for Linux/Ubuntu or <code>python</code> for Windows if <code>python3</code> is not the default)</p></li>
+            </ol>
+            <p>Once these two commands are running, your backend will be fully operational again, and the "Server Status" indicator on your website (<code>index.html</code>) will turn green, confirming that the backend is running and accessible.</p>
+
+            <h3>2. Access the Project:</h3>
+            <ul>
+                <li><strong>Web Interface:</strong> Access your website via your GitHub Pages URL (e.g., <code>https://your-username.github.io/your-repo-name/</code>).</li>
+                <li><strong>Admin Login:</strong> Navigate to <code>admin.html</code> from your GitHub Pages URL to log in as an administrator.</li>
+                <li><strong>Admin Tracker:</strong> Once logged in, you can access <code>admin_tracker.html</code> from your GitHub Pages URL (or the link on the main page) to view detailed tracking data.</li>
+                <li><strong>Telegram Bot:</strong> Search for your bot's username on Telegram and start a chat. The bot is ready to use once <code>tg.py</code> is running.
+                    <ul>
+                        <li>Use the <code>/track</code> command followed by a video URL (e.g., <code>/track https://example.com/your_video.mp4</code>).</li>
+                        <li><strong>Note:</strong> Currently, direct local video file uploads via Telegram are not supported; please use a video URL with the <code>/track</code> command.</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>3. Provide Video Source (Web Interface):</h3>
+            <ul>
+                <li><strong>Video URL:</strong> Paste a direct link to a video file (e.g., <code>.mp4</code>, <code>.mov</code>) into the "Video URL" field.</li>
+                <li><strong>Upload Video File:</strong> Click "Browse" to select a video file from your local machine.</li>
+                <li><em>Note: Providing a URL is generally faster as it avoids uploading the file to your local server.</em></li>
+            </ul>
+
+            <h3>4. Start Tracking (Web Interface):</h3>
+            <p>Click the "Start Tracking" button.</p>
+
+            <h3>5. Monitor Status:</h3>
+            <p>The "Live Processing Status" area will update with messages from the backend system.</p>
+
+            <h3>6. View Processed Videos:</h3>
+            <p>Once processing is complete and <code>tg.py</code> (via <code>gh.py</code>) has updated the <code>videos.json</code> file and committed it to GitHub, the new video will appear in the "Processed Videos" gallery. You can click "Download / View Full" to see the tracked video.</p>
+
+            <h3>7. Toggle Layout/View:</h3>
+            <p>Use the "Enlarge View" / "Compact View" button to switch the main content box size, and the "Show 2 Videos per Row" / "Show 3 Videos per Row" button to adjust the video gallery layout. Your preferences will be saved locally.</p>
+
+            <h2>How Video Processing Works</h2>
+            <p>1. When you click "Start Tracking" on the web interface, the frontend (<code>index.html</code>) sends the video (either the file or URL) to your local <code>tg.py</code> server via the Cloudflare Tunnel public URL (e.g., <code>https://vot.onehorizon.me</code>).</p>
+            <p>2. <code>tg.py</code> (telegram.py) receives the request. It then calls <code>ot.py</code> (object_tracker.py) to perform the actual object tracking on the video.</p>
+            <p>3. After <code>ot.py</code> completes processing, <code>tg.py</code> orchestrates the post-processing steps by calling <code>gh.py</code> (github.py):</p>
+            <ul>
+                <li><code>gh.py</code> first uploads the processed video to Google Drive.</li>
+                <li>It then updates the <code>videos.json</code> file in your local repository with the new video's metadata (including the Google Drive embed link).</li>
+                <li>Finally, <code>gh.py</code> commits these changes to your GitHub repository.</li>
+            </ul>
+            <p>4. The frontend (<code>index.html</code>) continuously polls the <code>videos.json</code> file (hosted on GitHub Pages) to update the gallery with new processed videos.</p>
+
+            <h2 id="visual-representation">How this project works? - A visual representation</h2>
+            <p>This diagram provides a high-level overview of the Project GlyphMotion architecture, showing how different components interact to enable real-time object tracking and video management.</p>
+
+            <div class="diagram-container">
+                <svg class="project-diagram" viewBox="0 0 1200 1000">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#00BFFF" />
+                        </marker>
+                        <filter id="node-glow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"></feGaussianBlur>
+                            <feOffset in="blur" dx="0" dy="0" result="offsetBlur"></feOffset>
+                            <feFlood flood-color="#FDA136" flood-opacity="0.8" result="color"></feFlood>
+                            <feComposite in="color" in2="offsetBlur" operator="in" result="glow"></feComposite>
+                            <feMerge>
+                                <feMergeNode in="glow"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                    </defs>
+
+                    <!-- Section Boundaries -->
+                    <rect x="20" y="20" width="370" height="960" class="diagram-section-boundary" />
+                    <text x="205" y="45" class="diagram-section-label">Frontend (Web & PWA)</text>
+
+                    <rect x="410" y="20" width="370" height="960" class="diagram-section-boundary" />
+                    <text x="595" y="45" class="diagram-section-label">Backend (Local Server)</text>
+
+                    <rect x="800" y="20" width="380" height="960" class="diagram-section-boundary" />
+                    <text x="990" y="45" class="diagram-section-label">External Services & Storage</text>
+
+                    <!-- Nodes -->
+                    <!-- Frontend Nodes -->
+                    <rect x="70" y="90" width="280" height="70" class="diagram-node node-frontend" />
+                    <text x="210" y="115" class="diagram-node-text">User Interface</text>
+                    <text x="210" y="135" class="diagram-sub-text">(index.html, admin.html)</text>
+
+                    <rect x="70" y="190" width="280" height="70" class="diagram-node node-pwa" />
+                    <text x="210" y="215" class="diagram-node-text">PWA Features</text>
+                    <text x="210" y="235" class="diagram-sub-text">(manifest.json, service-worker.js)</text>
+
+                    <rect x="70" y="290" width="280" height="70" class="diagram-node node-frontend" />
+                    <text x="210" y="315" class="diagram-node-text">Admin Tracker Dashboard</text>
+                    <text x="210" y="335" class="diagram-sub-text">(admin_tracker.html)</text>
+
+                    <rect x="70" y="880" width="280" height="70" class="diagram-node node-storage" />
+                    <text x="210" y="905" class="diagram-node-text">Browser Local Storage</text>
+                    <text x="210" y="925" class="diagram-sub-text">(User Prefs, Admin Token)</text>
+
+                    <!-- Backend Nodes -->
+                    <rect x="460" y="90" width="280" height="70" class="diagram-node node-backend" />
+                    <text x="600" y="115" class="diagram-node-text">Backend Orchestrator</text>
+                    <text x="600" y="135" class="diagram-sub-text">(tg.py - Flask Server)</text>
+
+                    <rect x="460" y="290" width="280" height="70" class="diagram-node node-backend" />
+                    <text x="600" y="315" class="diagram-node-text">Object Tracking Core</text>
+                    <text x="600" y="335" class="diagram-sub-text">(ot.py - YOLOv8(m))</text>
+
+                    <rect x="460" y="490" width="280" height="70" class="diagram-node node-backend" />
+                    <text x="600" y="515" class="diagram-node-text">GitHub & Google Drive Manager</text>
+                    <text x="600" y="535" class="diagram-sub-text">(gh.py)</text>
+
+                    <rect x="460" y="690" width="280" height="70" class="diagram-node node-backend" />
+                    <text x="600" y="715" class="diagram-node-text">Admin Authentication</text>
+                    <text x="600" y="735" class="diagram-sub-text">(admin_auth.py, admin_hash_gen.py)</text>
+
+                    <rect x="460" y="880" width="280" height="70" class="diagram-node node-storage" />
+                    <text x="600" y="905" class="diagram-node-text">Local Backend Data</text>
+                    <text x="600" y="925" class="diagram-sub-text">(tracking_data.json)</text>
+
+
+                    <!-- External Services Nodes -->
+                    <rect x="850" y="90" width="280" height="70" class="diagram-node node-external" />
+                    <text x="990" y="115" class="diagram-node-text">Cloudflare Tunnel</text>
+                    <text x="990" y="135" class="diagram-sub-text">(cloudflared CLI, config.yml)</text>
+
+                    <rect x="850" y="290" width="280" height="70" class="diagram-node node-external" />
+                    <text x="990" y="315" class="diagram-node-text">Google Drive API</text>
+                    <text x="990" y="335" class="diagram-sub-text">(Uploads, Public Links)</text>
+
+                    <rect x="850" y="490" width="280" height="70" class="diagram-node node-external" />
+                    <text x="990" y="515" class="diagram-node-text">GitHub API</text>
+                    <text x="990" y="535" class="diagram-sub-text">(Commits, Read videos.json)</text>
+                    
+                    <rect x="850" y="690" width="280" height="70" class="diagram-node node-external" />
+                    <text x="990" y="715" class="diagram-node-text">Telegram Bot API</text>
+                    <text x="990" y="735" class="diagram-sub-text">(User Commands)</text>
+
+                    <rect x="850" y="880" width="280" height="70" class="diagram-node node-storage" />
+                    <text x="990" y="905" class="diagram-node-text">GitHub Pages</text>
+                    <text x="990" y="925" class="diagram-sub-text">(Serves videos.json, Assets)</text>
+
+
+                    <!-- Arrows and Connections -->
+                    <!-- Frontend to Backend -->
+                    <line x1="350" y1="125" x2="460" y2="125" class="diagram-arrow arrow-control-flow" />
+                    <text x="405" y="110" class="diagram-line-text">HTTP/S Request (Video/URL)</text>
+
+                    <line x1="350" y1="315" x2="460" y2="115" class="diagram-arrow arrow-control-flow" />
+                    <text x="405" y="210" class="diagram-line-text">Admin Login/Tracker Data (Auth'd)</text>
+
+                    <!-- Backend Internal Flows -->
+                    <line x1="600" y1="160" x2="600" y2="290" class="diagram-arrow arrow-control-flow" />
+                    <text x="610" y="225" class="diagram-line-text">Triggers Processing</text>
+
+                    <line x1="600" y1="360" x2="600" y2="490" class="diagram-arrow arrow-control-flow" />
+                    <text x="610" y="425" class="diagram-line-text">Provides Processed Video</text>
+
+                    <line x1="600" y1="560" x2="600" y2="690" class="diagram-arrow arrow-control-flow" />
+                    <text x="610" y="625" class="diagram-line-text">Admin File Ops (Delete)</text>
+
+                    <line x1="600" y1="760" x2="600" y2="880" class="diagram-arrow arrow-data-flow" />
+                    <text x="610" y="820" class="diagram-line-text">Stores Tracking Data</text>
+
+                    <!-- Backend to External Services -->
+                    <line x1="740" y1="125" x2="850" y2="125" class="diagram-arrow arrow-data-flow" />
+                    <text x="795" y="110" class="diagram-line-text">Proxies HTTP/S</text>
+
+                    <line x1="740" y1="515" x2="850" y2="325" class="diagram-arrow arrow-data-flow" />
+                    <text x="795" y="420" class="diagram-line-text">Uploads Video</text>
+
+                    <line x1="740" y1="525" x2="850" y2="525" class="diagram-arrow arrow-data-flow" />
+                    <text x="795" y="510" class="diagram-line-text">Commits Metadata</text>
+
+                    <!-- Adjusted y-coordinate for "Receives Commands" text -->
+                    <line x1="740" y1="725" x2="850" y2="725" class="diagram-arrow arrow-control-flow" />
+                    <text x="795" y="740" class="diagram-line-text">Receives Commands</text>
+
+                    <!-- External Services to Frontend -->
+                    <line x1="850" y1="915" x2="350" y2="915" class="diagram-arrow arrow-data-flow" />
+                    <text x="600" y="900" class="diagram-line-text">Serves videos.json, Assets</text>
+
+                    <!-- PWA to User Interface -->
+                    <line x1="210" y1="160" x2="210" y2="190" class="diagram-arrow arrow-control-flow" />
+                    <text x="220" y="175" class="diagram-line-text">Enhances Experience</text>
+
+                    <!-- PWA to Local Storage -->
+                    <line x1="210" y1="260" x2="210" y2="880" class="diagram-arrow arrow-data-flow" />
+                    <text x="220" y="570" class="diagram-line-text">Caches Data</text>
+
+                    <!-- Local Storage to User Interface -->
+                    <line x1="210" y1="880" x2="210" y2="160" class="diagram-arrow arrow-data-flow" />
+                    <text x="220" y="520" class="diagram-line-text">Loads Preferences/Session</text>
+
+
+                    <!-- User Node (Outside Sections) -->
+                    <rect x="50" y="500" width="100" height="50" rx="10" ry="10" fill="#E0E0E0" stroke="#FFD700" stroke-width="2" />
+                    <text x="100" y="525" fill="#0B0A0F" font-size="16px" font-weight="bold" text-anchor="middle" dominant-baseline="central">User</text>
+                    
+                    <line x1="150" y1="525" x2="70" y2="125" class="diagram-arrow arrow-control-flow" />
+                    <text x="180" y="320" class="diagram-line-text">Interacts with UI</text>
+
+                    <line x1="100" y1="500" x2="100" y2="160" class="diagram-arrow arrow-control-flow" />
+                    <text x="110" y="330" class="diagram-line-text">Accesses PWA</text>
+
+                    <line x1="100" y1="550" x2="100" y2="880" class="diagram-arrow arrow-control-flow" />
+                    <text x="110" y="715" class="diagram-line-text">Stores Data</text>
+
+                    <!-- Telegram Bot API to User -->
+                    <line x1="850" y1="725" x2="150" y2="525" class="diagram-arrow arrow-telegram" />
+                    <text x="500" y="620" class="diagram-line-text">Telegram Commands/Responses</text>
+
+                </svg>
+            </div>
+
+
+            <h2>Important Notes</h2>
+            <ul>
+                <li><strong><code>ot.py</code> (object_tracker.py) as a Standalone Script:</strong><br/>While this project integrates <code>ot.py</code> into a full web and Telegram bot system, <code>ot.py</code> itself is an independent script. You can use it privately for local video processing without setting up the entire web frontend or Cloudflare Tunnel. Simply run the Python script from your terminal and provide a video file (e.g., <code>python ot.py --input_video your_video.mp4</code>) or just drag and drop the file to the terminal window (no need to provide the flags). The processed video will be saved locally. However, for a richer experience with public access, gallery features, and Telegram bot integration, the full setup is recommended.</li>
+                <li><strong>Backend System Must Be Running:</strong> The entire web application relies on <code>tg.py</code> (telegram.py) running locally and the Cloudflare Tunnel being active. If these are stopped, the tracking functionality will fail.<br/><strong>To bring your backend system back online after stopping it, simply run these two commands (in separate terminal windows) from your project folder:</strong><br/><ol>
+                    <li><strong>Start Cloudflare Tunnel:</strong><br/>
+<div class="code-block-container">
+    <pre><code class="language-bash">sudo /usr/local/bin/cloudflared --config config.yml tunnel run project-glyph-motion-tunnel
+</code></pre>
+    <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+</div>
+<p>(Use <code>python3</code> for Linux/Ubuntu or <code>python</code> for Windows if <code>python3</code> is not the default)</p></li>
+                    <li><strong>Start Backend Orchestrator:</strong><br/>
+<div class="code-block-container">
+    <pre><code class="language-bash">python tg.py
+</code></pre>
+    <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
+</div>
+<p>(Use <code>python3</code> for Linux/Ubuntu or <code>python</code> for Windows if <code>python3</code> is not the default)</p></li>
+                </ol>
+                <p>Once these two commands are running, your backend will be fully operational again, and the "Server Status" indicator on your website (<code>index.html</code>) will turn green, confirming that the backend is running and accessible.</p></li>
+                <li><strong>GPU Requirement for Performance:</strong><br/>The object tracking process in <code>ot.py</code> (object_tracker.py) is computationally intensive. For optimal performance, it is <strong>highly recommended</strong> to run this project on a device with a <strong>dedicated NVIDIA GPU</strong> that supports <strong>CUDA</strong>. Both Windows and Linux operating systems are supported for CUDA.<br/>
+                <ul>
+                    <li><strong>With GPU (CUDA):</strong> In testing with a Ryzen 5 4600H CPU and a GTX 1650 Laptop GPU, processing a 4K video at 24 FPS yielded approximately 12 FPS. For a 1080p video at 24-60 FPS, the processing speed was around 24 FPS.</li>
+                    <li><strong>CPU Only:</strong> If a dedicated GPU with CUDA is not available, the script will automatically fall back to CPU-only processing. While the project will still function, performance will be significantly slower. In testing, CPU-only mode (on the same Ryzen 5 4600H) processed both 4K and 1080p videos at a rate of approximately 1.2-1.6 FPS.</li>
+                </ul>
+                </li>
+                <li><strong>GitHub Pages for <code>videos.json</code> with Private Repository (Crucial for Free Hosting):</strong><br/>The primary setup assumes you are using GitHub Pages to host your <code>videos.json</code> file. This allows for easy updates and sharing of processed video links.<br/><strong>To run this project completely free of cost and keep your GitHub repository private while still having GitHub Pages accessible by anyone, you MUST have a GitHub Education Pack.</strong> This pack grants you access to features like private repositories with GitHub Pages. Without it, a private repository's GitHub Pages would not be publicly accessible, or you would need a public repository, which might not be desired for all projects.<br/>Ensure your GitHub Pages is correctly configured and the repository is public (if you don't have GitHub Education) or private (if you have GitHub Education) if you want the <code>videos.json</code> to be publicly accessible.</li>
+                <li><strong>Cloudflare Tunnel Configuration:</strong> Ensure your <code>config.yml</code> is correctly set up with your tunnel ID, credentials file path, and the correct <code>hostname</code> that points to your local Flask server. Your domain's DNS records in Cloudflare must also be configured to route traffic through the tunnel.</li>
+                <li><strong>Video Processing Time:</strong> Processing large or long videos can take a significant amount of time, depending on your local machine's specifications and internet speed.</li>
+                <li><strong>Google Drive Public Access:</strong> For videos to be embeddable and viewable on your GitHub Pages site, the uploaded videos on Google Drive must be set to public access (read-only). <code>gh.py</code> attempts to do this automatically.</li>
+            </ul>
+
+            <h2>Contributing</h2>
+            <p>Feel free to fork this repository, submit pull requests, or open issues if you find bugs or have suggestions for improvements.</p>
+
+            <h2>License</h2>
+            <p>MIT License © 2025 Sayan Sarkar & Shitij Halder</p>
+
+            <h2>Credits</h2>
+            <p>Made with ❤️ by Sayan and Shitij</p>
+            <p>This project is based on the <a href="https://github.com/ultralytics/ultralytics"
+        class="text-blue-400 hover:underline" target="_blank">Ultralytics YOLOv8(m)</a>,
+        an acclaimed real-time object detection and image segmentation model.
+    </p>
+
+            <h2 id="security-privacy-section">Security and Data Privacy (Admin Tracker)</h2>
+            <p>Before you start exploring this project, you must know a few things regarding data privacy. The Admin Tracking Dashboard (<code>admin_tracker.html</code>) is a core part of this project, designed purely for <strong>security and operational monitoring purposes of the project owner</strong>. It allows the project owner to understand the origin of requests interacting with the backend for debugging, security auditing, and preventing misuse.</p>
+
+            <p><strong>Please note: When you fork this project for your own use, you become the independent "user project owner." This means that the original project owners (Sayan and Shitij) will NOT have any access to any data you process or store on your fork. Your fork operates entirely independently, and the trust for responsible data handling rests with you. Your project's integrity will be built on the trust you potentially gain from your users.</strong></p>
+
+            <p><strong>WE, AS THE ORIGINAL PROJECT OWNERS, NEVER INTEND TO TRACK YOUR USERS' IP ADDRESSES OR THEIR LOCATIONS FOR PERSONAL OR BUSINESS MEANS, NOR WILL WE EVER DO SO. YOUR DATA IS SAFE WITH YOU.</strong></p>
+
+            <p>Please be aware of the following:</p>
+            <ul>
+                <li><strong>When you fork this project for your own use, you become the "user project owner."</strong> With this role comes the full responsibility for handling any user data, including IP addresses and geolocation information, in an ethical and lawful manner.</li>
+                <li><strong>Backend-Only Data:</strong> The IP address and geolocation data collected by the backend are stored locally on the server running <code>tg.py</code> (<code>tracking_data.json</code>). <strong>This sensitive user data is NEVER automatically pushed to GitHub or published anywhere externally.</strong> It remains on your local machine and is only viewable via the <code>admin_tracker.html</code> dashboard when you are logged in as an administrator.</li>
+                <li><strong>Your Responsibility:</strong> As a user of this project, you are provided with tools that <em>could</em> expose sensitive user data if misused. <strong>You must be responsible and ensure that you DO NOT publish, share, or use any of this sensitive data (IP addresses, geolocation information) for your personal gain, business purposes, or any other unethical/illegal means.</strong> The internet is fast these days; one data leak or misuse can lead to severe consequences, including public exposure and legal action. If we discover any misuse of this sensitive data by you, you will be publicly called out, your access to this project and its related services will be permanently revoked, and appropriate legal action may be pursued. <strong>We hope you understand the gravity of this responsibility.</strong></li>
+                <li><strong>Limitations of Geolocation Data:</strong> It's important to understand that current IP-based geolocation APIs (especially free ones) often provide approximate location data. With dynamic IP addresses common for most internet users, it is generally <strong>not possible to get exact, real-time location data or personally identify individuals reliably</strong> using this information. The Google Maps and Google Earth links in the dashboard are primarily for visual representation and a "cool" factor, not for precise tracking or surveillance. They genuinely do not provide significant practical help for nefarious purposes.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="w-full text-center text-slate-500 text-sm font-medium mt-8 py-4 footer-animated">
+        Made with ❤️ by Sayan and Shitij
+    </div>
+    <div class="w-full text-center text-slate-600 text-sm mt-2 mb-4 footer-animated">
+        This project is based on the <a href="https://github.com/ultralytics/ultralytics"
+        class="text-blue-400 hover:underline" target="_blank">Ultralytics YOLOv8(m)</a>,
+        an acclaimed real-time object detection and image segmentation model.
+    </div`>
+
+    <script>
+        // Helper function to convert hex to RGB
+        function hexToRgb(hex) {
+            let r = 0, g = 0, b = 0;
+            if (hex.length === 4) {
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else if (hex.length === 7) {
+                r = parseInt(hex.substring(1, 3), 16);
+                g = parseInt(hex.substring(3, 5), 16);
+                b = parseInt(hex.substring(5, 7), 16);
+            }
+            return { r, g, b };
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const mainContentCard = document.getElementById('mainContentCard');
+            const footerElements = document.querySelectorAll('.footer-animated');
+
+            // Trigger entrance animations
+            mainContentCard.classList.add('animate-in');
+            footerElements.forEach(el => el.classList.add('animate-in'));
+
+            // Go Back button functionality
+            document.getElementById('goBackBtn').addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+
+            // Smooth scroll for anchor links
+            document.querySelectorAll('.smooth-scroll-link').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            });
+
+            // JavaScript for Copy button
+            window.copyCode = function(buttonElement) {
+                const preElement = buttonElement.parentElement.querySelector('pre');
+                if (!preElement) return;
+
+                const codeElement = preElement.querySelector('code');
+                if (!codeElement) return;
+
+                const textToCopy = codeElement.innerText;
+                
+                const textArea = document.createElement('textarea');
+                textArea.value = textToCopy;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    buttonElement.textContent = 'Copied!';
+                    buttonElement.classList.add('copied');
+                    preElement.classList.add('glow-on-copy'); /* Add glow class */
+
+                } catch (err) {
+                    console.error('Failed to copy text:', err);
+                    buttonElement.textContent = 'Failed!';
+                }
+                document.body.removeChild(textArea);
+
+                setTimeout(() => {
+                    buttonElement.textContent = 'Copy';
+                    buttonElement.classList.remove('copied');
+                    preElement.classList.remove('glow-on-copy'); /* Remove glow class */
+                }, 1500);
+            };
+
+            // Ripple effect for buttons
+            document.querySelectorAll('.btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    const btn = this;
+                    btn.classList.remove('clicked');
+                    void btn.offsetWidth;
+                    btn.classList.add('clicked');
+                    setTimeout(() => {
+                        btn.classList.remove('clicked');
+                    }, 600);
+                });
+            });
+
+            // Ambience Mode Logic for individual elements
+            /* Adjusted selector to include warning/info boxes which have their own hover transitions */
+            const ambientElements = document.querySelectorAll('.warning-box[data-ambient-color], .info-box[data-ambient-color], .content-card, pre, .btn');
+
+            // Store original box-shadow for each relevant element
+            // This is needed because the IntersectionObserver overwrites inline style,
+            // and we need to restore the *original* complex box-shadow, not a simplified one.
+            const originalBoxShadows = new Map();
+            ambientElements.forEach(element => {
+                originalBoxShadows.set(element, window.getComputedStyle(element).boxShadow);
+            });
+
+            const observerOptions = {
+                root: null, // viewport
+                rootMargin: '0px',
+                threshold: 0.2 // Trigger when at least 20% of the element is visible
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const element = entry.target;
+                    const ambientColorHex = element.dataset.ambientColor;
+
+                    if (ambientColorHex) {
+                        const { r, g, b } = hexToRgb(ambientColorHex);
+                        // Define the ambient shadow color - subtle, dark, spread out
+                        const ambientShadowColor = `rgba(${r}, ${g}, ${b}, 0.1)`; /* Adjusted alpha for subtlety */
+
+                        if (entry.isIntersecting) {
+                            // Apply a subtle, colored glow as a box-shadow on top of original
+                            element.style.boxShadow = `${originalBoxShadows.get(element)}, 0 0 80px 25px ${ambientShadowColor}`;
+                            element.style.transition = 'box-shadow 0.8s ease-out'; /* Smooth transition for adding glow */
+                        } else {
+                            // Revert to the stored original box-shadow
+                            element.style.boxShadow = originalBoxShadows.get(element);
+                            element.style.transition = 'box-shadow 0.8s ease-in'; /* Smooth transition for removing glow */
+                        }
+                    }
+                });
+            }, observerOptions);
+
+            // Observe all relevant elements for ambient glow
+            ambientElements.forEach(element => {
+                observer.observe(element);
+            });
+        });
+    </script>
+</body>
+</html>

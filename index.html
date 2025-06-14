@@ -1,0 +1,2985 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project GlyphMotion</title>
+    <link rel="icon" type="image/x-icon" href="images/project-glyph-motion.ico">
+    <link rel="manifest" href="manifest.json"> <!-- PWA: Link to manifest file -->
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Define custom cubic-bezier for a more "springy" feel */
+        /* Inspired by Mac-like animations, slightly overshoots and settles */
+        .cubic-ease-in-out {
+            transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1.25); /* More pronounced overshoot for opening */
+        }
+        .cubic-ease-out {
+            transition-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53); /* Snappy closing, slight bounce */
+        }
+        .subtle-spring {
+            transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Gentle spring for small interactions */
+        }
+
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0A0F; /* Very dark background from the new theme */
+            color: #EDEDF3; /* Light text color */
+            position: relative;
+            min-height: 100vh;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+            display: flex;
+            flex-direction: column; /* Changed to column to allow footer at bottom */
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            scroll-behavior: smooth; /* Added for smooth scrolling */
+        }
+
+        /* Background Glow Elements */
+        .background-glow-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -10; /* Behind content */
+            overflow: hidden;
+            pointer-events: none; /* Don't interfere with mouse events */
+        }
+        .glow-element {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.2;
+            mix-blend-mode: screen; /* For vibrant overlay effect */
+            filter: blur(100px); /* Heavy blur */
+            will-change: transform, opacity; /* Optimize animations */
+        }
+        .glow-1 {
+            width: clamp(400px, 60vw, 800px);
+            height: clamp(400px, 60vw, 800px);
+            background: radial-gradient(circle at center, #FDA136 0%, rgba(253, 161, 54, 0) 70%);
+            filter: blur(120px);
+            top: -20%;
+            left: -15%;
+            animation: subtleDrift 35s infinite alternate ease-in-out;
+        }
+        .glow-2 {
+            width: clamp(350px, 50vw, 700px);
+            height: clamp(350px, 50vw, 700px);
+            background: radial-gradient(circle at center, #FF5733 0%, rgba(255, 87, 51, 0) 70%);
+            filter: blur(100px);
+            bottom: -15%;
+            right: -10%;
+            animation: subtleDrift 40s infinite alternate-reverse ease-in-out 2s;
+        }
+        .glow-3 {
+            width: clamp(300px, 40vw, 500px);
+            height: clamp(300px, 40vw, 500px);
+            background: radial-gradient(circle at center, #FF8C00 0%, rgba(255, 140, 0, 0) 70%);
+            filter: blur(90px);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.15;
+            animation: subtlePulse 20s infinite alternate ease-in-out;
+        }
+        /* New glow elements for more depth */
+        .glow-4 {
+            width: clamp(250px, 35vw, 450px);
+            height: clamp(250px, 35vw, 450px);
+            background: radial-gradient(circle at center, #00BFFF 0%, rgba(0, 191, 255, 0) 70%); /* Deep sky blue */
+            filter: blur(110px);
+            top: 10%;
+            right: 5%;
+            animation: subtleDrift 30s infinite alternate-reverse ease-in-out 1s;
+        }
+        .glow-5 {
+            width: clamp(200px, 30vw, 400px);
+            height: clamp(200px, 30vw, 400px);
+            background: radial-gradient(circle at center, #8A2BE2 0%, rgba(138, 43, 226, 0) 70%); /* Blue Violet */
+            filter: blur(95px);
+            bottom: 5%;
+            left: 5%;
+            animation: subtlePulse 25s infinite alternate ease-in-out 3s;
+        }
+
+        @keyframes subtleDrift {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.1; }
+            50% { opacity: 0.25; }
+            100% { transform: translate(calc(8vw - 20px), calc(8vh - 10px)) scale(1.2); opacity: 0.1; }
+        }
+        @keyframes subtlePulse {
+            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.1; }
+            100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.2; }
+        }
+
+        /* Subtle background particle effect */
+        .particle-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -11; /* Even further back */
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .particle {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: particle-fade-move 15s infinite ease-in-out alternate;
+            filter: blur(1px); /* Very subtle blur */
+        }
+        .particle:nth-child(1) { width: 3px; height: 3px; top: 10%; left: 20%; animation-delay: 0s; }
+        .particle:nth-child(2) { width: 2px; height: 2px; top: 30%; left: 50%; animation-delay: 2s; }
+        .particle:nth-child(3) { width: 4px; height: 4px; top: 60%; left: 80%; animation-delay: 4s; }
+        .particle:nth-child(4) { width: 3px; height: 3px; top: 80%; left: 10%; animation-delay: 6s; }
+        .particle:nth-child(5) { width: 2px; height: 2px; top: 40%; left: 90%; animation-delay: 8s; }
+        .particle:nth-child(6) { width: 4px; height: 4px; top: 5%; left: 70%; animation-delay: 10s; }
+        .particle:nth-child(7) { width: 3px; height: 3px; top: 95%; left: 40%; animation-delay: 12s; }
+        .particle:nth-child(8) { width: 2px; height: 2px; top: 70%; left: 30%; animation-delay: 14s; }
+
+        @keyframes particle-fade-move {
+            0% { opacity: 0; transform: translate(0, 0); }
+            20% { opacity: 0.2; }
+            80% { opacity: 0.2; }
+            100% { opacity: 0; transform: translate(10vw, 10vh); }
+        }
+
+
+        /* Main content card styling from template */
+        .content-card {
+            background-color: rgba(10, 10, 15, 0.85); /* Darker background with transparency */
+            border: 1px solid rgba(253, 161, 54, 0.25); /* Orange border from theme */
+            border-radius: 0.75rem;
+            color: #EDEDF3; /* Light text color */
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); /* Stronger shadow for depth */
+            position: relative; /* For z-index */
+            z-index: 10; /* Above glow elements */
+            flex-grow: 1; /* Allow content card to grow */
+            opacity: 0; /* Hidden by default for entrance animation */
+            transform: translateY(20px); /* Start slightly below */
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out; /* Smooth entrance */
+            will-change: opacity, transform; /* Optimize animation */
+        }
+        /* Class added by JS to trigger entrance animation */
+        .content-card.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Page Title specific style from template */
+        .page-title {
+            font-family: 'Press Start 2P', cursive; /* Retro font */
+            font-weight: normal;
+            background: linear-gradient(to right, #FDA136, #FFD700); /* Orange to Gold gradient */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 3px rgba(0,0,0,0.3);
+            line-height: 1.3;
+        }
+
+        /* Glasmorphism effect base class - adjusted for dark theme, applied to specific elements */
+        .glass-effect {
+            background-color: rgba(255, 255, 255, 0.03); /* Very subtle transparency */
+            backdrop-filter: blur(10px); /* Moderate blur */
+            border: 1px solid rgba(255, 255, 255, 0.05); /* Very subtle border */
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Darker, more subtle shadow */
+        }
+
+        /* Info banner styling from template */
+        .info-banner {
+            background-color: rgba(253, 161, 54, 0.1);
+            border: 1px solid rgba(253, 161, 54, 0.3);
+            color: #FED7AA; /* Light orange text */
+            border-left-width: 4px;
+            border-left-color: #FDA136; /* Vibrant orange left border */
+        }
+        /* Specific error banner override */
+        .info-banner.error-banner {
+            background-color: rgba(255, 0, 0, 0.1); /* Red background for errors */
+            border-color: rgba(255, 0, 0, 0.3); /* Red border for errors */
+            border-left-color: #FF5733; /* Vibrant red left border */
+            color: #FFD7D7; /* Lighter red text */
+        }
+        /* Success banner for messages */
+        .info-banner.success-banner {
+            background-color: rgba(52, 211, 153, 0.1); /* Greenish for success */
+            border-color: rgba(52, 211, 153, 0.3);
+            border-left-color: #34D399;
+            color: #C6F6D5; /* Lighter green text */
+        }
+
+
+        /* Hide file input default text */
+        input[type="file"]::file-selector-button {
+            display: none;
+        }
+        
+        /* Input Placeholder Animation */
+        @keyframes placeholderFade {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        input::placeholder {
+            animation: placeholderFade 2s infinite ease-in-out;
+        }
+
+        /* Video Container and Thumbnail Placeholder Styles */
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            border-radius: 0.75rem; /* rounded-xl */
+            background-color: #1A1A1A; /* Dark background for placeholders/loading */
+        }
+
+        /* Added absolute positioning and transitions for smooth fade in/out */
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            opacity: 0; /* Start invisible for fade-in */
+            transition: opacity 0.3s ease-out; /* Smooth transition */
+        }
+
+        .video-thumbnail-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1; /* Start visible for fade-out */
+            transition: opacity 0.3s ease; /* Smooth transition */
+        }
+
+        .video-thumbnail-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Ensures the image covers the area without distortion */
+            border-radius: 0.75rem; /* Match container border-radius */
+        }
+
+        .video-thumbnail-placeholder .play-overlay {
+            position: absolute;
+            inset: 0; /* Shorthand for top, right, bottom, left: 0 */
+            background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent dark overlay */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            transition: background-color 0.3s ease, opacity 0.3s ease;
+            border-radius: 0.75rem; /* Match container border-radius */
+        }
+
+        .video-thumbnail-placeholder:hover .play-overlay {
+            background-color: rgba(0, 0, 0, 0.8); /* Darker on hover */
+        }
+
+        .video-thumbnail-placeholder .play-icon {
+            width: 3.5rem; /* Larger play icon */
+            height: 3.5rem;
+            color: #FDA136; /* Orange color for the icon */
+            filter: drop-shadow(0 0 8px rgba(253, 161, 54, 0.6)); /* Subtle glow for the icon */
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            transform: scale(0.8); /* Start smaller for pop-in */
+            opacity: 0.8; /* Start slightly transparent */
+        }
+
+        .video-thumbnail-placeholder:hover .play-icon {
+            transform: scale(1.1); /* Slightly enlarge icon on hover */
+            opacity: 1; /* Fully opaque on hover */
+        }
+
+        /* --- New Video Loading Shimmer Effect --- */
+        .video-shimmer-loader {
+            position: absolute;
+            inset: 0; /* Cover the entire video container */
+            background-color: #1a1a1a; /* Dark background */
+            border-radius: 0.75rem; /* Match container radius */
+            overflow: hidden; /* Hide overflow of gradient */
+            opacity: 0; /* Start hidden, will fade in */
+            transition: opacity 0.3s ease-out; /* Smooth fade-in of loader */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #a0a0a0; /* Light grey text */
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .video-shimmer-loader.show {
+            opacity: 1;
+        }
+
+        .video-shimmer-loader::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.05) 20%, rgba(255, 255, 255, 0.3) 60%, rgba(255, 255, 255, 0) 100%);
+            transform: translateX(-100%);
+            animation: shimmer 1.5s infinite forwards;
+        }
+
+        @keyframes shimmer {
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+
+        /* Custom button styles from the provided template */
+        .btn {
+            /* Changed transition-all to target transform and box-shadow specifically */
+            @apply font-semibold py-2 px-4 shadow-md transition-transform duration-300 subtle-spring; /* Using custom subtle-spring */
+            border-radius: 10px; /* Applied 5% typish rounded corners */
+            position: relative; /* For ripple effect */
+            overflow: hidden; /* For ripple effect */
+            /* Added transition for box-shadow */
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px) scale(1.02); /* More subtle lift and scale */
+            box-shadow: 0 8px 15px rgba(0,0,0,0.4); /* Deeper shadow on hover */
+        }
+
+        /* Ripple effect for buttons */
+        .btn::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3); /* White ripple */
+            animation: ripple 0.6s linear forwards;
+            opacity: 0;
+            transform: scale(0);
+            pointer-events: none; /* Do not interfere with clicks */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+        }
+        .btn.clicked::after {
+            animation: ripple 0.6s linear forwards;
+        }
+        @keyframes ripple {
+            0% {
+                transform: translate(-50%, -50%) scale(0.1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1.5);
+                opacity: 0;
+            }
+        }
+
+        .btn-custom-primary {
+            @apply bg-gradient-to-br from-orange-500 to-amber-500 text-white focus:ring-orange-400 shadow-orange-600/40 hover:from-orange-600 hover:to-amber-600;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2); /* Thin white outline shadow */
+        }
+        .btn-danger {
+            @apply bg-gradient-to-br from-red-500 to-rose-500 text-white focus:ring-red-400 shadow-red-600/40 hover:from-red-600 hover:to-rose-600;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2); /* Thin white outline shadow */
+        }
+        .btn-neutral { /* New neutral button style for password generator etc. */
+            @apply bg-slate-700 text-slate-200 hover:bg-slate-600 focus:ring-slate-500;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+
+        /* Removed custom focus outline/shadow to use browser default */
+        input:focus,
+        button:focus {
+            outline: auto; /* Re-enable default browser outline */
+            box-shadow: none; /* Ensure no custom box-shadow interferes */
+            transition: none; /* No custom transition for focus */
+        }
+
+
+        /* Server status dot */
+        .status-dot {
+            height: 10px;
+            width: 10px;
+            background-color: #bbb; /* Grey for unknown */
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            transition: background-color 0.3s ease;
+            will-change: background-color, transform, opacity; /* Optimize animation */
+        }
+        /* Pulse animation for status dot */
+        @keyframes pulseDot {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+        .status-dot.online {
+            background-color: #34D399; /* Green */
+            animation: pulseDot 1.5s infinite ease-in-out;
+        }
+        .status-dot.offline {
+            background-color: #EF4444; /* Red */
+        }
+        .status-dot.checking { /* For initial checking state */
+            background-color: #FFD700; /* Gold/Amber */
+            animation: pulseDot 1.5s infinite ease-in-out;
+        }
+
+
+        /* Styles for the toggle buttons */
+        .toggle-btn-style {
+            @apply px-0 py-0 text-xs transition-all duration-300 subtle-spring; /* Using custom subtle-spring */
+            border-radius: 0.375rem; /* Equivalent to rounded-md for slight roundness */
+            background-color: transparent; /* Fully transparent background */
+            color: #FDA136; /* Orange text color */
+            box-shadow: none; /* No shadow */
+            border: 1px solid transparent; /* Ensure a border is always there for smooth transition */
+        }
+        .toggle-btn-style:hover {
+            background-color: rgba(253, 161, 54, 0.1); /* Slight orange tint on hover */
+            border-color: #FDA136; /* Introduce border on hover */
+            transform: translateY(-1px); /* Slight lift on hover */
+        }
+        .separator {
+            color: #FDA116; /* Orange color for the dot */
+            font-size: 1.5rem; /* Make the dot larger */
+            margin: 0 0.25rem; /* Reduced space around the dot */
+        }
+
+        /* Underline style for confirm/cancel buttons individually */
+        .confirm-cancel-underline-btn {
+            border: none;
+            border-bottom: 2px solid #FDA136;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
+            padding-left: 1.25rem;
+            padding-right: 1.25rem;
+            margin-left: 0.25rem;
+            margin-right: 0.25rem;
+            transition: border-color 0.2s ease-out; /* Smooth transition for underline */
+            will-change: border-color; /* Optimize animation */
+        }
+        .confirm-cancel-underline-btn:focus,
+        .confirm-cancel-underline-btn:hover {
+            border-bottom: 2.5px solid #FFD700;
+        }
+
+        /* New styles for the central message overlay */
+        #centralMessageOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent black background */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1002; /* Higher z-index to be above infoModal and confirmationModal */
+            opacity: 0; /* Start hidden */
+            pointer-events: none; /* Allow clicks to pass through when hidden */
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        #centralMessageContent {
+            background-color: rgba(10, 10, 15, 0.95); /* Darker background, slightly more opaque */
+            border: 1px solid rgba(253, 161, 54, 0.5); /* Stronger orange border */
+            border-radius: 0.75rem;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-width: 80%; /* Responsive width */
+            color: #EDEDF3;
+            font-size: 1.25rem; /* Larger font */
+            font-weight: 500;
+            transform: translateY(-20px); /* Start slightly above center */
+            opacity: 0;
+            /* Use custom cubic-bezier for a more responsive feel */
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1.25), opacity 0.4s ease-out;
+            will-change: transform, opacity; /* Optimize animation */
+        }
+
+        #centralMessageOverlay.show {
+            opacity: 1;
+            pointer-events: auto; /* Enable clicks when shown */
+        }
+
+        #centralMessageOverlay.show #centralMessageContent {
+            opacity: 1;
+            transform: translateY(0); /* Slide into center */
+        }
+        /* For closing central message content */
+        #centralMessageOverlay.hide #centralMessageContent {
+            transform: translateY(20px); /* Slide down for closing */
+            opacity: 0;
+            transition: transform 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 0.3s ease-in; /* Snappy closing */
+        }
+
+
+        /* Styles for the top progress bars */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 4px; /* Thin bar */
+            width: 0%;
+            z-index: 1003; /* Highest z-index */
+            transition: width 85s ease-out, opacity 0.3s ease-in-out; /* Smooth animation, 85 seconds */
+            opacity: 0; /* Initially hidden */
+            will-change: width, opacity; /* Optimize animation */
+        }
+
+        #deleteProgressBar {
+            background-color: #FDA136; /* Orange color from your theme */
+        }
+
+        #uploadProgressBar {
+            background-color: #FDA136; /* Orange color, same as delete */
+        }
+
+        /* New style for the outlined logged-in username span */
+        .logged-in-text-outline {
+            border: 1px solid rgba(255, 255, 255, 0.15); /* Thin white border */
+            border-radius: 8px; /* Rounded corners for the text outline */
+            padding: 0.25rem 0.75rem; /* Padding around the text */
+            margin-right: 0.5rem; /* Space between text and logout button */
+            display: inline-block; /* Treat as block to apply padding/border */
+            background-color: rgba(255, 255, 255, 0.03); /* Very subtle background tint */
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05); /* Very subtle outline shadow */
+            transition: all 0.2s ease-out; /* Smooth transition for hover effects */
+        }
+        .logged-in-text-outline:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 0 2px rgba(253, 161, 54, 0.2);
+        }
+
+        /* New styles for glowing and dimmed video cards */
+        /* Animation for the glowing effect */
+        @keyframes glow-pulse {
+            0% {
+                box-shadow: 0 0 5px rgba(253, 161, 54, 0.5), 0 0 10px rgba(253, 161, 54, 0.3);
+            }
+            25% {
+                box-shadow: 0 0 10px rgba(253, 161, 54, 0.6), 0 0 20px rgba(253, 161, 54, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(253, 161, 54, 0.8), 0 0 40px rgba(253, 161, 54, 0.6);
+            }
+            75% {
+                box-shadow: 0 0 10px rgba(253, 161, 54, 0.6), 0 0 20px rgba(253, 161, 54, 0.4);
+            }
+            100% {
+                box-shadow: 0 0 5px rgba(253, 161, 54, 0.5), 0 0 10px rgba(253, 161, 54, 0.3);
+            }
+        }
+
+        /* Style for the glowing card */
+        .video-card.glowing {
+            animation: glow-pulse 2s ease-in-out forwards; /* 2 seconds, then stays at 100% */
+            z-index: 20; /* Ensure it's above dimmed cards */
+            position: relative; /* Needed for z-index to work */
+            transition: box-shadow 0.2s ease-in-out; /* Smooth transition for when it's not glowing */
+            will-change: box-shadow; /* Optimize animation */
+        }
+
+        /* Style for dimmed/blurred cards */
+        .video-card.dimmed {
+            opacity: 0.5; /* Slightly dim */
+            filter: blur(2px); /* Subtle blur */
+            transition: opacity 0.3s ease-in-out, filter 0.3s ease-in-out; /* Smooth transition */
+            pointer-events: none; /* Prevent interaction while dimmed, optional */
+            will-change: opacity, filter; /* Optimize animation */
+        }
+
+        /* Video Gallery Entrance Animation */
+        @keyframes galleryEntrance {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        #videoGallery.animate-in {
+            animation: galleryEntrance 0.7s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Use cubic for springy entrance */
+            animation-delay: 0.3s; /* Delay after main card */
+            will-change: opacity, transform; /* Optimize animation */
+        }
+
+
+        /* Styles for the new Info Modal (Popup) */
+        #infoModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); /* Darker, more opaque background */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000; /* Lower than confirmation/central messages */
+            opacity: 0; /* Start hidden */
+            pointer-events: none; /* Allow clicks to pass through when hidden */
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        #infoModal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        /* New keyframes for confirmation modal pop-in/out */
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            80% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes popOut {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0; }
+        }
+
+        #infoModalContent {
+            /* Adjusted background for ambience effect */
+            background-color: rgba(15, 15, 20, 0.7); /* More transparent for ambience */
+            backdrop-filter: blur(10px); /* Add blur for glass effect */
+            border: 1px solid rgba(255, 255, 255, 0.1); /* Very subtle white outline */
+            border-radius: 0.5rem; /* Slightly less aggressive rounding */
+            padding: 2rem; /* Consistent padding */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            width: clamp(300px, 98vw, 1800px); /* Significantly increased max-width for bigger popup */
+            max-height: 95vh; /* Increased max-height for mobile */
+            overflow-y: auto; /* Allow scrolling if content overflows */
+            color: #EDEDF3;
+            
+            /* Initial state for app-opener-like animation */
+            transform: scale(0); /* Start completely scaled down */
+            opacity: 0; /* Start fully transparent */
+            /* Adjusted cubic-bezier for a more fluid, springy open */
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1.25), opacity 0.4s ease-out; 
+            will-change: transform, opacity; /* Optimize animation */
+            
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        #confirmationModalContent { /* Applies pop-in/out to the confirmation modal */
+            animation: popIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Use cubic for springy entrance */
+            will-change: transform, opacity; /* Optimize animation */
+        }
+        #confirmationModal.closing #confirmationModalContent {
+            animation: popOut 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards; /* Snappy closing */
+        }
+
+
+        #infoModal.show #infoModalContent {
+            opacity: 1;
+            transform: scale(1); /* Expand to full size */
+        }
+
+        /* For closing animation of info modal */
+        #infoModal.closing #infoModalContent {
+            transform: scale(0); /* Scale back down to 0 */
+            opacity: 0;
+            /* Adjusted cubic-bezier for a more fluid, snappy close */
+            transition: transform 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 0.3s ease-in;
+        }
+
+
+        /* Responsive layout for info modal content */
+        @media (min-width: 768px) { /* Medium screens and up */
+            #infoModalContent {
+                flex-direction: row; /* Side-by-side for larger screens */
+                padding: 2.5rem; /* Slightly more padding for larger screens */
+                gap: 2.5rem;
+                max-height: 80vh; /* Reduced max-height for desktop */
+            }
+            .info-modal-video-section {
+                flex: 2; /* Take 2 parts of space */
+                min-width: 50%; /* Ensure video section takes at least 50% on larger screens */
+            }
+
+            .info-modal-details-section {
+                flex: 1; /* Take 1 part of space */
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start; /* Align content to start when commit details are available */
+                padding-top: 0.5rem; /* Adjust padding for better alignment with video section */
+            }
+
+            /* Show buttons inline for desktop within the info modal */
+            .info-modal-buttons {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: flex-start; /* Left-align buttons on desktop */
+                gap: 0.75rem; /* Space between buttons */
+                margin-top: 2rem; /* More space below video section */
+            }
+            .info-modal-mobile-toggle-nav {
+                display: none; /* Hide mobile toggle on desktop */
+            }
+        }
+        
+        /* Mobile-specific styles for the info modal */
+        @media (max-width: 767px) {
+            #infoModalContent {
+                flex-direction: column; /* Stack vertically */
+                max-height: 95vh; /* Allow more height on mobile */
+                padding: 1rem; /* Reduced padding for mobile */
+                gap: 1rem; /* Reduced gap */
+            }
+            .info-modal-close-btn {
+                top: 0.5rem;
+                right: 0.5rem;
+                font-size: 1.8rem;
+                padding: 0.25rem;
+            }
+            .info-modal-buttons {
+                /* On mobile, buttons are part of the main scrollable content, 
+                   but we'll make them full width and stack them. */
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                margin-top: 1rem;
+                width: 100%; /* Full width buttons */
+            }
+            .info-modal-video-section,
+            .info-modal-details-section {
+                width: 100%; /* Full width */
+            }
+            .info-modal-mobile-toggle-nav {
+                display: flex; /* Show mobile toggle on mobile */
+                width: 100%;
+                justify-content: center;
+                gap: 0.5rem;
+                background-color: rgba(25, 25, 30, 0.9); /* Slightly lighter dark background */
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+                margin-bottom: 1rem; /* Space below toggle */
+                position: sticky; /* Make it sticky */
+                top: 0; /* Stick to the top */
+                z-index: 10; /* Above other content when scrolling */
+            }
+            .info-modal-mobile-toggle-btn {
+                flex: 1; /* Distribute space evenly */
+                padding: 0.6rem 0.8rem;
+                font-size: 0.9rem;
+                border-radius: 0.375rem;
+                background-color: rgba(255, 255, 255, 0.05);
+                color: #EDEDF3;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                transition: all 0.2s ease;
+            }
+            .info-modal-mobile-toggle-btn.active {
+                background-color: #FDA136;
+                color: white;
+                border-color: #FFD700;
+                box-shadow: 0 0 8px rgba(253, 161, 54, 0.6);
+            }
+            .info-modal-mobile-toggle-btn:hover {
+                background-color: rgba(253, 161, 54, 0.2);
+            }
+
+            /* Hide/show sections based on active toggle on mobile */
+            .info-modal-video-section.hidden-on-mobile,
+            .info-modal-details-section.hidden-on-mobile {
+                display: none;
+            }
+        }
+
+        .info-modal-close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            color: #EDEDF3;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease, transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1.25); /* Smooth transform on hover */
+            will-change: background-color, transform; /* Optimize animation */
+        }
+
+        .info-modal-close-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: rotate(90deg);
+        }
+
+        /* --- New Professional Commit Details Styling --- */
+        .commit-detail-group {
+            margin-bottom: 1.5rem; /* More space between groups */
+        }
+        .commit-detail-group:last-of-type {
+            margin-bottom: 0;
+        }
+
+        .commit-detail-label {
+            @apply text-sm font-semibold text-orange-300; /* Stronger orange for labels */
+            display: block; /* Ensure label is on its own line */
+            margin-bottom: 0.25rem; /* Small space between label and value */
+        }
+
+        .commit-detail-value {
+            @apply text-base text-white break-words; /* Pure white for values, allow word break */
+        }
+
+        /* Individual commit detail items */
+        .commit-item {
+            background-color: rgba(255, 255, 255, 0.04); /* Subtle background for distinction */
+            border-radius: 0.375rem; /* Rounded corners */
+            padding: 1rem 1.25rem; /* Ample padding */
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); /* Soft shadow */
+            transition: all 0.2s ease-in-out; /* Smooth transitions for hover */
+            border: 1px solid rgba(255, 255, 255, 0.08); /* Light border */
+            opacity: 0; /* Hidden for staggered fade-in */
+            transform: translateY(10px); /* Start slightly below for slide-in */
+            animation: fadeInAndSlightSlide 0.5s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Applied by JS with delay */
+            will-change: transform, opacity; /* Optimize animation */
+        }
+        .commit-item:hover {
+            background-color: rgba(255, 255, 255, 0.07); /* Slightly darker on hover */
+            transform: translateY(-2px); /* Slight lift on hover */
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Enhanced shadow on hover */
+        }
+
+        /* Keyframe for staggered fade-in of commit items */
+        @keyframes fadeInAndSlightSlide {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Specific styling for SHA to make it look like a hash */
+        .sha-container { /* This is the flex container for SHA text and icon */
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            font-size: 0.9rem;
+            color: #B0B0B0;
+            user-select: none;
+            background-color: rgba(0, 0, 0, 0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.2rem;
+            display: flex; /* Use flexbox to position text and icon */
+            justify-content: space-between; /* Push icon to the right */
+            align-items: center;
+            cursor: pointer;
+            word-break: break-all; /* Allow breaking long SHA strings */
+            position: relative; /* For copy icon positioning */
+            transition: all 0.2s ease-out; /* Smooth transition for hover effects */
+        }
+        .sha-container:hover {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .sha-container .actual-sha-text {
+            word-break: break-all; /* Ensure SHA text breaks within its container */
+        }
+
+        .copy-icon {
+            color: #71717A; /* Neutral gray for icon */
+            font-size: 0.8rem;
+            opacity: 0.7;
+            transition: color 0.2s ease-in-out, opacity 0.2s ease-in-out, transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1.275); /* Transition for color, opacity, and springy transform */
+            flex-shrink: 0; /* Prevent icon from shrinking */
+            margin-left: 0.5rem; /* Space between SHA and icon */
+        }
+        .sha-container:hover .copy-icon { /* Hover on the whole container */
+            opacity: 1;
+            color: #FDA136; /* Orange on hover */
+            transform: scale(1.1); /* Slight lift on hover */
+        }
+        .copy-icon.copied-success {
+            color: #34D399 !important; /* Force green color */
+            opacity: 1 !important; /* Force full opacity */
+            transform: scale(1.2) !important; /* Slight bounce/enlarge on success */
+        }
+
+
+        /* Style for commit message block */
+        .commit-message-block {
+            background-color: rgba(0, 0, 0, 0.3); /* Dark background for message */
+            border: 1px solid rgba(255, 255, 255, 0.1); /* Light border */
+            border-radius: 0.375rem; /* Rounded corners */
+            padding: 1.5rem; /* Generous padding */
+            margin-top: 1.25rem; /* Space from previous element */
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem; /* Readable font size */
+            color: #E0E0E0; /* Light gray text */
+            line-height: 1.8; /* Increased line height for readability */
+            white-space: pre-wrap; /* Preserve formatting and break lines naturally */
+            word-break: break-word; /* Ensure long words break */
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.4); /* Deeper inner inner shadow */
+            opacity: 0; /* Hidden for staggered fade-in */
+            transform: translateY(10px); /* Start slightly below for slide-in */
+            animation: fadeInAndSlightSlide 0.5s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Applied by JS with delay */
+            will-change: transform, opacity; /* Optimize animation */
+        }
+
+        /* New Popup Title Style (Left Aligned) */
+        .popup-title-font {
+            font-family: 'Inter', sans-serif; /* Keep Inter for modern feel */
+            font-weight: 700; /* Bold */
+            font-size: 2.25rem; /* Larger title */
+            color: #FFD700; /* A strong gold/amber color */
+            text-align: left; /* Align to left */
+            margin-bottom: 1.5rem; /* More space below title */
+            position: relative;
+            padding-bottom: 0.5rem; /* For the underline effect */
+            display: inline-block; /* Allows auto width based on content */
+            max-width: 100%; /* Ensure it doesn't overflow */
+            opacity: 0; /* Hidden for slide-in animation */
+            transform: translateY(-20px); /* Start above for slide-in */
+            animation: headerSlideIn 0.5s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Use cubic for springy entrance */
+            will-change: transform, opacity; /* Optimize animation */
+        }
+        /* Keyframe for header slide-in */
+        @keyframes headerSlideIn {
+            0% { opacity: 0; transform: translateY(-20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Subtle underline effect for the title */
+        .popup-title-font::after {
+            content: '';
+            display: block;
+            width: 100%; /* Make it span the width of the text */
+            margin-left: 0; /* Remove negative margin to align with left edge */
+            height: 3px;
+            background: linear-gradient(to right, #FDA136, #FFD700); /* Gradient underline */
+            margin-top: 0.5rem; /* Space above underline */
+            border-radius: 2px;
+            box-shadow: 0 0 8px rgba(253, 161, 54, 0.7); /* Soft glow for underline */
+        }
+
+
+        /* Refined "No commit information" message style */
+        .info-modal-error-message {
+            background-color: rgba(255, 140, 0, 0.06); /* Very subtle orange tint */
+            border: 1px solid rgba(255, 140, 0, 0.15); /* Soft orange border */
+            border-left-width: 4px;
+            border-left-color: #FF8C00; /* Stronger orange for left accent */
+            color: #FED7AA; /* Light orange text */
+            padding: 1.75rem; /* More generous padding */
+            border-radius: 0.5rem;
+            display: flex;
+            flex-direction: column; /* Stack icon and text vertically */
+            align-items: center;
+            justify-content: center;
+            gap: 1rem; /* More space between icon and text */
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3); /* Deeper, softer shadow */
+            font-size: 1.15rem; /* Slightly larger and more readable */
+            line-height: 1.5;
+            opacity: 0; /* Hidden for fade-in */
+            transform: translateY(10px); /* Start slightly below for slide-in */
+            animation: fadeInAndSlightSlide 0.5s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Apply animation */
+            will-change: transform, opacity; /* Optimize animation */
+        }
+        .info-modal-error-message svg {
+            color: #FDA136; /* Orange color for the icon */
+            width: 3rem; /* Even larger icon */
+            height: 3rem;
+            margin-bottom: 0.5rem; /* Space below icon */
+            filter: drop-shadow(0 0 5px rgba(253, 161, 54, 0.5)); /* Subtle glow for icon */
+        }
+
+        /* Ensure .info-modal-details-section content is left-aligned by default */
+        .info-modal-details-section {
+            text-align: left; /* Ensures all direct text and inline blocks are left-aligned */
+        }
+
+        /* For the "No commit information" case specifically, ensure text remains centered if it's the only content */
+        .info-modal-details-section.no-commit-info-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Center horizontally for this specific content */
+            text-align: center; /* Center text within lines for this specific content */
+            justify-content: center; /* Center vertically */
+            height: 100%; /* Ensure it takes full height to center */
+        }
+
+        /* Footer animation */
+        .footer-animated {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+            will-change: opacity, transform; /* Optimize animation */
+        }
+        .footer-animated.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        /* Password generation and update styles */
+        .password-toggle-container {
+            position: relative;
+        }
+        .password-toggle-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%; /* Adjusted from admin.html to fix vertical alignment */
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #9CA3AF;
+            margin-top: 0.25rem; /* Small adjustment for visual alignment */
+        }
+
+        /* PWA Install Prompt Styles */
+        #pwaInstallPrompt {
+            position: fixed;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(10, 10, 15, 0.95);
+            border: 1px solid rgba(253, 161, 54, 0.5);
+            border-radius: 0.75rem;
+            padding: 1rem 1.5rem;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            color: #EDEDF3;
+            font-size: 1rem;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            z-index: 1001; /* Above general content, below central messages/modals */
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            max-width: 90%; /* Responsive width */
+            will-change: opacity, transform;
+        }
+
+        #pwaInstallPrompt.show {
+            display: flex;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        #pwaInstallPrompt.hide {
+            opacity: 0;
+            transform: translateX(-50%) translateY(20px); /* Slide down when hiding */
+        }
+
+        #pwaInstallPrompt .install-button {
+            @apply bg-gradient-to-br from-orange-500 to-amber-500 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+        }
+        #pwaInstallPrompt .dismiss-button {
+            @apply text-slate-400 hover:text-slate-200 transition-colors duration-200;
+            padding: 0.5rem;
+            background: none;
+            border: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        @media (min-width: 640px) { /* sm breakpoint */
+            #pwaInstallPrompt {
+                flex-direction: row;
+                justify-content: space-between;
+                max-width: 600px; /* Wider on larger screens */
+                padding: 1rem 2rem;
+            }
+            #pwaInstallPrompt p {
+                margin-bottom: 0; /* Remove margin-bottom when inline */
+                flex-grow: 1; /* Allow text to take space */
+                text-align: left; /* Align text left */
+            }
+            #pwaInstallPrompt .button-group {
+                display: flex;
+                gap: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen py-8 px-4">
+    <div id="deleteProgressBar" class="progress-bar"></div>
+    <div id="uploadProgressBar" class="progress-bar"></div>
+
+
+    <div class="background-glow-container">
+        <div class="glow-element glow-1"></div>
+        <div class="glow-element glow-2"></div>
+        <div class="glow-element glow-3"></div>
+        <div class="glow-element glow-4"></div> <div class="glow-element glow-5"></div> </div>
+
+    <div class="particle-container">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+
+    <div id="mainContentCard" class="container mx-auto max-w-7xl content-card p-8 md:p-10 shadow-2xl relative z-10">
+        <header class="mb-8 text-center relative">
+            <h1 class="text-3xl sm:text-4xl md:text-4xl page-title mb-6">Project GlyphMotion</h1>
+            <p class="text-center text-slate-300 mb-4">
+                Upload a video or provide a URL to track objects.
+            </p>
+            <p id="serverStatus" class="text-center text-slate-300 text-sm font-medium flex items-center justify-center mb-2">
+                <span id="statusDot" class="status-dot"></span>
+                Server Status: <span id="statusText">Checking...</span>
+            </p>
+            <div id="adminControls" class="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
+                <span id="loggedInUsername" class="text-sm font-medium text-orange-300 hidden"></span>
+                <button id="adminLogoutBtn" class="btn btn-danger text-sm py-1 px-3 hidden">Logout</button>
+                <button id="adminLoginBtn" class="btn btn-custom-primary text-sm py-1 px-3 hidden">Admin Login</button>
+                <a href="admin_tracker.html" id="adminTrackerLink" class="btn btn-custom-primary text-sm py-1 px-3 hidden">Admin Tracker</a>
+                <button id="changePasswordBtn" class="btn btn-custom-primary text-sm py-1 px-3 hidden">Change Password</button>
+                <button id="logoutAllAdminsBtn" class="btn btn-danger text-sm py-1 px-3 hidden">Logout All Admins</button>
+            </div>
+            <a href="documentation.html" class="btn btn-custom-primary py-2 px-4 text-sm ml-4">
+            <i class="fas fa-book mr-2"></i> View Documentation
+        </a>
+        </header>
+
+        <div class="space-y-6">
+            <div>
+                <label for="videoUrl" class="block text-sm font-medium text-slate-300 mb-2">
+                    Video URL
+                </label>
+                <input type="url" id="videoUrl" name="videoUrl" placeholder="e.g., https://example.com/my_video.mp4"
+                       class="mt-1 block w-full px-4 py-2 border border-orange-500/40 bg-slate-800 text-EDEDF3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-150 ease-in-out text-sm placeholder-slate-400 shadow-inner"
+                       oninput="document.getElementById('videoFile').value = '';"> 
+            </div>
+
+            <div class="relative flex py-5 items-center">
+                <div class="flex-grow border-t border-orange-500/40"></div>
+                <span class="flex-shrink mx-4 text-slate-300">OR</span>
+                <div class="flex-grow border-t border-orange-500/40"></div>
+            </div>
+
+            <div>
+                <label for="videoFile" class="block text-sm font-medium text-slate-300 mb-2">
+                    Upload Video File
+                </label>
+                <label class="block w-full px-4 py-2 border border-orange-500/40 rounded-lg shadow-sm cursor-pointer bg-slate-800 hover:bg-slate-700/70 flex items-center justify-between transition duration-150 ease-in-out">
+                    <span id="fileNameDisplay" class="text-slate-400 flex-1 truncate pr-2">No file chosen</span>
+                    <input type="file" id="videoFile" name="videoFile" accept="video/*" class="sr-only"
+                           onchange="document.getElementById('fileNameDisplay').textContent = this.files[0] ? this.files[0].name : 'No file chosen'; document.getElementById('videoUrl').value = '';"> 
+                    <span class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary">
+                        Browse
+                    </span>
+                </label>
+            </div>
+
+            <button id="trackButton"
+                    class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-lg font-medium bg-gradient-to-br from-orange-500 to-amber-500 text-white focus:ring-orange-400 shadow-orange-600/40 hover:from-orange-600 hover:to-amber-600 transition-all duration-200 ease-in-out transform hover:scale-103 focus:outline-none focus:ring-2 focus:ring-opacity-75">
+                Start Tracking
+            </button>
+
+            <!-- New Frame Restriction Info Banner -->
+            <div id="frameRestrictionInfo" class="mt-4 p-4 info-banner rounded-lg hidden text-sm flex items-start">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-orange-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd" /></svg>
+                <p id="frameRestrictionMessage" class="font-medium"></p>
+            </div>
+
+        </div>
+
+        <div id="statusArea" class="mt-8 p-4 info-banner rounded-lg hidden text-sm flex items-start">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-orange-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd" /></svg>
+            <p id="statusMessage" class="font-medium"></p>
+        </div>
+
+        <div id="errorArea" class="mt-4 p-4 info-banner error-banner rounded-lg hidden text-sm flex items-start">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-red-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94l-1.72-1.72Z" clip-rule="evenodd" /></svg>
+            <p id="errorMessage" class="font-medium"></p>
+        </div>
+
+        <div id="liveProcessingStatus" class="mt-4 p-3 text-center text-slate-400 text-sm glass-effect rounded-lg hidden">
+            <p id="liveStatusMessage">Idle. Upload a video to start tracking.</p>
+        </div>
+
+        <!-- Admin Password Change Section -->
+        <div id="passwordChangeSection" class="mt-12 pt-8 border-t border-orange-500/30 hidden">
+            <h2 class="text-3xl font-bold page-title drop-shadow-lg text-center mb-6">Change Password</h2>
+            <form id="changePasswordForm" class="space-y-6">
+                <div class="password-toggle-container">
+                    <label for="currentPasswordInput" class="block text-sm font-medium text-slate-300 mb-2">
+                        Current Password
+                    </label>
+                    <input type="password" id="currentPasswordInput" name="currentPassword" placeholder="Enter current password"
+                           class="mt-1 block w-full px-4 py-2 border border-orange-500/40 bg-slate-800 text-EDEDF3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-150 ease-in-out text-sm placeholder-slate-400 shadow-inner"
+                           required>
+                    <span class="password-toggle-icon" id="toggleCurrentPassword">
+                        <i class="fas fa-eye"></i>
+                    </span>
+                </div>
+                <div class="password-toggle-container">
+                    <label for="newPasswordInput" class="block text-sm font-medium text-slate-300 mb-2">
+                        New Password
+                    </label>
+                    <input type="password" id="newPasswordInput" name="newPassword" placeholder="Enter new password"
+                           class="mt-1 block w-full px-4 py-2 border border-orange-500/40 bg-slate-800 text-EDEDF3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-150 ease-in-out text-sm placeholder-slate-400 shadow-inner"
+                           required>
+                    <span class="password-toggle-icon" id="toggleNewPassword">
+                        <i class="fas fa-eye"></i>
+                    </span>
+                </div>
+                <div class="password-toggle-container">
+                    <label for="confirmNewPasswordInput" class="block text-sm font-medium text-slate-300 mb-2">
+                        Confirm New Password
+                    </label>
+                    <input type="password" id="confirmNewPasswordInput" name="confirmNewPassword" placeholder="Confirm new password"
+                           class="mt-1 block w-full px-4 py-2 border border-orange-500/40 bg-slate-800 text-EDEDF3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-150 ease-in-out text-sm placeholder-slate-400 shadow-inner"
+                           required>
+                    <span class="password-toggle-icon" id="toggleConfirmNewPassword">
+                        <i class="fas fa-eye"></i>
+                    </span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button type="button" id="generatePasswordBtn" class="btn btn-neutral text-sm px-4 py-2 flex-shrink-0">
+                        Generate Password
+                    </button>
+                    <input type="text" id="generatedPasswordDisplay" readonly
+                           class="flex-grow px-4 py-2 border border-slate-600 bg-slate-800 text-slate-400 rounded-lg text-sm truncate"
+                           placeholder="Generated password">
+                </div>
+                <button type="submit" id="updatePasswordButton"
+                        class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-lg font-medium btn-custom-primary">
+                    Update Password
+                </button>
+            </form>
+            <div id="passwordChangeStatusMessage" class="mt-4 p-4 info-banner error-banner rounded-lg hidden text-sm flex items-start">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-red-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94l-1.72-1.72Z" clip-rule="evenodd" /></svg>
+                <p id="passwordChangeMessageText" class="font-medium"></p>
+            </div>
+        </div>
+        <!-- End Admin Password Change Section -->
+
+        <div class="mt-12 pt-8 border-t border-orange-500/30" id="processedVideosSection">
+            <div class="relative flex flex-col sm:flex-row justify-center items-center mb-2">
+                <h2 class="text-3xl font-bold page-title drop-shadow-lg text-center">
+                    Processed Videos
+                </h2>
+            </div>
+            <div class="flex items-center space-x-0 justify-center mb-6">
+                <button id="toggleViewModeButton" class="toggle-btn-style hidden lg:block">
+                    Enlarge View
+                </button>
+                <span class="separator hidden lg:block">&bull;</span>
+                <button id="toggleLayoutButton" class="toggle-btn-style hidden lg:block">
+                    Show 2 Videos per Row
+                </button>
+            </div>
+            <div id="videoGallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <p id="noVideosMessage" class="text-center text-slate-400 col-span-full">No processed videos yet. Start tracking one!</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="w-full text-center text-slate-500 text-sm font-medium mt-8 py-4 footer-animated">
+        Made with ❤️ by Sayan and Shitij
+    </div>
+    <div class="w-full text-center text-slate-600 text-sm mt-2 mb-4 footer-animated">
+        This project is based on the <a href="https://github.com/ultralytics/ultralytics"
+        class="text-blue-400 hover:underline">Ultralytics YOLO v8(m)</a>,
+        an acclaimed real-time object detection and image segmentation model.
+    </div>
+
+    <div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[1005] hidden">
+        <div id="confirmationModalContent" class="bg-slate-800 p-6 rounded-lg shadow-xl border border-orange-500/40 max-w-sm mx-4 text-center">
+            <p id="confirmationMessage" class="text-white text-lg mb-6"></p>
+            <div class="flex justify-center">
+                <button id="confirmBtn" class="btn btn-danger confirm-cancel-underline-btn">Confirm</button>
+                <button id="cancelBtn" class="btn btn-custom-primary confirm-cancel-underline-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="centralMessageOverlay" class="hidden z-[1004]">
+        <div id="centralMessageContent">
+            <p id="centralMessageText"></p>
+        </div>
+    </div>
+
+    <div id="infoModal" class="hidden">
+        <div id="infoModalContent">
+            <button id="infoModalCloseBtn" class="info-modal-close-btn">&times;</button>
+            
+            <div class="info-modal-mobile-toggle-nav">
+                <button id="mobileToggleVideoBtn" class="info-modal-mobile-toggle-btn active">Video</button>
+                <button id="mobileToggleDetailsBtn" class="info-modal-mobile-toggle-btn">Details</button>
+            </div>
+
+            <div class="info-modal-video-section">
+                <div class="video-container mb-4" id="infoModalVideoContainer">
+                    </div>
+                <div id="infoModalActionButtons" class="flex flex-wrap gap-2 justify-content: flex-start; mt-auto">
+                    </div>
+            </div>
+            <div id="infoModalDetailsSection" class="info-modal-details-section hidden-on-mobile">
+                </div>
+        </div>
+    </div>
+
+    <!-- PWA Install Prompt (New Element) -->
+    <div id="pwaInstallPrompt">
+        <p class="text-white">🚀 Install GlyphMotion as an app for quick access!</p>
+        <div class="button-group">
+            <button class="install-button">Install App</button>
+            <button class="dismiss-button">No, thanks</button>
+        </div>
+    </div>
+
+
+    <script>
+        const videoUrlInput = document.getElementById('videoUrl');
+        const videoFileInput = document.getElementById('videoFile');
+        const trackButton = document.getElementById('trackButton');
+        const statusArea = document.getElementById('statusArea');
+        const statusMessage = document.getElementById('statusMessage');
+        const errorArea = document.getElementById('errorMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const videoGallery = document.getElementById('videoGallery');
+        const noVideosMessage = document.getElementById('noVideosMessage');
+        const liveProcessingStatusDiv = document.getElementById('liveProcessingStatus');
+        const liveStatusMessage = document.getElementById('liveStatusMessage');
+        const serverStatusText = document.getElementById('statusText');
+        const statusDot = document.getElementById('statusDot');
+        const toggleLayoutButton = document.getElementById('toggleLayoutButton');
+        const toggleViewModeButton = document.getElementById('toggleViewModeButton');
+        const mainContentCard = document.getElementById('mainContentCard');
+        const footerElements = document.querySelectorAll('.footer-animated'); /* Select all footer elements */
+
+        // Admin related elements
+        const adminLoginBtn = document.getElementById('adminLoginBtn');
+        const adminLogoutBtn = document.getElementById('adminLogoutBtn');
+        const loggedInUsernameSpan = document.getElementById('loggedInUsername'); // New element
+        const adminControlsDiv = document.getElementById('adminControls'); // Get the new container
+        const adminTrackerLink = document.getElementById('adminTrackerLink'); // New element for the tracker link
+        const changePasswordBtn = document.getElementById('changePasswordBtn'); // New button for password change
+        const logoutAllAdminsBtn = document.getElementById('logoutAllAdminsBtn'); // New button for master admin logout
+
+        // Password Change Section elements
+        const passwordChangeSection = document.getElementById('passwordChangeSection');
+        const changePasswordForm = document.getElementById('changePasswordForm');
+        const currentPasswordInput = document.getElementById('currentPasswordInput');
+        const newPasswordInput = document.getElementById('newPasswordInput');
+        const confirmNewPasswordInput = document.getElementById('confirmNewPasswordInput');
+        const toggleCurrentPassword = document.getElementById('toggleCurrentPassword');
+        const toggleNewPassword = document.getElementById('toggleNewPassword');
+        const toggleConfirmNewPassword = document.getElementById('toggleConfirmNewPassword');
+        const generatePasswordBtn = document.getElementById('generatePasswordBtn');
+        const generatedPasswordDisplay = document.getElementById('generatedPasswordDisplay');
+        const updatePasswordButton = document.getElementById('updatePasswordButton');
+        const passwordChangeStatusMessage = document.getElementById('passwordChangeStatusMessage');
+        const passwordChangeMessageText = document.getElementById('passwordChangeMessageText');
+
+        // New elements for Frame Restriction
+        const frameRestrictionInfo = document.getElementById('frameRestrictionInfo');
+        const frameRestrictionMessage = document.getElementById('frameRestrictionMessage');
+
+
+        let isAdminLoggedIn = false; // State to track admin login status
+        let loggedInUsername = '';
+        let isAdminMaster = false; // New state to track if the logged in user is a master admin
+        let sessionTimeoutEnabled = false;
+        let sessionDurationDays = 0;
+        let frameRestrictionEnabled = false; // Default frame restriction state
+        let frameRestrictionValue = 0; // Default frame restriction value
+
+
+        // Central message elements
+        const centralMessageOverlay = document.getElementById('centralMessageOverlay');
+        const centralMessageText = document.getElementById('centralMessageText');
+        const centralMessageContent = document.getElementById('centralMessageContent'); // Added for central message content animation
+
+        // Configuration for how long central messages are displayed (in milliseconds)
+        const CENTRAL_MESSAGE_DISPLAY_DURATION_MS = 5000; // 5 seconds
+
+
+        // Progress bar elements
+        const deleteProgressBar = document.getElementById('deleteProgressBar');
+        const uploadProgressBar = document.getElementById('uploadProgressBar');
+
+        // New Info Modal elements
+        const infoModal = document.getElementById('infoModal');
+        const infoModalCloseBtn = document.getElementById('infoModalCloseBtn');
+        const infoModalVideoContainer = document.getElementById('infoModalVideoContainer');
+        const infoModalActionButtons = document.getElementById('infoModalActionButtons'); // New element for buttons in modal
+        const infoModalDetailsSection = document.getElementById('infoModalDetailsSection'); // The right side section
+        const mobileToggleVideoBtn = document.getElementById('mobileToggleVideoBtn');
+        const mobileToggleDetailsBtn = document.getElementById('mobileToggleDetailsBtn');
+        const infoModalContent = document.getElementById('infoModalContent'); // Get info modal content for animations
+        
+        let infoModalVideoTitle = ''; // To store the video title for the popup header
+
+
+        // Flag to prevent upload progress bar from restarting on every poll
+        let isUploadProgressBarRunning = false;
+
+        // Global variable to keep track of the currently playing video iframe
+        let currentlyPlayingVideoElement = null;
+
+
+        // IMPORTANT: This should now be your custom domain for GitHub Pages
+        const GITHUB_PAGES_REPO_URL = 'https://projectglyphmotion.studio/';
+        const VIDEOS_JSON_PATH = 'videos.json';
+        const POLLING_INTERVAL_VIDEOS = 10000; // Poll videos.json every 10 seconds
+        const POLLING_INTERVAL_STATUS = 2000; // Poll live status every 2 seconds
+        const POLLING_INTERVAL_SERVER_HEALTH = 5000; // Poll server health every 5 seconds (new)
+
+        // IMPORTANT: This should be your custom domain for the backend tunnel
+        const NGROK_PUBLIC_URL = 'https://home.projectglyphmotion.studio'; // This value is updated by web_server_public.py
+
+        const LOCAL_API_ENDPOINT = NGROK_PUBLIC_URL + '/process_web_video';
+        const LOCAL_STATUS_ENDPOINT = NGROK_PUBLIC_URL + '/status';
+        const LOCAL_DELETE_ENDPOINT = NGROK_PUBLIC_URL + '/delete_video'; // New endpoint for deletion
+        const LOCAL_COMMIT_INFO_ENDPOINT = NGROK_PUBLIC_URL + '/get_github_commit_info'; // New endpoint for commit info
+        const LOCAL_LOGOUT_ENDPOINT = NGROK_PUBLIC_URL + '/logout'; // New endpoint for logout
+        const LOCAL_LOGOUT_ALL_ADMINS_ENDPOINT = NGROK_PUBLIC_URL + '/logout_all_admins'; // New endpoint for master logout
+        const LOCAL_UPDATE_CREDENTIALS_ENDPOINT = NGROK_PUBLIC_URL + '/update_credentials'; // New endpoint for password update
+
+
+        let lastFetchedVideos = [];
+        let isThreeColumnLayout = true; // Default to 3 columns for video gallery
+        let isCompactView = true; // Default to compact view for the main box
+
+        // Master Admin Usernames (Frontend reference for UI logic - backend validates definitively)
+        // This list must match the MASTER_ADMIN_USERNAMES set in tg.py for UI elements to show correctly.
+        const MASTER_ADMIN_USERNAMES_FRONTEND = ["SHITIJ.dev", "sayann70"]; // FIX: Added "sayann70" to the frontend list.
+
+
+        // Check if device is mobile based on screen width
+        function isMobile() {
+            return window.innerWidth <= 767; /* Matches Tailwind's 'md' breakpoint - 1 */
+        }
+
+        // Helper function to make authenticated fetch requests
+        async function authenticatedFetch(url, options = {}) {
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                // If no token, redirect to login page
+                showCentralMessage('Session expired or not logged in. Please log in again.', true);
+                setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
+                throw new Error('Not authenticated');
+            }
+
+            const headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${token}`
+            };
+
+            const response = await fetch(url, { ...options, headers });
+
+            // If response is 401, token is invalid/expired, force re-login
+            if (response.status === 401) {
+                showCentralMessage('Session expired or invalid. Please log in again.', true);
+                clearAdminSession(); // Clear local storage items
+                setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
+                throw new Error('Authentication failed');
+            }
+
+            return response;
+        }
+
+        function clearAdminSession() {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUsername');
+            localStorage.removeItem('sessionTimeoutEnabled');
+            localStorage.removeItem('sessionDurationDays');
+            isAdminLoggedIn = false;
+            loggedInUsername = '';
+            isAdminMaster = false; // Reset master admin status
+        }
+
+
+        function showStatus(message) {
+            statusMessage.textContent = message;
+            statusArea.classList.remove('hidden', 'error-banner', 'success-banner');
+            statusArea.classList.add('info-banner'); // Ensure it's info-banner by default
+            errorArea.classList.add('hidden');
+            console.log('Status: ' + message);
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorArea.classList.remove('hidden');
+            errorArea.classList.remove('info-banner', 'success-banner');
+            errorArea.classList.add('error-banner'); // Ensure it's error-banner
+            statusArea.classList.add('hidden');
+            console.error('Error: ' + message);
+        }
+
+        function showPasswordChangeMessage(message, isError = true) {
+            passwordChangeMessageText.textContent = message;
+            passwordChangeStatusMessage.classList.remove('hidden');
+            if (isError) {
+                passwordChangeStatusMessage.classList.add('error-banner');
+                passwordChangeStatusMessage.classList.remove('success-banner');
+                passwordChangeStatusMessage.querySelector('svg').innerHTML = `<path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94l-1.72-1.72Z" clip-rule="evenodd" />`;
+            } else {
+                passwordChangeStatusMessage.classList.remove('error-banner');
+                passwordChangeStatusMessage.classList.add('success-banner');
+                passwordChangeStatusMessage.querySelector('svg').innerHTML = `<path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" />`;
+            }
+        }
+
+
+        // Function to display a central temporary message
+        function showCentralMessage(message, isError = false) {
+            centralMessageText.innerHTML = message; // Use innerHTML for potential HTML tags
+            
+            // Remove 'hide' class and add 'show' to trigger popIn animation
+            centralMessageOverlay.classList.remove('hide');
+            centralMessageOverlay.classList.add('show');
+
+            if (isError) {
+                centralMessageContent.style.borderColor = 'rgba(255, 87, 51, 0.5)'; /* Red border for errors */
+                centralMessageContent.style.color = '#FFD7D7'; /* Lighter red text */
+            } else {
+                centralMessageContent.style.borderColor = 'rgba(253, 161, 54, 0.5)'; /* Orange border for success */
+                centralMessageContent.style.color = '#EDEDF3'; /* Light text color */
+            }
+
+            // Hide the message after a few seconds with closing animation
+            setTimeout(() => {
+                centralMessageOverlay.classList.add('hide'); // Add 'hide' to trigger popOut animation
+                setTimeout(() => {
+                    centralMessageOverlay.classList.remove('show', 'hide'); // Fully hide after animation
+                }, 300); // Match hide animation duration
+            }, CENTRAL_MESSAGE_DISPLAY_DURATION_MS); // Use the new configurable duration
+        }
+
+        // Function to start a specific progress bar animation
+        function startProgressBar(type) {
+            let progressBar;
+            if (type === 'upload') {
+                progressBar = uploadProgressBar;
+            } else if (type === 'delete') {
+                progressBar = deleteProgressBar;
+            } else {
+                console.error("Invalid progress bar type:", type);
+                return;
+            }
+
+            progressBar.style.opacity = '1';
+            progressBar.style.width = '0%'; // Ensure it starts from 0
+            console.log(`Progress bar (${type}): setting opacity to 1 and width to 0%`);
+
+            // Use a small delay to ensure the transition is visible from 0%
+            setTimeout(() => {
+                progressBar.style.width = '100%'; // Start animation
+                console.log(`Progress bar (${type}): starting width animation to 100%`);
+            }, 50); // Small delay
+
+            // Schedule the progress bar to hide after its full animation duration
+            setTimeout(() => {
+                progressBar.style.opacity = '0';
+                // Reset width after opacity transition for next use
+                setTimeout(() => {
+                    progressBar.style.width = '0%';
+                }, 300); // Small delay to allow opacity transition to complete
+            }, 85000); // Hide after 85 seconds (full animation duration: 1 minute 25 seconds)
+        }
+
+
+        // Function to format Unix timestamp to a readable date/time (12-hour format)
+        function formatTimestamp(unixTimestamp) {
+            if (!unixTimestamp) return 'N/A';
+            const date = new Date(unixTimestamp * 1000); // Convert seconds to milliseconds
+            const options = {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric',
+                second: 'numeric',
+                hour12: true // This ensures 12-hour format with AM/PM
+            };
+            return date.toLocaleString(undefined, options); // 'undefined' uses the user's default locale
+        }
+
+        /**
+     * Stops the currently playing video (if any) and reverts its container to a thumbnail.
+     * This function now handles smooth fading and ensures robust element removal/addition.
+     * @param {HTMLElement} videoContainerElement The .video-container element that holds the iframe or thumbnail.
+     * @param {string} googleDriveFileId The Google Drive File ID for the thumbnail.
+     * @param {string} originalEmbedUrl The original embed URL (from videos.json) to store for future play.
+     */
+    function stopAndRevertVideo(videoContainerElement, googleDriveFileId, originalEmbedUrl) {
+        const iframe = videoContainerElement.querySelector('iframe');
+        const existingLoader = videoContainerElement.querySelector('.video-shimmer-loader');
+        
+        // Remove any existing iframe and loader with a fade-out effect
+        if (iframe) {
+            iframe.style.opacity = '0'; // Start fade out for iframe
+            setTimeout(() => {
+                if (iframe.parentNode) {
+                    iframe.remove();
+                }
+            }, 300); // Match CSS transition duration
+        }
+        if (existingLoader) {
+            existingLoader.style.opacity = '0'; // Start fade out for loader
+            setTimeout(() => {
+                if (existingLoader.parentNode) {
+                    existingLoader.remove();
+                }
+            }, 300); // Match CSS transition duration
+        }
+
+        // Always create a new thumbnail and append it. This ensures we have a fresh element
+        // that can be consistently interacted with, especially after gallery re-renders.
+        const thumbnailPlaceholder = document.createElement('div');
+        thumbnailPlaceholder.className = 'video-thumbnail-placeholder absolute top-0 left-0 w-full h-full';
+        thumbnailPlaceholder.setAttribute('data-embed-url', originalEmbedUrl);
+        thumbnailPlaceholder.setAttribute('data-file-id', googleDriveFileId);
+        const thumbnailUrl = googleDriveFileId ? `https://drive.google.com/thumbnail?id=${googleDriveFileId}` : `images/thumbnail_fallback.jpg`;
+        thumbnailPlaceholder.innerHTML = `
+            <img src="${thumbnailUrl}" alt="Video thumbnail" class="w-full h-full object-cover rounded-lg"
+                 onerror="this.onerror=null;this.src='images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
+                            <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+        `;
+        thumbnailPlaceholder.style.opacity = '0'; // Start invisible for fading in
+        thumbnailPlaceholder.style.transition = 'opacity 0.3s ease-out'; // Smooth fade-in transition
+        videoContainerElement.appendChild(thumbnailPlaceholder);
+
+        // Now fade it in after a small delay to allow previous elements to fade out gracefully
+        setTimeout(() => {
+            thumbnailPlaceholder.style.opacity = '1';
+        }, 300); // Match fade out duration of iframe/loader
+
+        // Crucially, re-attach event listener to this new thumbnail.
+        thumbnailPlaceholder.addEventListener('click', handleThumbnailClick);
+
+        // If the iframe being stopped was the globally tracked one, clear the reference
+        if (currentlyPlayingVideoElement === iframe) {
+            currentlyPlayingVideoElement = null;
+        }
+    }
+
+    /**
+     * Handles the click on a video thumbnail, stopping previous video and playing the new one.
+     * This function now handles smooth fading and adds a shimmer loader, with improved element management.
+     * @param {Event} event The click event.
+     */
+    function handleThumbnailClick(event) {
+        const clickedThumbnail = event.currentTarget; // This is the thumbnail that was clicked
+        const videoContainer = clickedThumbnail.closest('.video-container');
+        const originalEmbedUrl = clickedThumbnail.dataset.embedUrl;
+        const fileId = clickedThumbnail.dataset.fileId;
+
+        // Stop and revert any currently playing video, if it's not the one being clicked
+        if (currentlyPlayingVideoElement && currentlyPlayingVideoElement.closest('.video-container') !== videoContainer) {
+            const prevVideoContainer = currentlyPlayingVideoElement.closest('.video-container');
+            // Retrieve data-attributes directly from the iframe itself, which is the currentlyPlayingVideoElement
+            const prevEmbedUrl = currentlyPlayingVideoElement.dataset.embedUrl;
+            const prevFileId = currentlyPlayingVideoElement.dataset.fileId;
+            stopAndRevertVideo(prevVideoContainer, prevFileId, prevEmbedUrl);
+        }
+
+        // Fade out the clicked thumbnail immediately and then remove it.
+        // This ensures the thumbnail is gone before the new video starts loading,
+        // preventing any potential race conditions if `iframe.onload` is delayed.
+        clickedThumbnail.style.opacity = '0'; // Initiate fade-out
+        setTimeout(() => {
+            if (clickedThumbnail.parentNode) { // Check if it still has a parent before removing
+                clickedThumbnail.remove();
+            }
+        }, 50); // Small delay to allow CSS transition to kick in before element is removed.
+
+        // Create and append the shimmer loader
+        const shimmerLoader = document.createElement('div');
+        shimmerLoader.className = 'video-shimmer-loader show'; // Start visible
+        shimmerLoader.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Loading Video...'; // Add a spinner
+        videoContainer.appendChild(shimmerLoader);
+
+        // Create and append the new iframe
+        const iframe = document.createElement('iframe');
+        iframe.src = originalEmbedUrl; // Use the original embed URL for the iframe
+        iframe.setAttribute('allow', 'fullscreen; picture-in-picture; web-share');
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.setAttribute('frameborder', '0');
+        // Store data attributes on the iframe itself for later retrieval when stopping
+        iframe.setAttribute('data-file-id', fileId);
+        iframe.setAttribute('data-embed-url', originalEmbedUrl);
+        iframe.classList.add('w-full', 'h-full', 'absolute', 'top-0', 'left-0');
+        iframe.style.opacity = '0'; // Start invisible for fade-in
+
+        // Append iframe to the container
+        videoContainer.appendChild(iframe);
+
+        // Listen for the iframe to load
+        iframe.onload = () => {
+            // Fade out the shimmer loader and fade in the iframe
+            shimmerLoader.style.opacity = '0';
+            iframe.style.opacity = '1';
+            iframe.style.transition = 'opacity 0.3s ease-out'; // Apply transition here
+
+            // After transitions, remove the shimmer loader
+            setTimeout(() => {
+                if (shimmerLoader.parentNode) {
+                    shimmerLoader.remove();
+                }
+            }, 300); // Match transition duration
+        };
+
+        currentlyPlayingVideoElement = iframe; // Set the new active video
+    }
+
+
+        function renderVideos(videos) {
+            videoGallery.innerHTML = '';
+            if (videos.length === 0) {
+                noVideosMessage.classList.remove('hidden');
+            } else {
+                noVideosMessage.classList.add('hidden');
+            }
+
+            videos.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+            videos.forEach(video => {
+                /* Generate a unique ID for each video card based on its Google Drive File ID */
+                const videoCardId = `video-${video.googleDriveFileId}`;
+                const videoCard = document.createElement('div');
+                /* Add a class name for easier selection during highlighting/dimming */
+                videoCard.className = 'video-card glass-effect p-4 rounded-lg shadow-sm border border-white border-opacity-10 flex flex-col';
+                videoCard.id = videoCardId; /* Set the ID for smooth scrolling */
+                
+
+                /* Construct the Google Drive thumbnail URL, using a robust fallback */
+                const thumbnailUrl = video.googleDriveFileId ? `https://drive.google.com/thumbnail?id=${video.googleDriveFileId}` : `images/thumbnail_fallback.jpg`;
+
+                /* Create the video container with the thumbnail placeholder initially */
+                videoCard.innerHTML = `
+                    <p class="text-sm text-slate-300 mb-4 flex-grow">
+                        Object tracking results for
+                        <span class="font-semibold text-white text-base break-words">${video.title || 'Processed Video'}</span>
+                        uploaded on <span class="text-orange-300 font-medium">${formatTimestamp(video.timestamp)}</span>.
+                    </p>
+                    <div class="video-container mb-4">
+                        <div class="video-thumbnail-placeholder" 
+                             data-embed-url="${video.embedUrl}" 
+                             data-file-id="${video.googleDriveFileId}">
+                            <img src="${thumbnailUrl}" 
+                                 alt="Video thumbnail for ${video.title || 'Processed Video'}" 
+                                 onerror="this.onerror=null;this.src='images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
+                                <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mt-auto">
+                        <a href="${video.downloadUrl || video.embedUrl}" target="_blank" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary">
+                            Download / View Full
+                        </a>
+                        <button class="share-video-btn inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary" data-video-id="${video.googleDriveFileId}">
+                            Share
+                        </button>
+                        ${isAdminLoggedIn ? `
+                        <button class="info-video-btn inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary" data-file-id="${video.googleDriveFileId}" data-commit-sha="${video.commitSha || ''}" data-video-title="${video.title}" data-embed-url="${video.embedUrl}" data-download-url="${video.downloadUrl}">
+                            Info
+                        </button>
+                        <button class="delete-video-btn inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-danger" data-file-id="${video.googleDriveFileId}" data-video-title="${video.title}" data-upload-date="${formatTimestamp(video.timestamp)}">
+                            Delete
+                        </button>` : ''}
+                    </div>
+                `;
+                videoGallery.appendChild(videoCard);
+            });
+
+            /* Add event listeners for play buttons (thumbnails) */
+            document.querySelectorAll('.video-thumbnail-placeholder').forEach(thumbnail => {
+                thumbnail.addEventListener('click', handleThumbnailClick);
+            });
+
+            /* Add event listeners for share buttons */
+            document.querySelectorAll('.share-video-btn').forEach(button => {
+                button.addEventListener('click', handleShareButtonClick);
+            });
+
+            /* Add event listeners for delete buttons if admin is logged in */
+            if (isAdminLoggedIn) {
+                document.querySelectorAll('.delete-video-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const fileId = event.target.dataset.fileId;
+                        const videoTitle = event.target.dataset.videoTitle;
+                        const uploadDate = event.target.dataset.uploadDate; /* Get the upload date */
+                        
+                        /* Using a custom modal for confirmation */
+                        showConfirmationModal(
+                            `Are you sure you want to delete:<br><b>"${videoTitle}"</b><br>Uploaded on: ${uploadDate}<br><br>This action cannot be undone.`,
+                            () => {
+                                startProgressBar('delete'); /* Start delete progress bar */
+                                deleteVideo(fileId, videoTitle);
+                            }
+                        );
+                    });
+                });
+
+                /* Add event listeners for new Info buttons */
+                document.querySelectorAll('.info-video-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const fileId = event.target.dataset.fileId;
+                        const commitSha = event.target.dataset.commitSha;
+                        const videoTitle = event.target.dataset.videoTitle; /* Title for popup */
+                        const embedUrl = event.target.dataset.embedUrl; /* Embed URL for popup video */
+                        const downloadUrl = event.target.dataset.downloadUrl; /* Download URL for popup video */
+
+                        const originX = event.clientX; // Get click X coordinate
+                        const originY = event.clientY; // Get click Y coordinate
+
+                        showInfoModal(fileId, commitSha, videoTitle, embedUrl, downloadUrl, originX, originY);
+                    });
+                });
+            }
+            // Trigger gallery entrance animation after rendering
+            videoGallery.classList.add('animate-in');
+        }
+
+        /* Function to handle sharing a video link */
+        function handleShareButtonClick(event) {
+            const videoId = event.target.dataset.videoId;
+            /* Construct the current page URL with the video ID as a hash */
+            const shareUrl = `${window.location.origin}${window.location.pathname}#video-${videoId}`;
+            
+            /* Try to copy to clipboard */
+            const tempInput = document.createElement('textarea');
+            tempInput.value = shareUrl;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            let copySuccess = false;
+            try {
+                copySuccess = document.execCommand('copy');
+            } catch (err) {
+                console.error('Failed to copy text:', err);
+            }
+            document.body.removeChild(tempInput);
+
+            if (copySuccess) {
+                /* Show success message centrally */
+                showCentralMessage('Link copied to clipboard!<br>You can share it now.', false);
+            } else {
+                showCentralMessage('Failed to copy link. Please copy manually: ' + shareUrl, true);
+            }
+        }
+
+
+        /* Function to update the grid layout based on the isThreeColumnLayout state */
+        function updateVideoGalleryLayout() {
+            /* Remove existing grid classes */
+            videoGallery.classList.remove('md:grid-cols-2', 'lg:grid-cols-3');
+
+            /* Add appropriate grid classes based on the current layout mode */
+            if (isThreeColumnLayout) {
+                videoGallery.classList.add('md:grid-cols-2', 'lg:grid-cols-3');
+                toggleLayoutButton.textContent = 'Show 2 Videos per Row';
+            } else {
+                videoGallery.classList.add('md:grid-cols-2'); /* Keep 2 columns for medium screens */
+                toggleLayoutButton.textContent = 'Show 3 Videos per Row';
+            }
+        }
+
+        /* Function to update the main content card size based on isCompactView state */
+        function updateViewModeLayout() {
+            mainContentCard.classList.remove('max-w-7xl', 'max-w-full'); /* Remove both */
+            if (isCompactView) {
+                mainContentCard.classList.add('max-w-7xl'); /* Current compact size */
+                toggleViewModeButton.textContent = 'Enlarge View';
+            } else {
+                mainContentCard.classList.add('max-w-full'); /* Wider, enlarged view */
+                toggleViewModeButton.textContent = 'Compact View';
+            }
+        }
+
+        async function fetchVideos() {
+            const url = `${GITHUB_PAGES_REPO_URL}${VIDEOS_JSON_PATH}?t=${new Date().getTime()}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        console.warn(`${VIDEOS_JSON_PATH} not found at ${url}. This is normal if no videos have been processed yet.`);
+                        return [];
+                    }
+                    throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+                }
+                const videos = await response.json();
+                return videos;
+            }
+            catch (error) {
+                console.error('Error fetching videos.json:', error.message);
+                showError(`Failed to load processed videos. Please check the console for details and ensure your GitHub Pages URL is correct.`);
+                return [];
+            }
+        }
+
+        async function pollForNewVideos() {
+            const currentVideos = await fetchVideos();
+            if (JSON.stringify(currentVideos) !== JSON.stringify(lastFetchedVideos)) {
+                console.log('New videos detected! Updating gallery.');
+                lastFetchedVideos = currentVideos; /* Update before rendering to prevent re-render loop */
+                
+                /* Before rendering new videos, stop any playing video */
+                if (currentlyPlayingVideoElement) {
+                    const prevVideoContainer = currentlyPlayingVideoElement.closest('.video-container');
+                    const prevEmbedUrl = currentlyPlayingVideoElement.src;
+                    const prevFileIdMatch = prevEmbedUrl.match(/embed\?id=([a-zA-Z0-9_-]+)/); /* Look for file ID from embed?id format */
+                    const prevFileId = prevFileIdMatch ? prevFileIdMatch[1] : null;
+
+                    if (prevVideoContainer && prevFileId) {
+                         /* Pass the original embed URL (without autoplay/mute) to stopAndRevertVideo */
+                        const cleanPrevEmbedUrl = `https://drive.google.com/embed?id=${prevFileId}`;
+                        stopAndRevertVideo(prevVideoContainer, prevFileId, cleanPrevEmbedUrl);
+                    }
+                }
+                renderVideos(currentVideos);
+                /* After rendering, check if a video ID is in the URL hash and scroll to it */
+                if (window.location.hash) {
+                    const targetId = window.location.hash.substring(1); /* Remove '#' */
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        /* Use a timeout to ensure the element is rendered and the page layout is stable */
+                        setTimeout(() => {
+                            targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            
+                            /* Apply glow and blur effect */
+                            const allVideoCards = document.querySelectorAll('.video-card');
+                            allVideoCards.forEach(card => {
+                                if (card.id === targetId) {
+                                    card.classList.add('glowing');
+                                } else {
+                                    card.classList.add('dimmed');
+                                }
+                            });
+
+                            /* Remove effect after 2 seconds */
+                            setTimeout(() => {
+                                allVideoCards.forEach(card => {
+                                    card.classList.remove('glowing', 'dimmed');
+                                });
+                                /* Clear the hash from the URL so it doesn't re-trigger on refresh */
+                                history.replaceState(null, '', window.location.pathname + window.location.search);
+                            }, 2000); /* 2 seconds */
+                        }, 500); /* Small delay to allow rendering and smooth scroll to initiate */
+                    } else {
+                        /* Show message if video card not found */
+                        showCentralMessage(`Error: Video with ID '${targetId.replace('video-', '')}' not found.<br>It might have been deleted or the link is invalid.`, true);
+                        /* Clear the hash from the URL even if not found */
+                        history.replaceState(null, '', window.location.pathname + window.location.search);
+                    }
+                }
+            }
+        }
+
+        /* Function to poll for live processing status */
+        async function pollForProcessingStatus() {
+            try {
+                const response = await fetch(LOCAL_STATUS_ENDPOINT);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                // Update frame restriction values
+                frameRestrictionEnabled = data.frameRestrictionEnabled;
+                frameRestrictionValue = data.frameRestrictionValue;
+
+                if (frameRestrictionEnabled) {
+                    frameRestrictionMessage.textContent = `Video processing is restricted to videos with up to ${frameRestrictionValue} frames. Larger videos will be rejected due to excessive resource usage. Why should you only have fun, let others have fun too.`;
+                    frameRestrictionInfo.classList.remove('hidden');
+                } else {
+                    frameRestrictionInfo.classList.add('hidden');
+                }
+
+
+                if (data.status) {
+                    liveStatusMessage.textContent = data.status;
+                    liveProcessingStatusDiv.classList.remove('hidden');
+
+                    /* Check for the specific success message to start the upload progress bar */
+                    if (data.status.includes('Object tracking and GitHub Pages update complete!') && !isUploadProgressBarRunning) {
+                        startProgressBar('upload');
+                        isUploadProgressBarRunning = true; /* Set flag to prevent re-triggering */
+                    } else if (!data.status.includes('Object tracking and GitHub Pages update complete!') && isUploadProgressBarRunning) {
+                        /* Reset flag if status changes from the completion message (e.g., a new process starts) */
+                        isUploadProgressBarRunning = false;
+                    }
+
+                } else {
+                    liveProcessingStatusDiv.classList.add('hidden');
+                    isUploadProgressBarRunning = false; /* Reset if status is empty/not present */
+                }
+            } catch (error) {
+                console.error('Error fetching live status:', error.message);
+                liveStatusMessage.textContent = 'Error fetching live status. Is the local server running?';
+                liveProcessingStatusDiv.classList.remove('hidden'); /* Show error status */
+                isUploadProgressBarRunning = false; /* Reset on error */
+            }
+        }
+
+        /* New function to check backend server health */
+        async function checkServerHealth() {
+            try {
+                const response = await fetch(LOCAL_STATUS_ENDPOINT, { method: 'HEAD' }); /* Use HEAD request for efficiency */
+                if (response.ok) {
+                    serverStatusText.textContent = 'Online';
+                    statusDot.classList.remove('offline', 'checking');
+                    statusDot.classList.add('online');
+                } else {
+                    serverStatusText.textContent = 'Offline';
+                    statusDot.classList.remove('online', 'checking');
+                    statusDot.classList.add('offline');
+                }
+            } catch (error) {
+                serverStatusText.textContent = 'Offline';
+                statusDot.classList.remove('online', 'checking');
+                statusDot.classList.add('offline');
+                console.error('Error checking server health:', error.message);
+            }
+        }
+
+        /* Function to handle video deletion */
+        async function deleteVideo(fileId, videoTitle) {
+            /* Show central message immediately */
+            showCentralMessage(`Initiating deletion for <b>"${videoTitle}"</b>...`);
+            
+            /* Hide the regular status/error areas as the central message is now primary */
+            statusArea.classList.add('hidden');
+            errorArea.classList.add('hidden');
+
+            /* If the video being deleted is currently playing, stop and revert it */
+            if (currentlyPlayingVideoElement) {
+                const currentEmbedUrl = currentlyPlayingVideoElement.src;
+                const currentFileIdMatch = currentEmbedUrl.match(/embed\?id=([a-zA-Z0-9_-]+)/);
+                const currentFileId = currentFileIdMatch ? currentFileIdMatch[1] : null;
+                if (currentFileId === fileId) {
+                    /* Remove the iframe entirely as the video is being deleted */
+                    currentlyPlayingVideoElement.closest('.video-container').innerHTML = `<div class="absolute inset-0 flex items-center justify-center text-slate-400">Video Deleted</div>`;
+                    currentlyPlayingVideoElement = null;
+                }
+            }
+
+
+            try {
+                const response = await authenticatedFetch(LOCAL_DELETE_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ googleDriveFileId: fileId })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Unknown error during deletion.');
+                }
+
+                const responseData = await response.json();
+                /* Show success message centrally */
+                showCentralMessage(`<b>"${videoTitle}"</b> has been deleted.<br>The gallery will update shortly.`, false);
+                
+                /* Trigger a refresh of videos, which will eventually hide the central message */
+                /* as the polling for live status will take over or the status will reset. */
+                pollForNewVideos();
+            } catch (error) {
+                console.error('Error deleting video:', error);
+                /* Show error message centrally */
+                showCentralMessage(`Failed to delete <b>"${videoTitle}"</b>:<br>${error.message}`, true);
+            }
+        }
+
+        /* Custom confirmation modal (replaces alert/confirm) */
+        function showConfirmationModal(message, onConfirm) { /* Removed isShare parameter */
+            let modal = document.getElementById('confirmationModal');
+            let modalContent = document.getElementById('confirmationModalContent');
+
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'confirmationModal';
+                modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[1005] hidden';
+                modal.innerHTML = `
+                    <div id="confirmationModalContent" class="bg-slate-800 p-6 rounded-lg shadow-xl border border-orange-500/40 max-w-sm mx-4 text-center">
+                        <p id="confirmationMessage" class="text-white text-lg mb-6"></p>
+                        <div class="flex justify-center">
+                            <button id="confirmBtn" class="btn btn-danger confirm-cancel-underline-btn">Confirm</button>
+                            <button id="cancelBtn" class="btn btn-custom-primary confirm-cancel-underline-btn">Cancel</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modalContent = document.getElementById('confirmationModalContent'); // Get the newly created content element
+            }
+
+            document.getElementById('confirmationMessage').innerHTML = message;
+            modal.classList.remove('hidden', 'closing'); // Ensure it's visible and not in closing state
+            modalContent.style.animation = 'popIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards'; // Apply popIn animation
+
+            const confirmBtn = document.getElementById('confirmBtn');
+            const cancelBtn = document.getElementById('cancelBtn');
+            
+            // Re-assign listeners to avoid multiple bindings
+            confirmBtn.onclick = null;
+            cancelBtn.onclick = null;
+            modal.onclick = null; // Clear previous outer click listener
+            modalContent.onclick = null; // Clear previous content click listener
+
+            confirmBtn.onclick = () => {
+                closeConfirmationModal(); // Use the new close function
+                onConfirm();
+            };
+
+            cancelBtn.onclick = () => {
+                closeConfirmationModal(); // Use the new close function
+            };
+
+            // Close when clicking outside content area
+            modal.onclick = (event) => {
+                if (event.target === modal) {
+                    closeConfirmationModal();
+                }
+            };
+            modalContent.onclick = (event) => { event.stopPropagation(); }; // Prevent clicks on content from closing
+
+            // Reset to default for delete confirmation (since isShare is removed)
+            confirmBtn.textContent = 'Confirm';
+            cancelBtn.textContent = 'Cancel';
+            confirmBtn.classList.remove('btn-custom-primary');
+            confirmBtn.classList.add('btn-danger');
+            cancelBtn.classList.remove('btn-danger');
+            cancelBtn.classList.add('btn-custom-primary');
+        }
+
+        function closeConfirmationModal() {
+            const modal = document.getElementById('confirmationModal');
+            const modalContent = document.getElementById('confirmationModalContent');
+            modal.classList.add('closing'); // Add closing class to trigger popOut
+            modalContent.style.animation = 'popOut 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards'; // Apply popOut animation
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('closing'); // Clean up closing class
+                // Ensure the animation property is cleared after it finishes
+                modalContent.style.animation = '';
+            }, 300); // Match animation duration
+        }
+
+        /* Function to copy text to clipboard */
+        function copyToClipboard(text, iconElement) {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            textArea.select();
+            let copySuccess = false;
+            try {
+                copySuccess = document.execCommand('copy');
+            } catch (err) {
+                console.error('Failed to copy text:', err);
+            }
+            document.body.removeChild(tempInput);
+
+            if (copySuccess) {
+                iconElement.classList.add('copied-success');
+                iconElement.classList.remove('fa-copy');
+                iconElement.classList.add('fa-check'); /* Change icon to checkmark */
+                setTimeout(() => {
+                    iconElement.classList.remove('copied-success');
+                    iconElement.classList.remove('fa-check');
+                    iconElement.classList.add('fa-copy'); /* Revert icon to copy */
+                }, 1500);
+            } else {
+                iconElement.classList.remove('fa-copy');
+                iconElement.classList.add('fa-times'); /* Change icon to X for failure */
+                iconElement.style.color = '#EF4444'; /* Red color for failure */
+                setTimeout(() => {
+                    iconElement.classList.remove('fa-times');
+                    iconElement.classList.add('fa-copy'); /* Revert icon to copy */
+                    iconElement.style.color = ''; /* Reset color */
+                }, 1500);
+            }
+        }
+
+        /* New function to show the Info modal */
+        function showInfoModal(fileId, commitSha, videoTitle, embedUrl, downloadUrl, originX, originY) {
+            // Remove closing class to allow open animation to play
+            infoModal.classList.remove('closing');
+            infoModal.classList.add('show');
+
+            // Set transform-origin based on click coordinates for the app-opener effect
+            if (originX !== undefined && originY !== undefined) {
+                infoModalContent.style.transformOrigin = `${originX}px ${originY}px`;
+            } else {
+                // Fallback to center if coordinates are not provided
+                infoModalContent.style.transformOrigin = 'center center';
+            }
+
+            /* Clear previous content */
+            infoModalVideoContainer.innerHTML = '';
+            infoModalActionButtons.innerHTML = ''; /* Clear action buttons */
+            infoModalDetailsSection.innerHTML = ''; /* Clear details section content */
+            infoModalDetailsSection.classList.remove('no-commit-info-content'); // Remove centering class
+
+            /* Set video in modal (reusing the same thumbnail/iframe logic) */
+            /* Use the fallback image if fileId is not available for thumbnail */
+            const thumbnailUrl = fileId ? `https://drive.google.com/thumbnail?id=${fileId}` : `images/thumbnail_fallback.jpg`; // Use project's fallback image
+            const infoModalVideoHtml = `
+                <div class="video-thumbnail-placeholder" 
+                        data-embed-url="${embedUrl}" 
+                        data-file-id="${fileId}">
+                    <img src="${thumbnailUrl}" 
+                            alt="Video thumbnail for ${videoTitle}" 
+                            onerror="this.onerror=null;this.src='images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
+                                <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
+                </div>
+            `;
+            infoModalVideoContainer.innerHTML = infoModalVideoHtml;
+            /* Attach click listener to the newly created thumbnail in the modal */
+            infoModalVideoContainer.querySelector('.video-thumbnail-placeholder').addEventListener('click', handleThumbnailClick);
+
+            /* Add action buttons to the modal (desktop only) */
+            const downloadButton = document.createElement('a');
+            downloadButton.href = downloadUrl || embedUrl;
+            downloadButton.target = '_blank';
+            downloadButton.className = 'inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary';
+            downloadButton.textContent = 'Download / View Full';
+
+            const shareButton = document.createElement('button');
+            shareButton.className = 'share-video-btn inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary';
+            shareButton.textContent = 'Share';
+            shareButton.dataset.videoId = fileId; /* Pass video ID for sharing */
+            shareButton.addEventListener('click', handleShareButtonClick);
+
+            infoModalActionButtons.appendChild(downloadButton);
+            infoModalActionButtons.appendChild(shareButton);
+
+            if (isAdminLoggedIn) {
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'delete-video-btn inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-danger';
+                deleteButton.textContent = 'Delete';
+                deleteButton.dataset.fileId = fileId;
+                deleteButton.dataset.videoTitle = videoTitle;
+                /* Since timestamp isn't directly available here, we omit data-upload-date */
+                deleteButton.addEventListener('click', (event) => {
+                    const fileIdToDelete = event.target.dataset.fileId;
+                    const videoTitleToDelete = event.target.dataset.videoTitle;
+                    /* For consistency with main gallery, we can try to fetch the timestamp if needed */
+                    /* For now, it will be "N/A" in the confirmation, which is acceptable */
+                    showConfirmationModal(
+                        `Are you sure you want to delete:<br><b>"${videoTitleToDelete}"</b><br><br>This action cannot be undone.`,
+                        () => {
+                            startProgressBar('delete');
+                            deleteVideo(fileIdToDelete, videoTitleToDelete);
+                            infoModal.classList.remove('show'); /* Close modal after initiating delete */
+                        }
+                    );
+                });
+                infoModalActionButtons.appendChild(deleteButton);
+            }
+
+
+            /* Fetch commit details if SHA exists */
+            if (commitSha) {
+                fetchCommitInfo(commitSha, infoModalDetailsSection);
+            } else {
+                /* If no commit info, display a left-aligned message */
+                infoModalDetailsSection.innerHTML = `
+                    <h3 class="popup-title-font">Commit Details</h3>
+                    <div class="info-modal-error-message mt-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94l-1.72-1.72Z" clip-rule="evenodd" /></svg>
+                        <p class="font-medium">No GitHub commit information available for this video.<br>It might have been uploaded before this feature was enabled.</p>
+                    </div>
+                `;
+                infoModalDetailsSection.classList.add('no-commit-info-content'); /* Add class for centering */
+            }
+
+            // Set initial state for mobile toggle
+            if (isMobile()) {
+                infoModalVideoContainer.parentElement.classList.remove('hidden-on-mobile');
+                infoModalDetailsSection.classList.add('hidden-on-mobile');
+                mobileToggleVideoBtn.classList.add('active');
+                mobileToggleDetailsBtn.classList.remove('active');
+            } else {
+                // Ensure both are visible on desktop (default)
+                infoModalVideoContainer.parentElement.classList.remove('hidden-on-mobile');
+                infoModalDetailsSection.classList.remove('hidden-on-mobile');
+            }
+        }
+
+        /* Function to fetch commit info from backend */
+        async function fetchCommitInfo(commitSha, targetElement) {
+            /* Keep left-aligned for all details */
+            targetElement.innerHTML = `
+                <h3 class="popup-title-font">Commit Details</h3>
+                <div id="commitInfoLoading" class="info-modal-loading-message">
+                    <i class="fas fa-spinner fa-spin mr-2"></i> Fetching commit details...
+                </div>
+                <div id="commitInfoError" class="info-modal-error-message hidden">
+                    <p id="commitInfoErrorMessage"></p>
+                </div>
+                <div id="commitDetailsDisplay" class="space-y-4 hidden">
+                    <div class="commit-item">
+                        <div class="commit-detail-group">
+                            <p class="commit-detail-label">Commit SHA:</p>
+                            <div class="sha-container">
+                                <span id="actualShaText"></span>
+                                <i class="far fa-copy copy-icon"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="commit-item">
+                        <div class="commit-detail-group">
+                            <p class="commit-detail-label">Author:</p>
+                            <p class="commit-detail-value" id="commitAuthorDisplay"></p>
+                        </div>
+                    </div>
+                    <div class="commit-item">
+                        <div class="commit-detail-group">
+                            <p class="commit-detail-label">Date:</p>
+                            <p class="commit-detail-value" id="commitDateDisplay"></p>
+                        </div>
+                    </div>
+                    <div class="commit-detail-group">
+                        <p class="commit-detail-label">Commit Message:</p>
+                        <div class="commit-message-block" id="commitMessageDisplay"></div>
+                    </div>
+                </div>
+                <div class="mt-8 text-center">
+                    <a href="#" target="_blank" id="viewOnGithubLink" class="commit-link-btn inline-flex items-center">
+                        <i class="fab fa-github"></i> View on GitHub
+                    </a>
+                </div>
+            `;
+
+            const commitInfoLoading = targetElement.querySelector('#commitInfoLoading');
+            const commitInfoError = targetElement.querySelector('#commitInfoError');
+            const commitInfoErrorMessage = targetElement.querySelector('#commitInfoErrorMessage');
+            const commitDetailsDisplay = targetElement.querySelector('#commitDetailsDisplay');
+            const actualShaText = targetElement.querySelector('#actualShaText');
+            const copyShaIcon = targetElement.querySelector('.sha-container .copy-icon');
+            const commitAuthorDisplay = targetElement.querySelector('#commitAuthorDisplay');
+            const commitDateDisplay = targetElement.querySelector('#commitDateDisplay');
+            const commitMessageDisplay = targetElement.querySelector('#commitMessageDisplay'); /* New element */
+            const viewOnGithubLink = targetElement.querySelector('#viewOnGithubLink');
+
+
+            try {
+                const response = await authenticatedFetch(LOCAL_COMMIT_INFO_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ commitSha: commitSha })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Unknown error fetching commit info.');
+                }
+
+                const responseData = await response.json();
+                const commitInfo = responseData.commitInfo;
+
+                if (commitInfo) {
+                    actualShaText.textContent = commitInfo.sha; // Set actual SHA text
+                    commitAuthorDisplay.textContent = commitInfo.author_name;
+                    commitMessageDisplay.textContent = commitInfo.message; /* Display full message */
+                    
+                    /* Format commit date for a professional look */
+                    const commitDate = new Date(commitInfo.date);
+                    const formattedDate = commitDate.toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        second: 'numeric',
+                        hour12: true
+                    });
+                    commitDateDisplay.textContent = formattedDate;
+                    viewOnGithubLink.href = commitInfo.html_url;
+
+                    // Add click listener for SHA copy icon
+                    copyShaIcon.addEventListener('click', () => {
+                        copyToClipboard(commitInfo.sha, copyShaIcon);
+                    });
+
+                    commitDetailsDisplay.classList.remove('hidden');
+
+                    // Apply staggered animation to commit items
+                    const commitItems = commitDetailsDisplay.querySelectorAll('.commit-item, .commit-message-block');
+                    commitItems.forEach((item, index) => {
+                        item.style.animationDelay = `${index * 0.1}s`; // 100ms delay per item
+                    });
+
+                } else {
+                    commitInfoErrorMessage.textContent = "Commit details could not be retrieved.";
+                    commitInfoError.classList.remove('hidden');
+                }
+
+            } catch (error) {
+                console.error('Error fetching commit info:', error);
+                commitInfoErrorMessage.textContent = `Failed to load commit details: ${error.message}`;
+                commitInfoError.classList.remove('hidden');
+            } finally {
+                commitInfoLoading.classList.add('hidden');
+            }
+        }
+
+        /* Close info modal event listener */
+        function closeInfoModal() {
+            // Add 'closing' class to trigger the reverse animation
+            infoModal.classList.add('closing');
+            // After the animation duration, truly hide the modal and clean up
+            setTimeout(() => {
+                infoModal.classList.remove('show', 'closing');
+                // Reset transform-origin to default center for next open, unless specific origin is desired
+                infoModalContent.style.transformOrigin = '';
+                /* Stop any playing video within the modal when closed */
+                const currentIframeInModal = infoModalVideoContainer.querySelector('iframe');
+                if (currentIframeInModal) {
+                    // When closing the modal, ensure the video playing within it is stopped and reverted
+                    // We need to pass the original file ID and embed URL that was used to load this video.
+                    // These are stored as data attributes on the current playing iframe.
+                    const fileIdInModal = currentIframeInModal.dataset.fileId || '';
+                    const embedUrlInModal = currentIframeInModal.dataset.embedUrl || '';
+                    stopAndRevertVideo(infoModalVideoContainer, fileIdInModal, embedUrlInModal);
+                }
+            }, 300); // Matches the transition duration for scale/opacity
+        }
+        infoModalCloseBtn.addEventListener('click', closeInfoModal);
+
+        /* Close modal when clicking outside content */
+        infoModal.addEventListener('click', (event) => {
+            if (event.target === infoModal) {
+                closeInfoModal();
+            }
+        });
+
+        // Add ESC key listener to close modal
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                if (infoModal.classList.contains('show')) {
+                    closeInfoModal();
+                } else if (!document.getElementById('confirmationModal').classList.contains('hidden')) {
+                    // If confirmation modal is open, trigger its cancel action
+                    closeConfirmationModal();
+                } else if (centralMessageOverlay.classList.contains('show')) {
+                    // If central message is open, hide it immediately
+                    centralMessageOverlay.classList.add('hide'); // Trigger hide animation
+                    setTimeout(() => {
+                        centralMessageOverlay.classList.remove('show', 'hide');
+                    }, 300); // Match hide animation duration
+                } else if (pwaInstallPrompt.classList.contains('show')) { // New: Hide install prompt on ESC
+                    hideInstallPrompt();
+                }
+            }
+        });
+
+        // Event listeners for mobile toggle buttons
+        mobileToggleVideoBtn.addEventListener('click', () => {
+            infoModalVideoContainer.parentElement.classList.remove('hidden-on-mobile');
+            infoModalDetailsSection.classList.add('hidden-on-mobile');
+            mobileToggleVideoBtn.classList.add('active');
+            mobileToggleDetailsBtn.classList.remove('active');
+        });
+
+        mobileToggleDetailsBtn.addEventListener('click', () => {
+            infoModalVideoContainer.parentElement.classList.add('hidden-on-mobile');
+            infoModalDetailsSection.classList.remove('hidden-on-mobile');
+            mobileToggleVideoBtn.classList.remove('active');
+            mobileToggleDetailsBtn.classList.add('active');
+        });
+
+        // Toggle password visibility for current, new, and confirm new passwords
+        toggleCurrentPassword.addEventListener('click', function () {
+            const type = currentPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            currentPasswordInput.setAttribute('type', type);
+            this.querySelector('i').classList.toggle('fa-eye');
+            this.querySelector('i').classList.toggle('fa-eye-slash');
+        });
+
+        toggleNewPassword.addEventListener('click', function () {
+            const type = newPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            newPasswordInput.setAttribute('type', type);
+            this.querySelector('i').classList.toggle('fa-eye');
+            this.querySelector('i').classList.toggle('fa-eye-slash');
+        });
+
+        toggleConfirmNewPassword.addEventListener('click', function () {
+            const type = confirmNewPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            confirmNewPasswordInput.setAttribute('type', type);
+            this.querySelector('i').classList.toggle('fa-eye');
+            this.querySelector('i').classList.toggle('fa-eye-slash');
+        });
+
+        // Password Generator Function
+        generatePasswordBtn.addEventListener('click', () => {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+";
+            let password = "";
+            const length = 12; // Desired password length
+            for (let i = 0; i < length; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            generatedPasswordDisplay.value = password;
+            newPasswordInput.value = password; // Auto-fill new password field
+            confirmNewPasswordInput.value = password; // Auto-fill confirm new password field
+            showPasswordChangeMessage('Password generated and filled!', false);
+        });
+
+        // Handle password change form submission
+        changePasswordForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            passwordChangeStatusMessage.classList.add('hidden');
+            updatePasswordButton.disabled = true;
+            updatePasswordButton.textContent = 'Updating...';
+
+            const currentPassword = currentPasswordInput.value;
+            const newPassword = newPasswordInput.value;
+            const confirmNewPassword = confirmNewPasswordInput.value;
+
+            if (newPassword !== confirmNewPassword) {
+                showPasswordChangeMessage('New passwords do not match!');
+                updatePasswordButton.disabled = false;
+                updatePasswordButton.textContent = 'Update Password';
+                return;
+            }
+
+            if (!currentPassword || !newPassword) {
+                showPasswordChangeMessage('Please fill all password fields.');
+                updatePasswordButton.disabled = false;
+                updatePasswordButton.textContent = 'Update Password';
+                return;
+            }
+
+            try {
+                const response = await authenticatedFetch(LOCAL_UPDATE_CREDENTIALS_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showPasswordChangeMessage('Password updated successfully. Please log in again with your new password.', false);
+                    clearAdminSession(); // Clear session as token is invalidated
+                    setTimeout(() => {
+                        window.location.href = 'admin.html'; // Redirect to login
+                    }, 2000);
+                } else {
+                    showPasswordChangeMessage(data.message || 'Failed to update password.');
+                }
+            } catch (error) {
+                console.error('Error updating password:', error);
+                showPasswordChangeMessage('Network error or server unreachable during password update.');
+            } finally {
+                updatePasswordButton.disabled = false;
+                updatePasswordButton.textContent = 'Update Password';
+            }
+        });
+
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check admin login status
+            const token = localStorage.getItem('adminToken');
+            loggedInUsername = localStorage.getItem('adminUsername');
+            sessionTimeoutEnabled = localStorage.getItem('sessionTimeoutEnabled') === 'true'; // Convert string to boolean
+            sessionDurationDays = parseInt(localStorage.getItem('sessionDurationDays') || '0', 10); // Parse to int
+
+            if (token && loggedInUsername) {
+                // For a more robust check, you might decode the JWT here to check expiry client-side
+                // before making a server call. However, the server will ultimately validate.
+                isAdminLoggedIn = true;
+                // Check if the logged-in user is a master admin based on the frontend list
+                isAdminMaster = MASTER_ADMIN_USERNAMES_FRONTEND.includes(loggedInUsername);
+                
+                // If session timeout is enabled, check if the token is old (basic client-side check)
+                if (sessionTimeoutEnabled) {
+                    try {
+                        const payload = JSON.parse(atob(token.split('.')[1])); // Basic decode for expiry (not security)
+                        if (payload.exp && (Date.now() / 1000) > payload.exp) {
+                            showCentralMessage('Your session has expired. Please log in again.', true);
+                            clearAdminSession();
+                            isAdminLoggedIn = false; // Override login status if expired
+                            setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
+                        } else {
+                             console.log(`Session will expire in approx. ${(payload.exp - (Date.now() / 1000)) / (60 * 60 * 24)} days.`);
+                        }
+                    } catch (e) {
+                        console.error("Error parsing JWT expiry from localStorage, treating as expired.", e);
+                        showCentralMessage('Session is invalid. Please log in again.', true);
+                        clearAdminSession();
+                        isAdminLoggedIn = false;
+                        setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
+                    }
+                }
+            }
+
+            if (isAdminLoggedIn) {
+                adminLoginBtn.classList.add('hidden');
+                adminLogoutBtn.classList.remove('hidden');
+                adminTrackerLink.classList.remove('hidden'); // Show admin tracker link
+                changePasswordBtn.classList.remove('hidden'); // Show change password button
+                if (loggedInUsername) {
+                    loggedInUsernameSpan.textContent = `Logged in as: ${loggedInUsername}`;
+                    loggedInUsernameSpan.classList.remove('hidden');
+                    /* Apply outline to the span itself */
+                    loggedInUsernameSpan.classList.add('logged-in-text-outline');
+                }
+                // Show logout all button only if master admin
+                if (isAdminMaster) {
+                    logoutAllAdminsBtn.classList.remove('hidden');
+                } else {
+                    logoutAllAdminsBtn.classList.add('hidden');
+                }
+                adminControlsDiv.classList.remove('hidden'); /* Ensure container is visible */
+            } else {
+                adminLoginBtn.classList.remove('hidden');
+                adminLogoutBtn.classList.add('hidden');
+                adminTrackerLink.classList.add('hidden'); // Hide admin tracker link
+                changePasswordBtn.classList.add('hidden'); // Hide change password button
+                logoutAllAdminsBtn.classList.add('hidden'); // Hide logout all button
+                loggedInUsernameSpan.classList.add('hidden');
+                /* Ensure the group outline is not applied when not logged in */
+                loggedInUsernameSpan.classList.remove('logged-in-text-outline');
+                adminControlsDiv.classList.remove('hidden'); /* Ensure container is visible */
+            }
+
+            /* Load view mode preference from localStorage */
+            const savedViewMode = localStorage.getItem('isCompactView');
+            if (savedViewMode !== null) {
+                isCompactView = JSON.parse(savedViewMode);
+            }
+            /* Load layout preference from localStorage */
+            const savedLayout = localStorage.getItem('isThreeColumnLayout');
+            if (savedLayout !== null) {
+                isThreeColumnLayout = JSON.parse(savedLayout);
+            }
+
+            lastFetchedVideos = await fetchVideos();
+            renderVideos(lastFetchedVideos);
+            updateVideoGalleryLayout(); /* Set initial video gallery layout */
+            updateViewModeLayout(); /* Set initial main box view mode */
+            setInterval(pollForNewVideos, POLLING_INTERVAL_VIDEOS);
+            setInterval(pollForProcessingStatus, POLLING_INTERVAL_STATUS); /* Start polling for live status */
+            setInterval(checkServerHealth, POLLING_INTERVAL_SERVER_HEALTH); /* Start polling for server health */
+            checkServerHealth(); /* Initial check on load */
+            
+            // Add initial status dot class for "checking"
+            statusDot.classList.add('checking');
+
+            // Trigger the main content card and footer entrance animations
+            mainContentCard.classList.add('animate-in');
+            footerElements.forEach(el => el.classList.add('animate-in'));
+
+            /* Handle initial scroll if a hash is present in the URL */
+            if (window.location.hash) {
+                const targetId = window.location.hash.substring(1); /* Remove '#' */
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    /* Use a timeout to ensure the element is rendered and the page layout is stable */
+                    setTimeout(() => {
+                        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        
+                        /* Apply glow and blur effect */
+                        const allVideoCards = document.querySelectorAll('.video-card');
+                        allVideoCards.forEach(card => {
+                            if (card.id === targetId) {
+                                card.classList.add('glowing');
+                            } else {
+                                card.classList.add('dimmed');
+                            }
+                        });
+
+                        /* Remove effect after 2 seconds */
+                        setTimeout(() => {
+                            allVideoCards.forEach(card => {
+                                card.classList.remove('glowing', 'dimmed');
+                            });
+                            /* Clear the hash from the URL so it doesn't re-trigger on refresh */
+                            history.replaceState(null, '', window.location.pathname + window.location.search);
+                        }, 2000); /* 2 seconds */
+                    }, 500); /* Small delay to allow rendering and smooth scroll to initiate */
+                } else {
+                    /* Show message if video card not found */
+                    showCentralMessage(`Error: Video with ID '${targetId.replace('video-', '')}' not found.<br>It might have been deleted or the link is invalid.`, true);
+                    /* Clear the hash from the URL even if not found */
+                    history.replaceState(null, '', window.location.pathname + window.location.search);
+                    }
+                }
+            });
+
+        /* Event listener for the toggle layout button (2/3 videos per row) */
+        toggleLayoutButton.addEventListener('click', () => {
+            isThreeColumnLayout = !isThreeColumnLayout; /* Toggle the state */
+            updateVideoGalleryLayout(); /* Update the layout */
+            localStorage.setItem('isThreeColumnLayout', isThreeColumnLayout); /* Save state */
+        });
+
+        /* Event listener for the toggle view mode button (compact/enlarged box) */
+        toggleViewModeButton.addEventListener('click', () => {
+            isCompactView = !isCompactView; /* Toggle the state */
+            updateViewModeLayout(); /* Update the main content card layout */
+            localStorage.setItem('isCompactView', isCompactView); /* Save state */
+        });
+
+        /* Event listeners for admin buttons */
+        adminLoginBtn.addEventListener('click', () => {
+            window.location.href = 'admin.html'; /* Redirect to admin login page */
+        });
+
+        adminLogoutBtn.addEventListener('click', () => {
+            showConfirmationModal(
+                `Are you sure you want to logout?`,
+                async () => {
+                    try {
+                        const response = await authenticatedFetch(LOCAL_LOGOUT_ENDPOINT, { method: 'POST' });
+                        const data = await response.json();
+                        if (response.ok) {
+                            showCentralMessage(data.message || 'Logged out successfully!', false);
+                        } else {
+                            showCentralMessage(data.message || 'Logout failed on server.', true);
+                        }
+                    } catch (error) {
+                        console.error('Error during logout:', error);
+                        showCentralMessage('Network error during logout. Check console.', true);
+                    } finally {
+                        clearAdminSession(); /* Clear admin session regardless of server response */
+                        setTimeout(() => { window.location.reload(); }, 1000); /* Reload the page to update UI */
+                    }
+                }
+            );
+        });
+
+        // Handle Change Password button click
+        changePasswordBtn.addEventListener('click', () => {
+            // Toggle visibility of the password change section
+            passwordChangeSection.classList.toggle('hidden');
+            // Clear any previous messages
+            passwordChangeStatusMessage.classList.add('hidden');
+            currentPasswordInput.value = '';
+            newPasswordInput.value = '';
+            confirmNewPasswordInput.value = '';
+            generatedPasswordDisplay.value = '';
+        });
+
+        // Handle Logout All Admins button click
+        logoutAllAdminsBtn.addEventListener('click', () => {
+            showConfirmationModal(
+                `Are you absolutely sure you want to force logout ALL active admin sessions? This action is irreversible for current sessions.`,
+                async () => {
+                    try {
+                        const response = await authenticatedFetch(LOCAL_LOGOUT_ALL_ADMINS_ENDPOINT, { method: 'POST' });
+                        const data = await response.json();
+                        if (response.ok) {
+                            showCentralMessage(data.message || 'All admin sessions invalidated!', false);
+                        } else {
+                            showCentralMessage(data.message || 'Failed to invalidate all admin sessions.', true);
+                        }
+                    } catch (error) {
+                        console.error('Error during logout all admins:', error);
+                        showCentralMessage('Network error during logout all admins. Check console.', true);
+                    } finally {
+                        // After trying to log out all, the current user should also be logged out
+                        clearAdminSession();
+                        setTimeout(() => { window.location.reload(); }, 1000);
+                    }
+                }
+            );
+        });
+
+
+        // Add ripple effect on click to all buttons with class 'btn'
+        document.querySelectorAll('.btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                const btn = this;
+                // Temporarily add 'clicked' class to trigger pseudo-element animation
+                btn.classList.remove('clicked'); // Remove first to re-trigger animation
+                void btn.offsetWidth; // Trigger reflow
+                btn.classList.add('clicked');
+                // Remove the class after the animation duration to allow re-triggering
+                setTimeout(() => {
+                    btn.classList.remove('clicked');
+                }, 600); // Matches ripple animation duration
+            });
+        });
+
+
+        trackButton.addEventListener('click', async () => {
+            statusArea.classList.add('hidden');
+            errorArea.classList.add('hidden');
+            errorMessage.textContent = '';
+            liveProcessingStatusDiv.classList.remove('hidden'); /* Show live status area */
+            liveStatusMessage.textContent = 'Initiating processing...'; /* Initial message */
+
+            let videoSource = '';
+            let isFileUpload = false;
+
+            if (videoUrlInput.value) {
+                videoSource = videoUrlInput.value;
+                isFileUpload = false;
+            } else if (videoFileInput.files.length > 0) {
+                videoSource = videoFileInput.files[0];
+                isFileUpload = true;
+            } else {
+                showError('Please provide a video URL or upload a file.');
+                liveStatusMessage.textContent = 'Failed: No video provided.';
+                return;
+            }
+
+            showStatus('Sending video to local processing server...');
+            trackButton.disabled = true;
+
+            const formData = new FormData();
+            if (isFileUpload) {
+                formData.append('video_file', videoSource);
+            } else {
+                formData.append('video_url', videoSource);
+            }
+            try {
+                const response = await fetch(LOCAL_API_ENDPOINT, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Unknown error from local server.');
+                }
+
+                /* Removed the direct call to startProgressBar('upload') here. */
+                /* It will now be handled by the polling mechanism in pollForProcessingStatus. */
+
+                const responseData = await response.json();
+                showStatus(responseData.message || 'Processing initiated. Waiting for GitHub commit...');
+                /* Live status will be updated by the polling mechanism, which will also trigger the progress bar */
+
+            } catch (error) {
+                console.error('Error initiating tracking:', error);
+                showError(`Failed to initiate tracking: ${error.message}. Ensure your tg.py server is running and accessible.`);
+                liveStatusMessage.textContent = `Error: ${error.message}`;
+            } finally {
+                trackButton.disabled = false;
+            }
+        });
+
+        // PWA: Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Correct path for GitHub Project Pages with custom domain
+                const serviceWorkerScriptPath = '/projectglyphmotion.github.io/service-worker.js';
+                const serviceWorkerScope = '/projectglyphmotion.github.io/'; // Scope should match your project's base path
+
+                navigator.serviceWorker.register(serviceWorkerScriptPath, { scope: serviceWorkerScope })
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+
+        // PWA Install Prompt Logic (New)
+        let deferredPrompt; // Variable to store the event
+
+        const pwaInstallPrompt = document.getElementById('pwaInstallPrompt');
+        const installButton = pwaInstallPrompt.querySelector('.install-button');
+        const dismissButton = pwaInstallPrompt.querySelector('.dismiss-button');
+
+        // Check if the app is already installed
+        function isAppInstalled() {
+            // This is a common way to check if the app is running in standalone mode (installed PWA)
+            return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+        }
+
+        // Function to show the install prompt UI
+        function showInstallPrompt() {
+            // Only show if not already installed and deferredPrompt exists
+            if (!isAppInstalled() && deferredPrompt) {
+                pwaInstallPrompt.classList.add('show');
+                pwaInstallPrompt.classList.remove('hide');
+            }
+        }
+
+        // Function to hide the install prompt UI
+        function hideInstallPrompt() {
+            pwaInstallPrompt.classList.add('hide');
+            // Remove 'show' after transition for proper re-appearance if needed later
+            setTimeout(() => {
+                pwaInstallPrompt.classList.remove('show');
+            }, 300); // Match CSS transition duration
+        }
+
+        // Listen for the beforeinstallprompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Stash the event so it can be triggered later.
+            deferredPrompt = e;
+            // Update UI to notify the user they can install the app
+            showInstallPrompt();
+            console.log('[PWA] beforeinstallprompt fired, showing custom prompt.');
+        });
+
+        // Handle the install button click
+        installButton.addEventListener('click', async () => {
+            hideInstallPrompt(); // Hide the custom prompt
+
+            if (deferredPrompt) {
+                // Show the browser's native install prompt
+                deferredPrompt.prompt();
+                // Wait for the user to respond to the prompt
+                const { outcome } = await deferredPrompt.userChoice;
+                // Optionally, send analytics event with outcome of user choice
+                console.log(`[PWA] User response to install prompt: ${outcome}`);
+                // Clear the deferredPrompt variable, as it can only be used once.
+                deferredPrompt = null;
+
+                // Hide the prompt if the user accepts or dismisses it
+                if (outcome === 'accepted') {
+                    showCentralMessage('GlyphMotion installed successfully! Find it on your home screen.', false);
+                } else {
+                    showCentralMessage('Installation declined.', true);
+                }
+            }
+        });
+
+        // Handle the dismiss button click
+        dismissButton.addEventListener('click', () => {
+            hideInstallPrompt();
+            // Optionally, remember that the user dismissed the prompt
+            // For example, using localStorage to not show it again for some time
+            localStorage.setItem('pwaDismissedTimestamp', Date.now());
+            console.log('[PWA] Install prompt dismissed.');
+        });
+
+        // Hide the prompt if the app is already installed when the page loads
+        if (isAppInstalled()) {
+            pwaInstallPrompt.style.display = 'none'; // Directly hide if already installed
+            console.log('[PWA] App is already installed, hiding install prompt.');
+        } else {
+            // Check if the user previously dismissed the prompt (e.g., within the last 24 hours)
+            const dismissedTimestamp = localStorage.getItem('pwaDismissedTimestamp');
+            const oneDay = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+            if (dismissedTimestamp && (Date.now() - parseInt(dismissedTimestamp, 10) < oneDay)) {
+                pwaInstallPrompt.style.display = 'none'; // Keep hidden if dismissed recently
+                console.log('[PWA] Install prompt dismissed recently, keeping hidden.');
+            }
+        }
+    </script>
+</body>
+</html>
