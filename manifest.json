@@ -1,0 +1,27 @@
+{
+    "name": "Project GlyphMotion",
+    "short_name": "GlyphMotion",
+    "description": "Real-time object tracking in videos with GitHub Pages and Google Drive integration.",
+    "start_url": "./",
+    "display": "standalone",
+    "background_color": "#0B0A0F",
+    "theme_color": "#0B0A0F",
+    "icons": [
+        {
+            "src": "images/project-glyph-motion-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "images/project-glyph-motion-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "images/project-glyph-motion-maskable.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
