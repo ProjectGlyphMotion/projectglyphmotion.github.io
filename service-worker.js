@@ -2,37 +2,39 @@
 
 // Increment version on updates to trigger cache invalidation and fresh content fetching.
 // This is critical for ensuring users get the latest version of your PWA.
-const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.3'; // Updated to v1.0.3 to force cache refresh
+const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.4'; // Updated to v1.0.4 to force cache refresh
 const OFFLINE_URL = '/offline.html'; // Path to your custom offline page
 
 // List of URLs to cache when the service worker is installed.
-// These are your app's core "shell" files.
+// These are your app's core "shell" files. Use absolute paths relative to the domain root.
 const urlsToCache = [
-    './', // Caches the root HTML file (index.html)
-    'index.html',
-    'admin.html',
-    'admin_tracker.html',
-    'documentation.html',
-    'offline.html',
-    'manifest.json',
-    'images/project-glyph-motion.ico', // Favicon
-    'images/thumbnail_fallback.jpg', // Fallback thumbnail image
+    '/', // Caches the root HTML file (often resolves to index.html)
+    '/index.html',
+    '/admin.html',
+    '/admin_tracker.html',
+    '/documentation.html',
+    '/offline.html',
+    '/manifest.json',
+    '/images/project-glyph-motion.ico', // Favicon
+    '/images/thumbnail_fallback.jpg', // Fallback thumbnail image
     // Add other essential static assets (e.g., specific font files if self-hosted)
-    // 'fonts/SFPROTEXTREGULAR.OTF',
-    // etc.
+    // '/fonts/SFPROTEXTREGULAR.OTF',
+    // '/fonts/SFPROTEXTMEDIUM.OTF',
+    // '/fonts/SFPROTEXTSEMIBOLD.OTF',
+    // '/fonts/SFPROTEXTBOLD.OTF',
 ];
 
 // Define assets that should use a "network first, then cache" strategy.
 // This is crucial for HTML and other frequently updated core files to ensure users
 // always see the latest content when online.
 const networkFirstUrls = [
-    'index.html',
-    'admin.html',
-    'admin_tracker.html',
-    'documentation.html',
-    'offline.html', // While offline.html is for offline, it should still be network-first when online to get updates
-    'manifest.json',
-    './', // The root path also serves index.html
+    '/',
+    '/index.html',
+    '/admin.html',
+    '/admin_tracker.html',
+    '/documentation.html',
+    '/offline.html', // While offline.html is for offline, it should still be network-first when online to get updates
+    '/manifest.json',
 ];
 
 // Install event: caches the static assets and forces activation immediately.
@@ -82,20 +84,24 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // Filter out non-HTTP/HTTPS requests (e.g., chrome-extension://) or requests to external CDNs
+    // This is important for cdn.tailwindcss.com and fonts.googleapis.com
+    if (!event.request.url.startsWith(self.location.origin + '/') &&
+        !event.request.url.startsWith('https://fonts.googleapis.com/') &&
+        !event.request.url.startsWith('https://fonts.gstatic.com/') &&
+        !event.request.url.startsWith('https://cdnjs.cloudflare.com/')) { // Add Font Awesome CDN
+        console.warn(`[Service Worker] Skipping cache for external or unsupported scheme/origin: ${event.request.url}`);
+        return; // Do not handle these requests with caching logic
+    }
+    // Note: If you still use cdn.tailwindcss.com, it will be excluded by the above filter.
+    // This is aligned with the recommendation to self-host Tailwind in production.
+
     // Determine if the request URL should use a network-first strategy
     const requestUrl = new URL(event.request.url);
     const pathname = requestUrl.pathname;
-    // For GitHub Pages, the base path might be important.
-    // Example: /projectglyphmotion.github.io/index.html -> index.html
-    const relativePath = pathname.substring(pathname.lastIndexOf('/') + 1);
 
-    const isNetworkFirst = networkFirstUrls.includes(relativePath) || networkFirstUrls.includes(pathname);
-
-    // Filter out non-HTTP/HTTPS requests (e.g., chrome-extension://)
-    if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) {
-        console.warn(`[Service Worker] Skipping cache for unsupported scheme: ${event.request.url}`);
-        return; // Do not handle these requests with caching logic
-    }
+    // Check if the exact pathname (including leading slash) is in networkFirstUrls
+    const isNetworkFirst = networkFirstUrls.includes(pathname);
 
     if (isNetworkFirst) {
         // Network First, then Cache strategy for core HTML files and manifest
