@@ -339,9 +339,7 @@
         .doc-content .warning-box:hover {
             background-color: rgba(220, 38, 38, 0.25); /* Slightly less transparent on hover */
             border-color: rgba(220, 38, 38, 0.4); /* Border slightly more visible on hover */
-            box-shadow: 
-                0 8px 25px rgba(0, 0, 0, 0.5), /* Even deeper hover shadow */
-                inset 0 1px 6px rgba(255, 255, 255, 0.12); /* More prominent inner highlight */
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5), inset 0 1px 6px rgba(255, 255, 255, 0.12); /* More prominent inner highlight */
         }
 
         .doc-content .warning-box svg {
@@ -893,6 +891,51 @@ const LOCAL_TRACKER_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_data'; //
 
             <h3>5. Open the Website (Local Preview):</h3>
             <p>You can simply open the <code>index.html</code> file in your web browser to see the frontend. The backend functionality will not work yet, but you can preview the UI.</p>
+
+            <h2 id="static-pages-serving">Frontend Static Pages Serving (GitHub Pages DNS Configuration)</h2>
+            <p>To ensure that the Project GlyphMotion frontend (e.g., <code>https://projectglyphmotion.studio</code>) loads reliably and independently of your local backend's tunnel status, we configure it to serve static pages directly from GitHub Pages. This involves setting up DNS records in Cloudflare to point your root domain to GitHub's servers. This guarantees your HTML, CSS, JavaScript, and <code>videos.json</code> files load consistently from GitHub's global content delivery network.</p>
+
+            <h3>Steps to Configure GitHub Pages for Direct Domain Serving:</h3>
+            <ol>
+                <li><strong>Verify GitHub Pages Setup:</strong>
+                    <p>Ensure your GitHub repository has GitHub Pages enabled. Go to your repository settings on GitHub, navigate to "Pages," and select the branch from which to publish (usually <code>main</code> or <code>master</code>). If you're using a custom domain, ensure it's specified there.</p>
+                </li>
+                <li><strong>Add Custom Domain (if applicable):</strong>
+                    <p>If you wish to use a custom domain (e.g., <code>projectglyphmotion.studio</code> instead of <code>your-username.github.io/your-repo/</code>), add it in your GitHub repository's "Pages" settings under "Custom domain."</p>
+                </li>
+                <li><strong>Configure DNS Records in Cloudflare:</strong>
+                    <p>Assuming you are using Cloudflare for DNS management (highly recommended for performance and security), you will need to add specific DNS records. These records instruct browsers to connect directly to GitHub's infrastructure without passing through the Cloudflare Tunnel. For our example domain <code>projectglyphmotion.studio</code>, we configured the following:</p>
+                    <h4>For IPv4 Traffic (A Records):</h4>
+                    <p>You will add multiple <code>A</code> records pointing to GitHub Pages' IPv4 addresses. For <code>projectglyphmotion.studio</code>, these were:</p>
+                    <ul>
+                        <li><strong>Type:</strong> <code>A</code>, <strong>Name:</strong> <code>@</code> (or your domain/subdomain), <strong>IPv4 address:</strong> <code>185.199.108.153</code></li>
+                        <li><strong>Type:</strong> <code>A</code>, <strong>Name:</strong> <code>@</code>, <strong>IPv4 address:</strong> <code>185.199.109.153</code></li>
+                        <li><strong>Type:</strong> <code>A</code>, <strong>Name:</strong> <code>@</code>, <strong>IPv4 address:</strong> <code>185.199.110.153</code></li>
+                        <li><strong>Type:</strong> <code>A</code>, <strong>Name:</strong> <code>@</code>, <strong>IPv4 address:</strong> <code>185.199.111.153</code></li>
+                        <li><strong>Type:</strong> <code>A</code>, <strong>Name:</strong> <code>@</code>, <strong>IPv4 address:</strong> <code>192.30.252.153</code></li>
+                        <li><strong>Type:</strong> <code>A</code>, <strong>Name:</strong> <code>@</code>, <strong>IPv4 address:</strong> <code>192.30.252.154</code></li>
+                    </ul>
+                    <h4>For IPv6 Traffic (AAAA Records):</h4>
+                    <p>Similarly, add <code>AAAA</code> records for IPv6 support:</p>
+                    <ul>
+                        <li><strong>Type:</strong> <code>AAAA</code>, <strong>Name:</strong> <code>@</code>, <strong>IPv6 address:</strong> <code>2606:50c0:8000::153</code></li>
+                        <li><strong>Type:</strong> <code>AAAA</code>, <strong>Name:</strong> <code>@</code>, <strong>IPv6 address:</strong> <code>2606:50c0:8001::153</code></li>
+                        <li><strong>Type:</strong> <code>AAAA</code>, <strong>Name:</strong> <code>@</code>, <strong>IPv6 address:</strong> <code>2606:50c0:8002::153</code></li>
+                        <li><strong>Type:</strong> <code>AAAA</code>, <strong>Name:</strong> <code>@</code>, <strong>IPv6 address:</strong> <code>2606:50c0:8003::153</code></li>
+                    </ul>
+                    <div class="warning-box" data-ambient-color="#DC2626">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.982 7.024a.75.75 0 00-1.06 1.06L8.94 10l-1.018 1.018a.75.75 0 001.06 1.06L10 11.06l1.018 1.018a.75.75 0 001.06-1.06L11.06 10l1.018-1.018a.75.75 0 00-1.06-1.06L10 8.94 8.982 7.024z" clip-rule="evenodd" /></svg>
+                        <p><strong>IMPORTANT:</strong> For all these records (A and AAAA), ensure the "Proxy status" in Cloudflare is set to <strong>"DNS only" (grey cloud icon)</strong>. This is critical to direct traffic straight to GitHub Pages instead of routing it through Cloudflare's proxy. If you see an orange cloud icon, click it to change it to grey. <strong>Note that these IP addresses are universal for GitHub Pages hosting and apply to any GitHub Pages project, whether hosted on a personal account or an organization account. They are not exclusive to a single project or user.</strong></p>
+                    </div>
+                </li>
+                <li><strong>DNS Propagation:</strong>
+                    <p>After saving these DNS records, it may take some time for the changes to propagate across the internet. You can use tools like <a href="https://www.whatsmydns.net/" target="_blank">whatsmydns.net</a> to check the propagation status for your domain and the specified IP addresses.</p>
+                </li>
+                <li><strong>Update GitHub Pages Custom Domain Settings:</strong>
+                    <p>Once the DNS records are propagating, go back to your GitHub repository's "Pages" settings. Under "Custom domain," enter your root domain (e.g., <code>projectglyphmotion.studio</code>) and save. GitHub will verify the DNS records. If successful, your site will now be served directly from your custom domain.</p>
+                </li>
+            </ol>
+            <p>This static serving setup ensures that your website's interface is always available to users, providing a consistent user experience regardless of whether your local backend is online. Any dynamic functionalities (like starting a new video analysis or accessing admin data) are handled by separate API calls to your backend subdomain (e.g., <code>backend.projectglyphmotion.studio</code> or <code>vot.onehorizon.me</code>), which still relies on the Cloudflare Tunnel. While these IP addresses are currently the official ones for GitHub Pages and are expected to be stable for a long time, it's always a good practice to periodically check <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/managing-a-custom-domain-for-your-github-pages-site" target="_blank">GitHub's official documentation</a> if you encounter unexpected loading issues, as these IPs can be updated by GitHub.</p>
 
             <h2>Backend Setup</h2>
             <p>The backend system consists of <code>ot.py</code> (object_tracker.py), <code>tg.py</code> (telegram.py), <code>gh.py</code> (github.py), <code>admin_auth.py</code>, and <code>admin_hash_gen.py</code>.</p>
