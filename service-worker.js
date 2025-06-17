@@ -2,13 +2,13 @@
 
 // Increment version on updates to trigger cache invalidation and fresh content fetching.
 // This is critical for ensuring users get the latest version of your PWA.
-const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.5'; // Updated to v1.0.5 to force cache refresh
+const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.6'; // Updated to v1.0.6 to force cache refresh
 const OFFLINE_URL = '/offline.html'; // Path to your custom offline page
 
 // List of URLs to cache when the service worker is installed.
 // These are your app's core "shell" files. Use absolute paths relative to the domain root.
 const urlsToCache = [
-    '/', // Caches the root HTML file (often resolves to index.html)
+    '.', // Caches the root HTML file (often resolves to index.html)
     '/index.html',
     '/admin.html',
     '/admin_tracker.html',
@@ -16,7 +16,7 @@ const urlsToCache = [
     '/offline.html',
     '/manifest.json',
     '/images/project-glyph-motion.ico', // Favicon
-    '/images/thumbnail_fallback.jpg', // Fallback thumbnail image
+    'images/thumbnail_fallback.jpg', // Fallback thumbnail image
     // Add other essential static assets (e.g., specific font files if self-hosted)
     // '/fonts/SFPROTEXTREGULAR.OTF',
     // '/fonts/SFPROTEXTMEDIUM.OTF',
@@ -28,7 +28,7 @@ const urlsToCache = [
 // This is crucial for HTML and other frequently updated core files to ensure users
 // always see the latest content when online.
 const networkFirstUrls = [
-    '/',
+    '.',
     '/index.html',
     '/admin.html',
     '/admin_tracker.html',
