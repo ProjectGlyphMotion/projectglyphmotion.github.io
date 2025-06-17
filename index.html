@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project GlyphMotion</title>
     <link rel="icon" type="image/x-icon" href="images/project-glyph-motion.ico">
-    <link rel="manifest" href="manifest.json"> <!-- PWA: Link to manifest file -->
+    <link rel="manifest" href="/manifest.json"> <!-- IMPORTANT: manifest.json link should always be relative to the root if using a custom domain --> <!-- PWA: Link to manifest file -->
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -2879,16 +2879,19 @@
         // PWA: Register Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                // Correct path for GitHub Project Pages with custom domain
-                const serviceWorkerScriptPath = '/projectglyphmotion.github.io/service-worker.js';
-                const serviceWorkerScope = '/projectglyphmotion.github.io/'; // Scope should match your project's base path
+                // --- CRITICAL FIX FOR CUSTOM DOMAINS ---
+                // When using a custom domain (e.g., projectglyphmotion.studio),
+                // the service worker and manifest should be referenced from the root (/)
+                // of your domain, NOT with the GitHub project path.
+                const serviceWorkerScriptPath = '/service-worker.js'; // This points to the root of your custom domain
+                const serviceWorkerScope = '/'; // The scope should be the root of your custom domain
 
                 navigator.serviceWorker.register(serviceWorkerScriptPath, { scope: serviceWorkerScope })
                     .then(registration => {
                         console.log('ServiceWorker registration successful with scope: ', registration.scope);
                     })
                     .catch(err => {
-                        console.log('ServiceWorker registration failed: ', err);
+                        console.log('ServiceWorker registration failed: ', err); // This error should now resolve
                     });
             });
         }
