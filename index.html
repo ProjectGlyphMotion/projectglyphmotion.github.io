@@ -1431,14 +1431,14 @@
 
 
         // IMPORTANT: This should now be your custom domain for GitHub Pages
-        const GITHUB_PAGES_REPO_URL = 'https://projectglyphmotion.studio/';
+        const GITHUB_PAGES_REPO_URL = 'https://onehorizon.me/Project-GlyphMotion/';
         const VIDEOS_JSON_PATH = 'videos.json';
         const POLLING_INTERVAL_VIDEOS = 10000; // Poll videos.json every 10 seconds
         const POLLING_INTERVAL_STATUS = 2000; // Poll live status every 2 seconds
         const POLLING_INTERVAL_SERVER_HEALTH = 5000; // Poll server health every 5 seconds (new)
 
         // IMPORTANT: This should be your custom domain for the backend tunnel
-        const NGROK_PUBLIC_URL = 'https://home.projectglyphmotion.studio'; // This value is updated by web_server_public.py
+        const NGROK_PUBLIC_URL = 'https://backend.projectglyphmotion.studio'; // This value is updated by web_server_public.py
 
         const LOCAL_API_ENDPOINT = NGROK_PUBLIC_URL + '/process_web_video';
         const LOCAL_STATUS_ENDPOINT = NGROK_PUBLIC_URL + '/status';
@@ -2880,8 +2880,8 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 // Correct path for GitHub Project Pages with custom domain
-                const serviceWorkerScriptPath = '/projectglyphmotion.github.io/service-worker.js';
-                const serviceWorkerScope = '/projectglyphmotion.github.io/'; // Scope should match your project's base path
+                const serviceWorkerScriptPath = '/Project-GlyphMotion/service-worker.js';
+                const serviceWorkerScope = '/Project-GlyphMotion/'; // Scope should match your project's base path
 
                 navigator.serviceWorker.register(serviceWorkerScriptPath, { scope: serviceWorkerScope })
                     .then(registration => {

@@ -191,7 +191,7 @@
         const togglePassword = document.getElementById('togglePassword');
 
         // IMPORTANT: This should be your custom domain for the backend tunnel
-        const NGROK_PUBLIC_URL = 'https://home.projectglyphmotion.studio'; // This value is updated by web_server_public.py
+        const NGROK_PUBLIC_URL = 'https://backend.projectglyphmotion.studio'; // This value is updated by web_server_public.py
         const LOCAL_LOGIN_ENDPOINT = NGROK_PUBLIC_URL + '/login';
 
         function showLoginMessage(message, isError = true) {
@@ -268,8 +268,8 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 // Correct path for GitHub Project Pages with custom domain
-                const serviceWorkerScriptPath = '/projectglyphmotion.github.io/service-worker.js';
-                const serviceWorkerScope = '/projectglyphmotion.github.io/'; // Scope should match your project's base path
+                const serviceWorkerScriptPath = '/Project-GlyphMotion/service-worker.js';
+                const serviceWorkerScope = '/Project-GlyphMotion/'; // Scope should match your project's base path
 
                 navigator.serviceWorker.register(serviceWorkerScriptPath, { scope: serviceWorkerScope })
                     .then(registration => {
