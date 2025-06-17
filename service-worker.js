@@ -86,7 +86,7 @@ self.addEventListener('fetch', (event) => {
     const requestUrl = new URL(event.request.url);
     const pathname = requestUrl.pathname;
     // For GitHub Pages, the base path might be important.
-    // Example: /Project-GlyphMotion/index.html -> index.html
+    // Example: /projectglyphmotion.github.io/index.html -> index.html
     const relativePath = pathname.substring(pathname.lastIndexOf('/') + 1);
 
     const isNetworkFirst = networkFirstUrls.includes(relativePath) || networkFirstUrls.includes(pathname);

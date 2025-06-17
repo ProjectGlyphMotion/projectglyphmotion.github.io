@@ -268,8 +268,8 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 // Correct path for GitHub Project Pages with custom domain
-                const serviceWorkerScriptPath = '/Project-GlyphMotion/service-worker.js';
-                const serviceWorkerScope = '/Project-GlyphMotion/'; // Scope should match your project's base path
+                const serviceWorkerScriptPath = '/projectglyphmotion.github.io/service-worker.js';
+                const serviceWorkerScope = '/projectglyphmotion.github.io/'; // Scope should match your project's base path
 
                 navigator.serviceWorker.register(serviceWorkerScriptPath, { scope: serviceWorkerScope })
                     .then(registration => {

@@ -841,7 +841,7 @@ cd &lt;your-repository-name&gt;
             <div class="code-block-container">
                 <pre><code class="language-javascript">
 // IMPORTANT: This should now be your custom domain for GitHub Pages
-const GITHUB_PAGES_REPO_URL = 'https://onehorizon.me/Project-GlyphMotion/'; // Example: Replace with your GitHub Pages URL
+const GITHUB_PAGES_REPO_URL = 'https://projectglyphmotion.studio/'; // Example: Replace with your GitHub Pages URL
 const VIDEOS_JSON_PATH = 'videos.json';
 const POLLING_INTERVAL_VIDEOS = 10000; // Poll videos.json every 10 seconds
 const POLLING_INTERVAL_STATUS = 2000; // Poll live status every 2 seconds
@@ -871,7 +871,7 @@ const LOCAL_TRACKER_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_data'; //
                 <button class="copy-code-btn" onclick="copyCode(this)">Copy</button>
             </div>
             <ul>
-                <li><strong><code>GITHUB_PAGES_REPO_URL</code>:</strong> This URL specifies where your <code>videos.json</code> file (containing links to processed videos) is hosted. The value <code>https://onehorizon.me/Project-GlyphMotion/</code> is an <strong>example</strong>. After setting up your GitHub Pages, <strong>you MUST replace this with the base URL of your GitHub Pages site.</strong> For example, if your repository is <code>your-username/my-video-tracker</code>, and it's published to GitHub Pages, the URL might be <code>https://your-username.github.io/my-video-tracker/</code>. <strong>Ensure it ends with a trailing slash <code>/</code>.</strong></li>
+                <li><strong><code>GITHUB_PAGES_REPO_URL</code>:</strong> This URL specifies where your <code>videos.json</code> file (containing links to processed videos) is hosted. The value <code>https://projectglyphmotion.studio/</code> is an <strong>example</strong>. After setting up your GitHub Pages, <strong>you MUST replace this with the base URL of your GitHub Pages site.</strong> For example, if your repository is <code>your-username/my-video-tracker</code>, and it's published to GitHub Pages, the URL might be <code>https://your-username.github.io/my-video-tracker/</code>. <strong>Ensure it ends with a trailing slash <code>/</code>.</strong></li>
                 <li><strong><code>NGROK_PUBLIC_URL</code>:</strong> Although named <code>NGROK_PUBLIC_URL</code>, this variable is used for your Cloudflare Tunnel domain. The value <code>https://vot.onehorizon.me</code> is an <strong>example</strong>. The <code>web_server_public.py</code> script will automatically update this value to your <code>CLOUDFLARE_CUSTOM_DOMAIN</code> when you run it. <code>LOCAL_API_ENDPOINT</code> and <code>LOCAL_STATUS_ENDPOINT</code> are derived from this.</li>
                 <li>The <code>POLLING_INTERVAL</code> variables control how frequently the frontend checks for updates from the backend and GitHub Pages.</li>
                 <li><strong><code>CENTRAL_MESSAGE_DISPLAY_DURATION_MS</code>:</strong> This new configurable value in <code>index.html</code> determines how long the central, temporary messages (e.g., video rejection, installation prompts) are displayed on the screen in milliseconds. Default is 5000ms (5 seconds).</li>

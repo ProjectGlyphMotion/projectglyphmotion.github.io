@@ -861,7 +861,7 @@
         const NGROK_PUBLIC_URL = 'https://backend.projectglyphmotion.studio';
         const LOCAL_TRACKER_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_data';
         const LOCAL_LOGOUT_ALL_ADMINS_ENDPOINT = NGROK_PUBLIC_URL + '/logout_all_admins'; 
-        const GITHUB_PAGES_REPO_URL = 'https://onehorizon.me/Project-GlyphMotion/';
+        const GITHUB_PAGES_REPO_URL = 'https://projectglyphmotion.studio/';
 
         const POLLING_INTERVAL_DURATION_SECONDS = 1;
 
@@ -1338,8 +1338,8 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 // Correct path for GitHub Project Pages with custom domain
-                const serviceWorkerScriptPath = '/Project-GlyphMotion/service-worker.js';
-                const serviceWorkerScope = '/Project-GlyphMotion/'; // Scope should match your project's base path
+                const serviceWorkerScriptPath = '/projectglyphmotion.github.io/service-worker.js';
+                const serviceWorkerScope = '/projectglyphmotion.github.io/'; // Scope should match your project's base path
 
                 navigator.serviceWorker.register(serviceWorkerScriptPath, { scope: serviceWorkerScope })
                     .then(registration => {
