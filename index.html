@@ -1644,10 +1644,10 @@
         thumbnailPlaceholder.className = 'video-thumbnail-placeholder absolute top-0 left-0 w-full h-full';
         thumbnailPlaceholder.setAttribute('data-embed-url', originalEmbedUrl);
         thumbnailPlaceholder.setAttribute('data-file-id', googleDriveFileId);
-        const thumbnailUrl = googleDriveFileId ? `https://drive.google.com/thumbnail?id=${googleDriveFileId}` : `images/thumbnail_fallback.jpg`;
+        const thumbnailUrl = googleDriveFileId ? `https://drive.google.com/thumbnail?id=${googleDriveFileId}` : `/images/thumbnail_fallback.jpg`;
         thumbnailPlaceholder.innerHTML = `
             <img src="${thumbnailUrl}" alt="Video thumbnail" class="w-full h-full object-cover rounded-lg"
-                 onerror="this.onerror=null;this.src='images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
+                 onerror="this.onerror=null;this.src='/images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
                             <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </div>
         `;
@@ -1759,7 +1759,7 @@
                 
 
                 /* Construct the Google Drive thumbnail URL, using a robust fallback */
-                const thumbnailUrl = video.googleDriveFileId ? `https://drive.google.com/thumbnail?id=${video.googleDriveFileId}` : `images/thumbnail_fallback.jpg`;
+                const thumbnailUrl = video.googleDriveFileId ? `https://drive.google.com/thumbnail?id=${video.googleDriveFileId}` : `/images/thumbnail_fallback.jpg`;
 
                 /* Create the video container with the thumbnail placeholder initially */
                 videoCard.innerHTML = `
@@ -1774,7 +1774,7 @@
                              data-file-id="${video.googleDriveFileId}">
                             <img src="${thumbnailUrl}" 
                                  alt="Video thumbnail for ${video.title || 'Processed Video'}" 
-                                 onerror="this.onerror=null;this.src='images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
+                                 onerror="this.onerror=null;this.src='/images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
                                 <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                             </div>
                         </div>
@@ -2229,14 +2229,14 @@
 
             /* Set video in modal (reusing the same thumbnail/iframe logic) */
             /* Use the fallback image if fileId is not available for thumbnail */
-            const thumbnailUrl = fileId ? `https://drive.google.com/thumbnail?id=${fileId}` : `images/thumbnail_fallback.jpg`; // Use project's fallback image
+            const thumbnailUrl = fileId ? `https://drive.google.com/thumbnail?id=${fileId}` : `/images/thumbnail_fallback.jpg`; // Use project's fallback image
             const infoModalVideoHtml = `
                 <div class="video-thumbnail-placeholder" 
                         data-embed-url="${embedUrl}" 
                         data-file-id="${fileId}">
                     <img src="${thumbnailUrl}" 
                             alt="Video thumbnail for ${videoTitle}" 
-                            onerror="this.onerror=null;this.src='images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
+                            onerror="this.onerror=null;this.src='/images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
                                 <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                             </div>
                 </div>
