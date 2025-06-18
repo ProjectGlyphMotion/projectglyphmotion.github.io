@@ -2,7 +2,7 @@
 
 // Increment version on updates to trigger cache invalidation and fresh content fetching.
 // This is critical for ensuring users get the latest version of your PWA.
-const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.8'; // <-- CHANGED TO v1.0.8 to force update!
+const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.9'; // <-- CHANGED TO v1.0.9 to force update!
 const OFFLINE_URL = '/offline.html'; // Path to your custom offline page
 
 // List of URLs to cache when the service worker is installed.
