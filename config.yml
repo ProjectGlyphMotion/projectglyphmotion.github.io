@@ -1,0 +1,72 @@
+# config.yml
+# Save this file inside your Project-GlyphMotion project folder.
+# Cloudflare Tunnel Configuration File
+# This file defines how your Cloudflare Tunnel connects to your services.
+
+# The ID of your Cloudflare Tunnel.
+# You will get this UUID when you run 'cloudflared tunnel create my-video-tracker-tunnel'.
+# The unique ID for your Cloudflare Tunnel.
+tunnel: 123e4567-e89b-12d3-a456-426614174000 # Replace with your actual tunnel ID
+
+# The path to your Cloudflare Tunnel credentials file.
+# This was generated when you ran 'cloudflared tunnel login'.
+# Based on your output, it's: /home/hers/.cloudflared/cert.pem
+# The path to your Cloudflare Tunnel credentials file.
+credentials-file: /home/hers/.cloudflared/123e4567-e89b-12d3-a456-426614174000.json # Replace with your actual credentials file path
+
+# Ingress rules define how traffic is routed through your tunnel.
+ingress:
+  # Specific rules for POST requests and protected endpoints
+  - hostname: backend.projectglyphmotion.studio # Change this to your actual backend hostname
+    service: http://localhost:5000
+    path: /process_web_video
+    method: POST
+
+  - hostname: backend.projectglyphmotion.studio # Change this to your actual backend hostname
+    service: http://localhost:5000
+    path: /delete_video
+    method: POST
+
+  - hostname: backend.projectglyphmotion.studio # Change this to your actual backend hostname
+    service: http://localhost:5000
+    path: /get_github_commit_info
+    method: POST
+
+  - hostname: backend.projectglyphmotion.studio # Change this to your actual backend hostname
+    service: http://localhost:5000
+    path: /login
+    method: POST
+
+  - hostname: backend.projectglyphmotion.studio # Change this to your actual backend hostname
+    service: http://localhost:5000
+    path: /logout
+    method: POST
+
+  - hostname: backend.projectglyphmotion.studio # Change this to your actual backend hostname
+    service: http://localhost:5000
+    path: /logout_all_admins
+    method: POST
+
+  - hostname: backend.projectglyphmotion.studio # Change this to your actual backend hostname
+    service: http://localhost:5000
+    path: /update_credentials
+    method: POST
+
+  # Specific rules for GET requests (HEAD requests are often covered by GET if not explicitly listed)
+  - hostname: backend.projectglyphmotion.studio # Change this to your actual backend hostname
+    service: http://localhost:5000
+    path: /status
+    method: GET
+
+  - hostname: backend.projectglyphmotion.studio # Change this to your actual backend hostname
+    service: http://localhost:5000
+    path: /admin_tracker_data
+    method: GET
+
+  # Fallback rule: routes all other traffic for 'backend.projectglyphmotion.studio' to your local server on port 5000.
+  # This acts as a general catch-all for any other GET requests (like static files) or unlisted paths within the API subdomain.
+  - hostname: backend.projectglyphmotion.studio # Change this to your actual backend hostname
+    service: http://localhost:5000
+
+  # This rule is a final fallback. If no other ingress rule matches, Cloudflare will return a 404.
+  - service: http_status:404
