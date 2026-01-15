@@ -16,6 +16,9 @@ import requests
 import jwt # New import for JWT
 import datetime # New import for JWT expiry
 import socket # Added: Import the socket module for socket.timeout
+import base64  # For encoding preview images
+import uuid  # For generating unique session IDs
+import shutil  # For moving cached preview files
 
 # Import the gh.py script
 from gh import update_github_pages_with_video, delete_video_from_drive_and_github, get_commit_details
@@ -44,9 +47,28 @@ JWT_SECRET_KEY = 'YOUR_JWT_SECRET_KEY_HERE' # Generate a secure key, e.g., using
 # FIX: Changed this to a set of individual strings for each master admin.
 MASTER_ADMIN_USERNAMES = {"ExampleAdmin1", "ExampleAdmin2"} # Add more usernames to this set if you have multiple master admins, e.g., {"ExampleAdmin1", "another_master_admin"}
 
+# --- AdSense Configuration (New) ---
+# Global flag to enable/disable ads for all users (including non-admins)
+_ADS_ENABLED_GLOBALLY = False # Default to False, can be changed by master admin
+
+# Flag to determine if ads should be shown to admins when _ADS_ENABLED_GLOBALLY is True
+_SHOW_ADS_TO_ADMINS = False # Default to False, can be changed by master admin
+
+# File to persist ad settings
+AD_SETTINGS_FILE = 'ad_settings.json'
+
+# --- ROI Preview Configuration ---
+# Directory to store temporary preview files
+PREVIEW_SUBDIRECTORY = "preview_temp"
+# Time in seconds before an abandoned preview is cleaned up (5 minutes)
+PREVIEW_CLEANUP_TIMEOUT_SECONDS = 300
+# Interval for preview cleanup check (60 seconds)
+PREVIEW_CLEANUP_INTERVAL_SECONDS = 60
+
 # Ensure input and output directories exist
 os.makedirs(OUTPUT_SUBDIRECTORY, exist_ok=True)
 os.makedirs(INPUT_SUBDIRECTORY, exist_ok=True)
+os.makedirs(PREVIEW_SUBDIRECTORY, exist_ok=True)
 
 # --- Logging ---
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -66,6 +88,139 @@ _tracking_data_lock = threading.Lock() # To protect _tracking_data from race con
 # In a real-world app, this would be a persistent store like a database or Redis.
 _invalidated_tokens = set()
 _token_invalidation_lock = threading.Lock()
+
+# --- Preview Session Management ---
+# Stores preview sessions: {session_id: {'video_path': str, 'created_at': float, 'used': bool}}
+_preview_sessions = {}
+_preview_sessions_lock = threading.Lock()
+
+def generate_preview_session_id():
+    """Generates a unique preview session ID."""
+    import uuid
+    return str(uuid.uuid4())
+
+def create_preview_session(video_path: str) -> str:
+    """Creates a new preview session and returns the session ID."""
+    session_id = generate_preview_session_id()
+    with _preview_sessions_lock:
+        _preview_sessions[session_id] = {
+            'video_path': video_path,
+            'created_at': time.time(),
+            'used': False  # Set to True when processing starts
+        }
+    logger.info(f"Created preview session {session_id} for {video_path}")
+    return session_id
+
+def get_preview_session(session_id: str) -> dict:
+    """Gets a preview session by ID."""
+    with _preview_sessions_lock:
+        return _preview_sessions.get(session_id)
+
+def mark_preview_session_used(session_id: str):
+    """Marks a preview session as used (processing started)."""
+    with _preview_sessions_lock:
+        if session_id in _preview_sessions:
+            _preview_sessions[session_id]['used'] = True
+            logger.info(f"Preview session {session_id} marked as used")
+
+def remove_preview_session(session_id: str):
+    """Removes a preview session."""
+    with _preview_sessions_lock:
+        if session_id in _preview_sessions:
+            del _preview_sessions[session_id]
+            logger.info(f"Removed preview session {session_id}")
+
+def cleanup_abandoned_previews():
+    """Cleans up preview sessions that have been abandoned (not used within timeout)."""
+    current_time = time.time()
+    sessions_to_remove = []
+    
+    with _preview_sessions_lock:
+        for session_id, session_data in list(_preview_sessions.items()):
+            age = current_time - session_data['created_at']
+            if age > PREVIEW_CLEANUP_TIMEOUT_SECONDS and not session_data['used']:
+                sessions_to_remove.append((session_id, session_data['video_path']))
+    
+    # Clean up outside the lock to avoid holding it too long
+    for session_id, video_path in sessions_to_remove:
+        try:
+            if os.path.exists(video_path):
+                os.remove(video_path)
+                logger.info(f"Cleaned up abandoned preview file: {video_path}")
+        except Exception as e:
+            logger.error(f"Error cleaning up preview file {video_path}: {e}")
+        remove_preview_session(session_id)
+    
+    if sessions_to_remove:
+        logger.info(f"Cleaned up {len(sessions_to_remove)} abandoned preview sessions")
+
+def start_preview_cleanup_scheduler():
+    """Starts a background thread to periodically clean up abandoned previews."""
+    def cleanup_loop():
+        while True:
+            time.sleep(PREVIEW_CLEANUP_INTERVAL_SECONDS)
+            cleanup_abandoned_previews()
+    
+    cleanup_thread = threading.Thread(target=cleanup_loop, daemon=True)
+    cleanup_thread.start()
+    logger.info("Preview cleanup scheduler started")
+
+def extract_video_frame(video_path: str, output_image_path: str, seek_time: float = 1.0) -> bool:
+    """
+    Extracts a single frame from a video using FFmpeg.
+    
+    Args:
+        video_path: Path to the video file
+        output_image_path: Path to save the extracted frame (JPEG)
+        seek_time: Time in seconds to seek to (default 1 second)
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Get video duration first to determine a good seek time
+        duration_cmd = [
+            "ffprobe", "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            video_path
+        ]
+        result = subprocess.run(duration_cmd, capture_output=True, text=True, timeout=15)
+        
+        if result.returncode == 0 and result.stdout.strip():
+            try:
+                duration = float(result.stdout.strip())
+                # Seek to 10% of duration or 1 second, whichever is smaller
+                seek_time = min(seek_time, duration * 0.1, duration - 0.1)
+                seek_time = max(0, seek_time)  # Ensure non-negative
+            except ValueError:
+                seek_time = 0  # Fallback to first frame
+        
+        # Extract frame using FFmpeg
+        extract_cmd = [
+            "ffmpeg", "-y",
+            "-ss", str(seek_time),
+            "-i", video_path,
+            "-vframes", "1",
+            "-q:v", "2",  # High quality JPEG
+            output_image_path
+        ]
+        
+        result = subprocess.run(extract_cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode == 0 and os.path.exists(output_image_path):
+            logger.info(f"Extracted frame from {video_path} at {seek_time:.2f}s")
+            return True
+        else:
+            logger.error(f"FFmpeg frame extraction failed: {result.stderr}")
+            return False
+            
+    except subprocess.TimeoutExpired:
+        logger.error(f"Frame extraction timed out for {video_path}")
+        return False
+    except Exception as e:
+        logger.error(f"Error extracting frame: {e}")
+        return False
 
 def invalidate_token(token: str):
     """Adds a token to the invalidated list."""
@@ -137,6 +292,37 @@ def save_tracking_data():
             logger.info(f"Saved {len(_tracking_data)} entries to {TRACKING_DATA_FILE}")
         except Exception as e:
             logger.error(f"Error saving {TRACKING_DATA_FILE}: {e}")
+
+def load_ad_settings():
+    """Loads ad settings from the JSON file on startup."""
+    global _ADS_ENABLED_GLOBALLY, _SHOW_ADS_TO_ADMINS
+    if os.path.exists(AD_SETTINGS_FILE):
+        try:
+            with open(AD_SETTINGS_FILE, 'r') as f:
+                settings = json.load(f)
+                _ADS_ENABLED_GLOBALLY = settings.get('ads_enabled_globally', _ADS_ENABLED_GLOBALLY)
+                _SHOW_ADS_TO_ADMINS = settings.get('show_ads_to_admins', _SHOW_ADS_TO_ADMINS)
+            logger.info(f"Loaded ad settings from {AD_SETTINGS_FILE}: Globally Enabled={_ADS_ENABLED_GLOBALLY}, Show to Admins={_SHOW_ADS_TO_ADMINS}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Error decoding {AD_SETTINGS_FILE}: {e}. Using default ad settings.")
+        except Exception as e:
+            logger.error(f"Error loading {AD_SETTINGS_FILE}: {e}. Using default ad settings.")
+    else:
+        logger.info(f"{AD_SETTINGS_FILE} not found. Using default ad settings.")
+        save_ad_settings() # Create the file with default settings
+
+def save_ad_settings():
+    """Saves ad settings to the JSON file."""
+    settings = {
+        'ads_enabled_globally': _ADS_ENABLED_GLOBALLY,
+        'show_ads_to_admins': _SHOW_ADS_TO_ADMINS
+    }
+    try:
+        with open(AD_SETTINGS_FILE, 'w') as f:
+            json.dump(settings, f, indent=4)
+        logger.info(f"Saved ad settings to {AD_SETTINGS_FILE}")
+    except Exception as e:
+        logger.error(f"Error saving {AD_SETTINGS_FILE}: {e}")
 
 def get_client_ip(handler):
     """
@@ -326,7 +512,7 @@ async def _stream_output_and_update_message(
                     elif progress_type == 'ffmpeg':
                         ffmpeg_match = ffmpeg_regex.search(progress_info)
                         if ffmpeg_match:
-                            new_progress_text = f"Merging Audio: {progress_info}"
+                            new_progress_text = f"Merging Audio: {progress_match.group(0).strip()}" # Fixed: use group(0) for full match
                     
                     if new_progress_text and new_progress_text != last_progress_text and (time.time() - last_update_time > 1):
                         try:
@@ -368,7 +554,7 @@ async def _stream_output_and_update_message(
             elif progress_type == 'ffmpeg':
                 ffmpeg_match = ffmpeg_regex.search(progress_info)
                 if ffmpeg_match:
-                    new_progress_text = f"Merging Audio: {progress_info}"
+                    new_progress_text = f"Merging Audio: {ffmpeg_match.group(0).strip()}" # Fixed: use group(0) for full match
 
             if new_progress_text and new_progress_text != last_progress_text:
                 try:
@@ -491,11 +677,13 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
 
 
 async def run_tracking_script_and_stream_output(
-    input_path: str, output_path: str, progress_message_obj=None, context=None
+    input_path: str, output_path: str, progress_message_obj=None, context=None,
+    roi_params: dict = None
 ) -> bool:
     """
     Runs your video tracking script by passing arguments and streams its output.
     progress_message_obj and context are optional for web server usage.
+    roi_params is a dict with ROI parameters (roi_enabled, roi_x, roi_y, roi_width, roi_height, roi_show_overlay, roi_overlay_opacity)
     """
     try:
         command = [
@@ -507,6 +695,20 @@ async def run_tracking_script_and_stream_output(
             "--output_video", os.path.splitext(output_path)[0], # ot.py expects path without .mp4
             "--input_video", input_path # Pass input video path as an argument
         ]
+        
+        # Add ROI parameters if provided
+        if roi_params and roi_params.get('roi_enabled') == 'true':
+            command.extend([
+                "--roi_enabled", "true",
+                "--roi_x", str(roi_params.get('roi_x', '0')),
+                "--roi_y", str(roi_params.get('roi_y', '0')),
+                "--roi_width", str(roi_params.get('roi_width', '1')),
+                "--roi_height", str(roi_params.get('roi_height', '1')),
+                "--roi_show_overlay", str(roi_params.get('roi_show_overlay', 'true')),
+                "--roi_overlay_opacity", str(roi_params.get('roi_overlay_opacity', '30'))
+            ])
+            logger.info(f"ROI enabled with params: x={roi_params.get('roi_x')}, y={roi_params.get('roi_y')}, w={roi_params.get('roi_width')}, h={roi_params.get('roi_height')}")
+        
         logger.info(f"Starting tracking command: {' '.join(command)}")
 
         process = await asyncio.create_subprocess_exec(
@@ -549,13 +751,14 @@ async def run_tracking_script_and_stream_output(
 
 
 # --- Unified Video Processing Function ---
-async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_file_upload: bool, progress_message_obj=None, telegram_context=None, client_ip: str = "N/A", geolocation_info: dict = None):
+async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_file_upload: bool, progress_message_obj=None, telegram_context=None, client_ip: str = "N/A", geolocation_info: dict = None, roi_params: dict = None):
     """
     Unified function to process video, upload to GDrive, and update GitHub Pages.
     progress_message_obj is the actual Telegram message object to edit (for Telegram)
     or a WebProgressReporter instance (for web).
     telegram_context is needed for sending new messages in case of errors from subprocess streams (for Telegram).
     client_ip and geolocation_info are new parameters for tracking.
+    roi_params is a dict with ROI parameters from the frontend.
     """
     # Ensure geolocation_info has all expected keys, even if N/A
     default_geolocation_data = {
@@ -609,19 +812,35 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
             output_filename = f"processed_{os.path.splitext(input_filename)[0]}.mp4"
             local_output_path = os.path.join(OUTPUT_SUBDIRECTORY, output_filename)
     else:
-        try:
-            if hasattr(video_source.file, "seek"):
-                video_source.file.seek(0)
-            with open(local_input_path, 'wb') as f:
-                f.write(video_source.file.read())
-            logger.info(f"Uploaded file saved to: {local_input_path}")
-        except Exception as e:
-            logger.error(f"Error saving uploaded file: {e}")
-            if progress_message_obj:
-                await progress_message_obj.edit_text(f"Failed to save uploaded file: {e}")
-            set_processing_status(f"Failed to save uploaded file: {e}") # Update global status
-            reset_status_after_delay() # Reset status after failure
-            return False
+        # Check if video_source is a string path (cached preview file) or a FieldStorage object
+        if isinstance(video_source, str) and os.path.exists(video_source):
+            # It's a cached file path from preview session - move it to input directory
+            try:
+                # Move the file from preview directory to input directory
+                shutil.move(video_source, local_input_path)
+                logger.info(f"Moved cached preview file to: {local_input_path}")
+            except Exception as e:
+                logger.error(f"Error moving cached preview file: {e}")
+                if progress_message_obj:
+                    await progress_message_obj.edit_text(f"Failed to process cached file: {e}")
+                set_processing_status(f"Failed to process cached file: {e}")
+                reset_status_after_delay()
+                return False
+        else:
+            # It's a FieldStorage object from direct upload
+            try:
+                if hasattr(video_source.file, "seek"):
+                    video_source.file.seek(0)
+                with open(local_input_path, 'wb') as f:
+                    f.write(video_source.file.read())
+                logger.info(f"Uploaded file saved to: {local_input_path}")
+            except Exception as e:
+                logger.error(f"Error saving uploaded file: {e}")
+                if progress_message_obj:
+                    await progress_message_obj.edit_text(f"Failed to save uploaded file: {e}")
+                set_processing_status(f"Failed to save uploaded file: {e}") # Update global status
+                reset_status_after_delay() # Reset status after failure
+                return False
 
     if not download_success:
         set_processing_status("Video download failed.") # Update global status
@@ -676,8 +895,11 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
         await progress_message_obj.edit_text("Video downloaded/saved. Starting object tracking...")
         set_processing_status("Video downloaded/saved. Starting object tracking...") # Update global status
     
-    # Pass the correctly determined local_input_path for processing
-    tracking_success = await run_tracking_script_and_stream_output(local_input_path, local_output_path, progress_message_obj, telegram_context)
+    # Pass the correctly determined local_input_path for processing, along with ROI params
+    tracking_success = await run_tracking_script_and_stream_output(
+        local_input_path, local_output_path, progress_message_obj, telegram_context,
+        roi_params=roi_params
+    )
 
     if not tracking_success:
         set_processing_status("Object tracking failed.") # Update global status
@@ -900,11 +1122,18 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
     # Renamed _send_response to send_api_response to avoid conflict and be more explicit
     def send_api_response(self, status_code, data):
         """Sends a JSON response with appropriate headers."""
-        self.send_response(status_code)
-        self.send_header('Content-type', 'application/json')
-        self._set_cors_headers() # Set CORS headers for all responses
-        self.end_headers()
-        self.wfile.write(json.dumps(data).encode('utf-8'))
+        try:
+            self.send_response(status_code)
+            self.send_header('Content-type', 'application/json')
+            self._set_cors_headers() # Set CORS headers for all responses
+            self.end_headers()
+            self.wfile.write(json.dumps(data).encode('utf-8'))
+        except BrokenPipeError:
+            logger.warning("Client disconnected before response could be sent (broken pipe)")
+        except ConnectionResetError:
+            logger.warning("Client connection reset before response could be sent")
+        except Exception as e:
+            logger.warning(f"Error sending response: {e}")
 
     def do_HEAD(self):
         """Handle HEAD requests for status check."""
@@ -977,8 +1206,18 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
         return payload
 
+    def _authorize_master_admin(self, admin_payload: dict) -> bool:
+        """Checks if the authenticated admin is a master admin."""
+        if admin_payload.get('username') not in MASTER_ADMIN_USERNAMES:
+            self.send_api_response(403, {"message": "Forbidden: Only a master admin can perform this action."})
+            logger.warning(f"Unauthorized master admin action attempt by '{admin_payload.get('username')}'")
+            return False
+        return True
+
 
     def do_POST(self):
+        global _ADS_ENABLED_GLOBALLY, _SHOW_ADS_TO_ADMINS
+
         if self.path == '/process_web_video':
             try:
                 # Get client IP and geolocation data immediately
@@ -1000,6 +1239,19 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 
                 video_url = None
                 video_file = None
+                preview_session_id = None
+                cached_video_path = None
+
+                # Check for preview session first (video already downloaded/uploaded)
+                if 'preview_session_id' in form:
+                    preview_session_id = form['preview_session_id'].value
+                    session = get_preview_session(preview_session_id)
+                    if session and os.path.exists(session['video_path']):
+                        cached_video_path = session['video_path']
+                        mark_preview_session_used(preview_session_id)
+                        logger.info(f"Using cached preview video: {cached_video_path}")
+                    else:
+                        logger.warning(f"Preview session {preview_session_id} not found or expired, falling back to regular upload/url")
 
                 if 'video_url' in form:
                     video_url = form['video_url'].value
@@ -1011,6 +1263,22 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_api_response(400, {"message": "No video URL or file provided."})
                     return
 
+                # Extract ROI (Region of Interest) parameters from form data
+                roi_params = None
+                if 'roi_enabled' in form and form['roi_enabled'].value.lower() == 'true':
+                    roi_params = {
+                        'roi_enabled': 'true',
+                        'roi_x': form['roi_x'].value if 'roi_x' in form else '0',
+                        'roi_y': form['roi_y'].value if 'roi_y' in form else '0',
+                        'roi_width': form['roi_width'].value if 'roi_width' in form else '1',
+                        'roi_height': form['roi_height'].value if 'roi_height' in form else '1',
+                        'roi_show_overlay': form['roi_show_overlay'].value if 'roi_show_overlay' in form else 'true',
+                        'roi_overlay_opacity': form['roi_overlay_opacity'].value if 'roi_overlay_opacity' in form else '30'
+                    }
+                    logger.info(f"ROI enabled: x={roi_params['roi_x']}, y={roi_params['roi_y']}, "
+                               f"w={roi_params['roi_width']}, h={roi_params['roi_height']}, "
+                               f"overlay={roi_params['roi_show_overlay']}, opacity={roi_params['roi_overlay_opacity']}")
+
                 class WebProgressReporter:
                     """A dummy reporter for web progress that updates the global status."""
                     async def edit_text(self, message):
@@ -1020,18 +1288,31 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
                 main_loop = self.server.main_asyncio_loop
                 
+                # Determine the video source and whether it's a file upload
                 is_file_upload = False
-                if video_file is not None and hasattr(video_file, "filename") and video_file.filename:
+                video_source = None
+                
+                if cached_video_path:
+                    # Use the cached video from preview session
+                    # Create a file-like object for the cached video
+                    video_source = cached_video_path
+                    is_file_upload = True  # Treat cached file as a file upload
+                    logger.info(f"Processing with cached video: {cached_video_path}")
+                elif video_file is not None and hasattr(video_file, "filename") and video_file.filename:
+                    video_source = video_file
                     is_file_upload = True
+                else:
+                    video_source = video_url
 
                 asyncio.run_coroutine_threadsafe(
                     process_video_unified(
-                        video_url if video_url else video_file,
+                        video_source,
                         is_file_upload=is_file_upload,
                         progress_message_obj=web_progress_reporter_instance,
                         telegram_context=None,
                         client_ip=client_ip, # Pass client IP
-                        geolocation_info=geolocation_info # Pass geolocation info
+                        geolocation_info=geolocation_info, # Pass geolocation info
+                        roi_params=roi_params  # Pass ROI parameters
                     ),
                     main_loop
                 )
@@ -1041,6 +1322,182 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 logger.error(f"Error handling web video processing: {e}", exc_info=True)
                 self.send_api_response(500, {"message": f"Server error: {e}"})
+        
+        elif self.path == '/get_video_preview':
+            # Endpoint to get a preview frame for ROI selection
+            # Works with both uploaded files and URLs
+            try:
+                ctype, pdict = cgi.parse_header(self.headers.get('content-type'))
+                pdict['boundary'] = bytes(pdict['boundary'], "utf-8")
+                
+                form = cgi.FieldStorage(
+                    fp=self.rfile,
+                    headers=self.headers,
+                    environ={'REQUEST_METHOD': 'POST',
+                             'CONTENT_TYPE': self.headers['Content-Type'],
+                             'CONTENT_LENGTH': str(self.headers['Content-Length'])
+                            }
+                )
+                
+                video_url = None
+                video_file = None
+                preview_session_id = None
+                
+                # Check if using an existing preview session
+                if 'preview_session_id' in form:
+                    preview_session_id = form['preview_session_id'].value
+                    session = get_preview_session(preview_session_id)
+                    if session and os.path.exists(session['video_path']):
+                        # Session exists, extract frame from existing video
+                        video_path = session['video_path']
+                        frame_path = os.path.join(PREVIEW_SUBDIRECTORY, f"{preview_session_id}_frame.jpg")
+                        
+                        if extract_video_frame(video_path, frame_path):
+                            with open(frame_path, 'rb') as f:
+                                frame_data = base64.b64encode(f.read()).decode('utf-8')
+                            # Clean up frame file
+                            os.remove(frame_path)
+                            
+                            self.send_api_response(200, {
+                                "success": True,
+                                "preview_session_id": preview_session_id,
+                                "frame": f"data:image/jpeg;base64,{frame_data}",
+                                "message": "Preview frame extracted successfully"
+                            })
+                        else:
+                            self.send_api_response(500, {"success": False, "message": "Failed to extract frame from video"})
+                        return
+                    else:
+                        # Session expired or invalid, need new upload/download
+                        pass
+                
+                # Handle new video upload or URL
+                if 'video_url' in form:
+                    video_url = form['video_url'].value
+                    logger.info(f"Preview request for URL: {video_url}")
+                elif 'video_file' in form:
+                    video_file = form['video_file']
+                    logger.info(f"Preview request for uploaded file: {video_file.filename}")
+                else:
+                    self.send_api_response(400, {"success": False, "message": "No video URL or file provided."})
+                    return
+                
+                # Generate a new session ID
+                new_session_id = str(uuid.uuid4())
+                
+                if video_file is not None and hasattr(video_file, "filename") and video_file.filename:
+                    # Handle file upload
+                    input_filename = os.path.basename(video_file.filename)
+                    # Use session ID in filename to make it unique
+                    safe_filename = f"{new_session_id}_{input_filename}"
+                    local_video_path = os.path.join(PREVIEW_SUBDIRECTORY, safe_filename)
+                    
+                    try:
+                        if hasattr(video_file.file, "seek"):
+                            video_file.file.seek(0)
+                        with open(local_video_path, 'wb') as f:
+                            f.write(video_file.file.read())
+                        logger.info(f"Preview file saved to: {local_video_path}")
+                    except Exception as e:
+                        logger.error(f"Error saving preview file: {e}")
+                        self.send_api_response(500, {"success": False, "message": f"Failed to save uploaded file: {e}"})
+                        return
+                else:
+                    # Handle URL - download video using yt-dlp
+                    local_video_path = os.path.join(PREVIEW_SUBDIRECTORY, f"{new_session_id}_downloaded")
+                    
+                    try:
+                        # Use yt-dlp to download the video
+                        download_cmd = [
+                            "yt-dlp",
+                            "--no-playlist",
+                            "-f", "best[ext=mp4]/best",  # Prefer mp4
+                            "-o", f"{local_video_path}.%(ext)s",
+                            "--no-warnings",
+                            video_url
+                        ]
+                        
+                        logger.info(f"Downloading video for preview: {' '.join(download_cmd)}")
+                        result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=120)
+                        
+                        if result.returncode != 0:
+                            logger.error(f"yt-dlp failed: {result.stderr}")
+                            self.send_api_response(400, {"success": False, "message": f"Failed to download video: {result.stderr[:200]}"})
+                            return
+                        
+                        # Find the downloaded file (yt-dlp adds extension)
+                        downloaded_files = [f for f in os.listdir(PREVIEW_SUBDIRECTORY) if f.startswith(f"{new_session_id}_downloaded")]
+                        if not downloaded_files:
+                            self.send_api_response(500, {"success": False, "message": "Downloaded video file not found"})
+                            return
+                        
+                        local_video_path = os.path.join(PREVIEW_SUBDIRECTORY, downloaded_files[0])
+                        logger.info(f"Video downloaded for preview: {local_video_path}")
+                        
+                    except subprocess.TimeoutExpired:
+                        self.send_api_response(408, {"success": False, "message": "Video download timed out. Try a shorter video."})
+                        return
+                    except Exception as e:
+                        logger.error(f"Error downloading video: {e}")
+                        self.send_api_response(500, {"success": False, "message": f"Failed to download video: {e}"})
+                        return
+                
+                # Create preview session
+                session_id = create_preview_session(local_video_path)
+                
+                # Extract a frame from the video
+                frame_path = os.path.join(PREVIEW_SUBDIRECTORY, f"{session_id}_frame.jpg")
+                
+                if extract_video_frame(local_video_path, frame_path):
+                    with open(frame_path, 'rb') as f:
+                        frame_data = base64.b64encode(f.read()).decode('utf-8')
+                    # Clean up frame file (keep the video for later processing)
+                    os.remove(frame_path)
+                    
+                    self.send_api_response(200, {
+                        "success": True,
+                        "preview_session_id": session_id,
+                        "frame": f"data:image/jpeg;base64,{frame_data}",
+                        "message": "Preview frame extracted successfully"
+                    })
+                else:
+                    # Clean up failed preview
+                    if os.path.exists(local_video_path):
+                        os.remove(local_video_path)
+                    remove_preview_session(session_id)
+                    self.send_api_response(500, {"success": False, "message": "Failed to extract frame from video"})
+                    
+            except Exception as e:
+                logger.error(f"Error handling video preview: {e}", exc_info=True)
+                self.send_api_response(500, {"success": False, "message": f"Server error: {e}"})
+        
+        elif self.path == '/cancel_preview':
+            # Endpoint to cancel a preview session and clean up the file
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_body = self.rfile.read(content_length)
+                data = json.loads(post_body.decode('utf-8'))
+                session_id = data.get('preview_session_id')
+                
+                if not session_id:
+                    self.send_api_response(400, {"success": False, "message": "preview_session_id is required"})
+                    return
+                
+                session = get_preview_session(session_id)
+                if session:
+                    video_path = session['video_path']
+                    if os.path.exists(video_path):
+                        os.remove(video_path)
+                        logger.info(f"Cancelled preview, deleted: {video_path}")
+                    remove_preview_session(session_id)
+                    self.send_api_response(200, {"success": True, "message": "Preview cancelled and cleaned up"})
+                else:
+                    self.send_api_response(404, {"success": False, "message": "Preview session not found"})
+                    
+            except Exception as e:
+                logger.error(f"Error cancelling preview: {e}", exc_info=True)
+                self.send_api_response(500, {"success": False, "message": f"Server error: {e}"})
+        
         elif self.path == '/delete_video': # New endpoint for video deletion (protected)
             admin_payload = self._authenticate_request()
             if not admin_payload: return # _authenticate_request already sent response
@@ -1152,13 +1609,10 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             if not admin_payload: return
 
             # Check if the authenticated user is one of the master admins
-            if admin_payload.get('username') in MASTER_ADMIN_USERNAMES: # FIX: Now this check works correctly
+            if self._authorize_master_admin(admin_payload):
                 clear_all_sessions() # Invalidate all sessions
                 logger.info(f"Master admin '{admin_payload.get('username')}' triggered logout of all sessions.")
                 self.send_api_response(200, {"message": "All admin sessions have been invalidated."})
-            else:
-                logger.warning(f"Unauthorized attempt to logout all admins by '{admin_payload.get('username')}'")
-                self.send_api_response(403, {"message": "Forbidden: Only a master admin can perform this action."})
         elif self.path == '/update_credentials': # New endpoint for admin password update (protected)
             admin_payload = self._authenticate_request()
             if not admin_payload: return # _authenticate_request already sent response
@@ -1206,6 +1660,36 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 logger.error(f"Error handling password update: {e}", exc_info=True)
                 self.send_api_response(500, {"message": f"Server error during password update: {e}"})
+        elif self.path == '/update_ad_settings': # New endpoint for updating ad settings (master admin only)
+            admin_payload = self._authenticate_request()
+            if not admin_payload: return
+
+            if not self._authorize_master_admin(admin_payload): return
+
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_body = self.rfile.read(content_length)
+                data = json.loads(post_body.decode('utf-8'))
+                
+                new_ads_enabled_globally = data.get('ads_enabled_globally')
+                new_show_ads_to_admins = data.get('show_ads_to_admins')
+
+                if new_ads_enabled_globally is None or new_show_ads_to_admins is None:
+                    self.send_api_response(400, {"message": "Both 'ads_enabled_globally' and 'show_ads_to_admins' are required."})
+                    return
+                
+                _ADS_ENABLED_GLOBALLY = bool(new_ads_enabled_globally)
+                _SHOW_ADS_TO_ADMINS = bool(new_show_ads_to_admins)
+                save_ad_settings() # Persist changes to file
+
+                logger.info(f"Ad settings updated by master admin '{admin_payload.get('username')}': Globally Enabled={_ADS_ENABLED_GLOBALLY}, Show to Admins={_SHOW_ADS_TO_ADMINS}")
+                self.send_api_response(200, {"message": "Ad settings updated successfully.", "ads_enabled_globally": _ADS_ENABLED_GLOBALLY, "show_ads_to_admins": _SHOW_ADS_TO_ADMINS})
+
+            except json.JSONDecodeError:
+                self.send_api_response(400, {"message": "Invalid JSON payload."})
+            except Exception as e:
+                logger.error(f"Error updating ad settings: {e}", exc_info=True)
+                self.send_api_response(500, {"message": f"Server error updating ad settings: {e}"})
         else:
             self.send_api_response(404, {"message": "Not Found"})
 
@@ -1250,6 +1734,13 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             with _tracking_data_lock:
                 self.send_api_response(200, {"trackingData": _tracking_data})
             logger.info(f"Served /admin_tracker_data to admin: {admin_payload.get('username')}")
+        elif self.path == '/get_ad_settings': # New endpoint for getting ad settings
+            # This endpoint is public, no authentication needed
+            self.send_api_response(200, {
+                "ads_enabled_globally": _ADS_ENABLED_GLOBALLY,
+                "show_ads_to_admins": _SHOW_ADS_TO_ADMINS
+            })
+            logger.info("Served /get_ad_settings")
         else:
             # For other GET requests, serve files as before (if any) or return 404
             super().do_GET() # Use base class's do_GET for serving files
@@ -1273,8 +1764,13 @@ def run_web_server(port, main_loop):
 
 # --- Main Function ---
 def main():
-    # Load tracking data at startup
+    # Load tracking data and ad settings at startup
     load_tracking_data()
+    load_ad_settings()
+    
+    # Start the preview cleanup scheduler (removes abandoned preview files)
+    start_preview_cleanup_scheduler()
+    logger.info("Preview cleanup scheduler started")
 
     # Ensure JWT_SECRET_KEY is not the default placeholder
     global JWT_SECRET_KEY

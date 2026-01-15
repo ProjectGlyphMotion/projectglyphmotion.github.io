@@ -138,6 +138,22 @@ WATERMARK_OPACITY = 0.7
 # Margin from edge (as fraction of video height)
 # 0.02 = 2% margin from bottom-right corner
 WATERMARK_MARGIN_FRACTION = 0.02
+
+# --- ROI (Region of Interest) Configuration ---
+# ROI allows users to select a specific area of the video for object tracking
+# Objects outside the ROI will be ignored (not drawn/tracked)
+
+# Default ROI settings (can be overridden by command-line arguments)
+# When ENABLE_ROI is False, the entire frame is used for tracking
+DEFAULT_ROI_ENABLED = False
+
+# ROI overlay settings
+# When enabled, draws a semi-transparent overlay outside the ROI area
+DEFAULT_ROI_SHOW_OVERLAY = True
+DEFAULT_ROI_OVERLAY_OPACITY = 30  # Percentage (0-100)
+
+# ROI overlay color (BGR format for OpenCV)
+ROI_OVERLAY_COLOR = (20, 20, 30)  # Dark gray-blue, matches the website theme
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -392,7 +408,106 @@ def parse_arguments():
     parser.add_argument("--allowed_classes",nargs="+",default=DEFAULT_ALLOWED_CLASSES,help=f"Classes to track.")
     parser.add_argument("--confidence_threshold",type=float,default=DEFAULT_CONFIDENCE_THRESHOLD,help=f"Min confidence.")
     parser.add_argument("--input_video", type=str, required=True, help="Path to the input video file.")
+    
+    # ROI (Region of Interest) arguments
+    parser.add_argument("--roi_enabled", type=str, default="false", help="Enable ROI filtering (true/false).")
+    parser.add_argument("--roi_x", type=float, default=0.0, help="ROI X position (0-1 normalized).")
+    parser.add_argument("--roi_y", type=float, default=0.0, help="ROI Y position (0-1 normalized).")
+    parser.add_argument("--roi_width", type=float, default=1.0, help="ROI width (0-1 normalized).")
+    parser.add_argument("--roi_height", type=float, default=1.0, help="ROI height (0-1 normalized).")
+    parser.add_argument("--roi_show_overlay", type=str, default="true", help="Show semi-transparent overlay outside ROI (true/false).")
+    parser.add_argument("--roi_overlay_opacity", type=int, default=DEFAULT_ROI_OVERLAY_OPACITY, help="ROI overlay opacity (0-100).")
+    
     return parser.parse_args()
+
+
+def is_box_in_roi(box_coords, roi_coords, frame_width, frame_height):
+    """
+    Check if a bounding box center is within the ROI.
+    
+    Args:
+        box_coords: Tuple of (x1, y1, x2, y2) - bounding box pixel coordinates
+        roi_coords: Dict with 'x', 'y', 'width', 'height' - normalized ROI (0-1)
+        frame_width: Width of the frame in pixels
+        frame_height: Height of the frame in pixels
+    
+    Returns:
+        bool: True if box center is within ROI, False otherwise
+    """
+    if roi_coords is None:
+        return True  # No ROI means all boxes are valid
+    
+    x1, y1, x2, y2 = box_coords
+    
+    # Calculate box center
+    box_center_x = (x1 + x2) / 2
+    box_center_y = (y1 + y2) / 2
+    
+    # Convert ROI from normalized to pixel coordinates
+    roi_x1 = roi_coords['x'] * frame_width
+    roi_y1 = roi_coords['y'] * frame_height
+    roi_x2 = (roi_coords['x'] + roi_coords['width']) * frame_width
+    roi_y2 = (roi_coords['y'] + roi_coords['height']) * frame_height
+    
+    # Check if box center is within ROI
+    return (roi_x1 <= box_center_x <= roi_x2) and (roi_y1 <= box_center_y <= roi_y2)
+
+
+def draw_roi_overlay(frame, roi_coords, opacity):
+    """
+    Draw a semi-transparent overlay outside the ROI area.
+    
+    Args:
+        frame: The frame to draw on (will be modified in-place)
+        roi_coords: Dict with 'x', 'y', 'width', 'height' - normalized ROI (0-1)
+        opacity: Overlay opacity (0-100)
+    
+    Returns:
+        The modified frame with ROI overlay
+    """
+    if roi_coords is None or opacity <= 0:
+        return frame
+    
+    h, w = frame.shape[:2]
+    
+    # Convert normalized ROI to pixel coordinates
+    roi_x1 = int(roi_coords['x'] * w)
+    roi_y1 = int(roi_coords['y'] * h)
+    roi_x2 = int((roi_coords['x'] + roi_coords['width']) * w)
+    roi_y2 = int((roi_coords['y'] + roi_coords['height']) * h)
+    
+    # Clamp values to frame bounds
+    roi_x1 = max(0, min(roi_x1, w))
+    roi_y1 = max(0, min(roi_y1, h))
+    roi_x2 = max(0, min(roi_x2, w))
+    roi_y2 = max(0, min(roi_y2, h))
+    
+    # Create overlay
+    overlay = frame.copy()
+    alpha = opacity / 100.0
+    
+    # Fill areas outside ROI with dark overlay
+    # Top region
+    if roi_y1 > 0:
+        cv2.rectangle(overlay, (0, 0), (w, roi_y1), ROI_OVERLAY_COLOR, -1)
+    # Bottom region
+    if roi_y2 < h:
+        cv2.rectangle(overlay, (0, roi_y2), (w, h), ROI_OVERLAY_COLOR, -1)
+    # Left region (between top and bottom)
+    if roi_x1 > 0:
+        cv2.rectangle(overlay, (0, roi_y1), (roi_x1, roi_y2), ROI_OVERLAY_COLOR, -1)
+    # Right region (between top and bottom)
+    if roi_x2 < w:
+        cv2.rectangle(overlay, (roi_x2, roi_y1), (w, roi_y2), ROI_OVERLAY_COLOR, -1)
+    
+    # Draw ROI border (orange to match theme)
+    border_color = (54, 161, 253)  # BGR for #FDA136 (orange)
+    cv2.rectangle(overlay, (roi_x1, roi_y1), (roi_x2, roi_y2), border_color, 2)
+    
+    # Blend overlay with original frame
+    cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+    
+    return frame
 
 def start_ffmpeg_video_encoder(output_path, width, height, fps, vf_filter_string=""):
     """
@@ -558,6 +673,37 @@ def main():
     args = parse_arguments()
 
     current_input_video = args.input_video
+
+    # --- Parse ROI (Region of Interest) arguments ---
+    roi_enabled = args.roi_enabled.lower() == 'true'
+    roi_coords = None
+    roi_show_overlay = args.roi_show_overlay.lower() == 'true'
+    roi_overlay_opacity = max(0, min(100, args.roi_overlay_opacity))  # Clamp 0-100
+    
+    if roi_enabled:
+        roi_coords = {
+            'x': max(0.0, min(1.0, args.roi_x)),
+            'y': max(0.0, min(1.0, args.roi_y)),
+            'width': max(0.0, min(1.0, args.roi_width)),
+            'height': max(0.0, min(1.0, args.roi_height))
+        }
+        # Validate ROI makes sense
+        if roi_coords['width'] <= 0 or roi_coords['height'] <= 0:
+            print("⚠️ [WARNING] Invalid ROI dimensions. Disabling ROI.")
+            roi_enabled = False
+            roi_coords = None
+        else:
+            roi_pct_x = roi_coords['x'] * 100
+            roi_pct_y = roi_coords['y'] * 100
+            roi_pct_w = roi_coords['width'] * 100
+            roi_pct_h = roi_coords['height'] * 100
+            print(f"[INFO] ROI ENABLED: Position ({roi_pct_x:.1f}%, {roi_pct_y:.1f}%) Size ({roi_pct_w:.1f}% x {roi_pct_h:.1f}%)")
+            if roi_show_overlay:
+                print(f"[INFO] ROI overlay enabled with {roi_overlay_opacity}% opacity")
+            else:
+                print("[INFO] ROI overlay disabled")
+    else:
+        print("[INFO] ROI disabled - tracking entire frame")
 
     # Adjust input video path if it's not absolute and not found in current dir (for Telegram bot)
     if not os.path.exists(current_input_video) and not os.path.isabs(current_input_video):
@@ -768,6 +914,9 @@ def main():
 
             # Create a copy of the frame to draw annotations on
             annotated_frame = frame_to_process.copy()
+            
+            # Get frame dimensions for ROI calculations
+            frame_h, frame_w = annotated_frame.shape[:2]
 
             # Draw bounding boxes and labels if objects are detected
             if results and results[0].boxes:
@@ -780,6 +929,12 @@ def main():
                     # Only draw for allowed classes
                     if class_name in args.allowed_classes:
                         x1,y1,x2,y2=map(int,box.xyxy[0]) # Bounding box coordinates
+                        
+                        # ROI filtering: skip objects outside the region of interest
+                        if roi_enabled and roi_coords:
+                            if not is_box_in_roi((x1, y1, x2, y2), roi_coords, frame_w, frame_h):
+                                continue  # Skip this detection - outside ROI
+                        
                         conf=box.conf[0] # Confidence score
                         label=f"ID:{track_id} {class_name} {conf:.2f}"
 
@@ -787,6 +942,10 @@ def main():
                         (tw,th),_=cv2.getTextSize(label,cv2.FONT_HERSHEY_SIMPLEX,0.5,1)
                         cv2.rectangle(annotated_frame,(x1,y1-th-10),(x1+tw,y1-5),(0,255,0),-1) # Background for text
                         cv2.putText(annotated_frame,label,(x1,y1-5),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,0),1) # Black text
+
+            # Draw ROI overlay if enabled
+            if roi_enabled and roi_coords and roi_show_overlay:
+                annotated_frame = draw_roi_overlay(annotated_frame, roi_coords, roi_overlay_opacity)
 
             # --- Upscale the annotated frame to the final output resolution ---
             annotated_frame_for_output = annotated_frame

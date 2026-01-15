@@ -9,9 +9,6 @@
     <link rel="manifest" href="/manifest.json"> <!-- IMPORTANT: manifest.json link should always be relative to the root if using a custom domain --> <!-- PWA: Link to manifest file -->
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google AdSense ads verification script code -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9910066599475083"
-     crossorigin="anonymous"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
@@ -1106,6 +1103,365 @@
                 gap: 0.75rem;
             }
         }
+
+        /* ========================================== */
+        /* ROI (Region of Interest) Selection Styles  */
+        /* ========================================== */
+        
+        /* ROI Section Container */
+        #roiSection {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border: 1px solid rgba(253, 161, 54, 0.3);
+            border-radius: 0.75rem;
+            background-color: rgba(30, 30, 40, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        #roiSection.active {
+            border-color: rgba(253, 161, 54, 0.6);
+            background-color: rgba(30, 30, 40, 0.8);
+        }
+
+        /* ROI Toggle Checkbox */
+        .roi-toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            padding: 0.5rem 0;
+        }
+
+        .roi-toggle-container label {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .roi-toggle-container .roi-icon {
+            color: #FDA136;
+            font-size: 1.1rem;
+        }
+
+        /* ROI Canvas Container */
+        #roiCanvasContainer {
+            position: relative;
+            margin-top: 1rem;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            background-color: #1a1a24;
+            border: 1px dashed rgba(253, 161, 54, 0.4);
+            display: none; /* Hidden by default */
+        }
+
+        #roiCanvasContainer.show {
+            display: block;
+            animation: fadeSlideIn 0.3s ease-out;
+        }
+
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Preview Image */
+        #roiPreviewImage {
+            width: 100%;
+            height: auto;
+            display: block;
+            max-height: 400px;
+            object-fit: contain;
+            background-color: #0d0d12;
+        }
+
+        /* Canvas Overlay */
+        #roiCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+            touch-action: none; /* Prevent touch scrolling while drawing */
+        }
+
+        /* Loading State for Preview */
+        #roiLoadingOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(10, 10, 15, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            color: #FDA136;
+            font-size: 0.9rem;
+        }
+
+        #roiLoadingOverlay.hidden {
+            display: none;
+        }
+
+        .roi-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(253, 161, 54, 0.2);
+            border-top-color: #FDA136;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ROI Instructions */
+        .roi-instructions {
+            text-align: center;
+            padding: 1rem;
+            color: #9CA3AF;
+            font-size: 0.85rem;
+            background: linear-gradient(to bottom, rgba(253, 161, 54, 0.05), transparent);
+        }
+
+        .roi-instructions strong {
+            color: #FDA136;
+        }
+
+        /* ROI Controls */
+        .roi-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(253, 161, 54, 0.2);
+        }
+
+        .roi-controls-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .roi-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 1px solid transparent;
+        }
+
+        .roi-btn-secondary {
+            background-color: rgba(100, 100, 120, 0.3);
+            color: #EDEDF3;
+            border-color: rgba(150, 150, 170, 0.3);
+        }
+
+        .roi-btn-secondary:hover {
+            background-color: rgba(100, 100, 120, 0.5);
+            border-color: rgba(150, 150, 170, 0.5);
+        }
+
+        .roi-btn-danger {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #FCA5A5;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .roi-btn-danger:hover {
+            background-color: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        /* ROI Overlay Settings */
+        .roi-overlay-settings {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            padding: 0.75rem;
+            background-color: rgba(20, 20, 30, 0.5);
+            border-radius: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .roi-setting-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .roi-setting-group label {
+            font-size: 0.8rem;
+            color: #9CA3AF;
+            white-space: nowrap;
+        }
+
+        /* Toggle Switch Styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #4A5568;
+            transition: .3s;
+            border-radius: 20px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #F97316;
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px #F97316;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(18px);
+        }
+
+        /* Opacity Slider */
+        .roi-opacity-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 80px;
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, rgba(253, 161, 54, 0.2), rgba(253, 161, 54, 0.8));
+            outline: none;
+            cursor: pointer;
+        }
+
+        .roi-opacity-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #FDA136;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            transition: transform 0.15s ease;
+        }
+
+        .roi-opacity-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        .roi-opacity-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #FDA136;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .roi-opacity-value {
+            font-size: 0.8rem;
+            color: #FDA136;
+            font-weight: 500;
+            min-width: 35px;
+        }
+
+        /* ROI Coordinates Display */
+        .roi-coords-display {
+            font-size: 0.75rem;
+            color: #6B7280;
+            font-family: monospace;
+            padding: 0.5rem 0;
+        }
+
+        .roi-coords-display.has-roi {
+            color: #FDA136;
+        }
+
+        /* ROI No Preview Message */
+        .roi-no-preview {
+            padding: 2rem;
+            text-align: center;
+            color: #6B7280;
+            font-size: 0.9rem;
+        }
+
+        .roi-no-preview i {
+            font-size: 2rem;
+            margin-bottom: 0.75rem;
+            color: #4B5563;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 640px) {
+            .roi-controls {
+                flex-direction: column;
+            }
+
+            .roi-controls-row {
+                justify-content: center;
+            }
+
+            .roi-overlay-settings {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .roi-setting-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .roi-opacity-slider {
+                flex: 1;
+                max-width: 150px;
+            }
+
+            #roiPreviewImage {
+                max-height: 300px;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen py-8 px-4">
@@ -1177,11 +1533,75 @@
                 <label class="block w-full px-4 py-2 border border-orange-500/40 rounded-lg shadow-sm cursor-pointer bg-slate-800 hover:bg-slate-700/70 flex items-center justify-between transition duration-150 ease-in-out">
                     <span id="fileNameDisplay" class="text-slate-400 flex-1 truncate pr-2">No file chosen</span>
                     <input type="file" id="videoFile" name="videoFile" accept="video/*" class="sr-only"
-                           onchange="document.getElementById('fileNameDisplay').textContent = this.files[0] ? this.files[0].name : 'No file chosen'; document.getElementById('videoUrl').value = '';"> 
+                           onchange="document.getElementById('fileNameDisplay').textContent = this.files[0] ? this.files[0].name : 'No file chosen'; document.getElementById('videoUrl').value = ''; handleVideoFileChange(this);"> 
                     <span class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary">
                         Browse
                     </span>
                 </label>
+            </div>
+
+            <!-- ROI (Region of Interest) Selection Section -->
+            <div id="roiSection">
+                <div class="roi-toggle-container">
+                    <label>
+                        <span class="roi-icon"><i class="fas fa-crop-alt"></i></span>
+                        <span class="text-slate-300 text-sm font-medium">Enable ROI Selection</span>
+                    </label>
+                    <label class="switch">
+                        <input type="checkbox" id="enableRoiToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div id="roiCanvasContainer">
+                    <div id="roiLoadingOverlay">
+                        <div class="roi-spinner"></div>
+                        <span>Loading preview...</span>
+                    </div>
+                    <img id="roiPreviewImage" src="" alt="Video preview for ROI selection">
+                    <canvas id="roiCanvas"></canvas>
+                    
+                    <div class="roi-instructions">
+                        <strong>Click and drag</strong> on the preview to draw a region of interest. 
+                        Only objects within this area will be tracked.
+                    </div>
+
+                    <div class="roi-controls">
+                        <div class="roi-controls-row">
+                            <button type="button" id="clearRoiBtn" class="roi-btn roi-btn-secondary">
+                                <i class="fas fa-undo"></i> Clear ROI
+                            </button>
+                            <button type="button" id="resetPreviewBtn" class="roi-btn roi-btn-danger">
+                                <i class="fas fa-sync-alt"></i> Reset Preview
+                            </button>
+                        </div>
+
+                        <div class="roi-coords-display" id="roiCoordsDisplay">
+                            No ROI selected
+                        </div>
+                    </div>
+
+                    <div class="roi-overlay-settings">
+                        <div class="roi-setting-group">
+                            <label>Show ROI overlay in output</label>
+                            <label class="switch">
+                                <input type="checkbox" id="showRoiOverlayToggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="roi-setting-group">
+                            <label>Overlay Opacity</label>
+                            <input type="range" id="roiOverlayOpacity" class="roi-opacity-slider" 
+                                   min="10" max="80" value="30">
+                            <span class="roi-opacity-value" id="roiOpacityValue">30%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="roiNoPreview" class="roi-no-preview hidden">
+                    <i class="fas fa-video"></i>
+                    <p>Select a video file or enter a URL to enable ROI selection</p>
+                </div>
             </div>
 
             <button id="trackButton"
@@ -1391,6 +1811,21 @@
         const frameRestrictionInfo = document.getElementById('frameRestrictionInfo');
         const frameRestrictionMessage = document.getElementById('frameRestrictionMessage');
 
+        // ROI (Region of Interest) Elements
+        const roiSection = document.getElementById('roiSection');
+        const enableRoiToggle = document.getElementById('enableRoiToggle');
+        const roiCanvasContainer = document.getElementById('roiCanvasContainer');
+        const roiPreviewImage = document.getElementById('roiPreviewImage');
+        const roiCanvas = document.getElementById('roiCanvas');
+        const roiLoadingOverlay = document.getElementById('roiLoadingOverlay');
+        const clearRoiBtn = document.getElementById('clearRoiBtn');
+        const resetPreviewBtn = document.getElementById('resetPreviewBtn');
+        const roiCoordsDisplay = document.getElementById('roiCoordsDisplay');
+        const showRoiOverlayToggle = document.getElementById('showRoiOverlayToggle');
+        const roiOverlayOpacitySlider = document.getElementById('roiOverlayOpacity');
+        const roiOpacityValue = document.getElementById('roiOpacityValue');
+        const roiNoPreview = document.getElementById('roiNoPreview');
+
 
         let isAdminLoggedIn = false; // State to track admin login status
         let loggedInUsername = '';
@@ -1399,6 +1834,19 @@
         let sessionDurationDays = 0;
         let frameRestrictionEnabled = false; // Default frame restriction state
         let frameRestrictionValue = 0; // Default frame restriction value
+
+        // ROI State Variables
+        let roiEnabled = false;
+        let roiCoords = null; // { x, y, width, height } in normalized coordinates (0-1)
+        let isDrawingRoi = false;
+        let roiStartX = 0;
+        let roiStartY = 0;
+        let currentVideoFile = null;
+        let roiPreviewWidth = 0;
+        let roiPreviewHeight = 0;
+        let previewSessionId = null; // Server-side preview session ID for cached video
+        let isPreviewLoading = false; // Prevent duplicate preview requests
+        let currentPreviewAbortController = null; // To cancel in-flight requests
 
 
         // Central message elements
@@ -1441,8 +1889,31 @@
         const POLLING_INTERVAL_STATUS = 2000; // Poll live status every 2 seconds
         const POLLING_INTERVAL_SERVER_HEALTH = 5000; // Poll server health every 5 seconds (new)
 
-        // IMPORTANT: This should be your custom domain for the backend tunnel
-        const NGROK_PUBLIC_URL = 'https://backend.projectglyphmotion.studio'; // This value is updated by web_server_public.py
+        // --- AUTO-DETECT LOCAL DEVELOPMENT vs PRODUCTION ---
+        // Detects if running on localhost/127.0.0.1 and uses local backend
+        const IS_LOCAL_DEVELOPMENT = (
+            window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1' ||
+            window.location.hostname.startsWith('192.168.') // Local network IPs
+        );
+
+        // Backend URLs - automatically switch based on environment
+        const PRODUCTION_BACKEND_URL = 'https://projectglyphmotion.studio'; // Production (Cloudflare Tunnel)
+        const LOCAL_BACKEND_URL = 'http://localhost:5000'; // Local development (direct to tg.py)
+
+        // IMPORTANT: This should be your custom domain for the backend tunnel (production)
+        // When running locally (Live Server), it will use LOCAL_BACKEND_URL instead
+        const NGROK_PUBLIC_URL = IS_LOCAL_DEVELOPMENT ? LOCAL_BACKEND_URL : PRODUCTION_BACKEND_URL;
+
+        // Console log to help debugging
+        if (IS_LOCAL_DEVELOPMENT) {
+            console.log('%c🔧 LOCAL DEV MODE', 'background: #FDA136; color: black; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+            console.log(`   Backend: ${NGROK_PUBLIC_URL}`);
+            console.log('   Make sure tg.py is running on port 5000!');
+        } else {
+            console.log('%c🚀 PRODUCTION MODE', 'background: #22C55E; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+            console.log(`   Backend: ${NGROK_PUBLIC_URL}`);
+        }
 
         const LOCAL_API_ENDPOINT = NGROK_PUBLIC_URL + '/process_web_video';
         const LOCAL_STATUS_ENDPOINT = NGROK_PUBLIC_URL + '/status';
@@ -2595,6 +3066,532 @@
             }
         });
 
+        // ==========================================
+        // ROI (Region of Interest) Selection Logic
+        // ==========================================
+
+        // Handle video file selection for ROI preview
+        function handleVideoFileChange(input) {
+            if (input.files && input.files[0]) {
+                currentVideoFile = input.files[0];
+                // Cancel any existing preview session when new file is selected
+                if (previewSessionId) {
+                    fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ preview_session_id: previewSessionId })
+                    }).catch(() => {});
+                    previewSessionId = null;
+                }
+                if (roiEnabled) {
+                    // Use server-side preview for better compatibility
+                    loadServerPreviewForRoi(currentVideoFile, true);
+                }
+            } else {
+                currentVideoFile = null;
+                clearRoi();
+            }
+        }
+
+        // Toggle ROI section visibility
+        enableRoiToggle.addEventListener('change', () => {
+            roiEnabled = enableRoiToggle.checked;
+            roiSection.classList.toggle('active', roiEnabled);
+
+            if (roiEnabled) {
+                // Show canvas container or loading/no-preview message
+                if (currentVideoFile || videoUrlInput.value) {
+                    roiCanvasContainer.classList.add('show');
+                    roiNoPreview.classList.add('hidden');
+                    if (currentVideoFile) {
+                        // Use server-side preview for file uploads
+                        loadServerPreviewForRoi(currentVideoFile, true);
+                    } else if (videoUrlInput.value) {
+                        // Use server-side preview for URL videos too!
+                        loadServerPreviewForRoi(videoUrlInput.value, false);
+                    }
+                } else {
+                    roiCanvasContainer.classList.remove('show');
+                    roiNoPreview.classList.remove('hidden');
+                    roiNoPreview.innerHTML = `
+                        <i class="fas fa-video"></i>
+                        <p>Please provide a video URL or upload a file first,<br>then enable ROI selection.</p>
+                    `;
+                }
+            } else {
+                roiCanvasContainer.classList.remove('show');
+                roiNoPreview.classList.add('hidden');
+                clearRoi();
+                // Cancel preview session when ROI is disabled
+                if (previewSessionId) {
+                    fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ preview_session_id: previewSessionId })
+                    }).catch(() => {});
+                    previewSessionId = null;
+                }
+            }
+        });
+
+        // Load video preview frame for ROI selection
+        function loadVideoPreviewForRoi(file) {
+            roiLoadingOverlay.classList.remove('hidden');
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.muted = true;
+            video.playsInline = true;
+
+            video.onloadeddata = () => {
+                // Seek to 1 second or 10% of duration for a representative frame
+                const seekTime = Math.min(1, video.duration * 0.1);
+                video.currentTime = seekTime;
+            };
+
+            video.onseeked = () => {
+                // Create a canvas to capture the frame
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Set the preview image
+                roiPreviewImage.src = canvas.toDataURL('image/jpeg', 0.8);
+                URL.revokeObjectURL(video.src);
+            };
+
+            video.onerror = () => {
+                roiLoadingOverlay.classList.add('hidden');
+                roiCanvasContainer.classList.remove('show');
+                roiNoPreview.classList.remove('hidden');
+                roiNoPreview.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Could not load video preview. Please try a different file.</p>
+                `;
+            };
+
+            video.src = URL.createObjectURL(file);
+        }
+
+        // Load video preview from server (for both URL and file uploads)
+        // This uses the server to download/process the video and extract a frame
+        async function loadServerPreviewForRoi(videoUrlOrFile, isFile = false) {
+            // Prevent duplicate requests
+            if (isPreviewLoading) {
+                console.log('Preview already loading, skipping duplicate request');
+                return;
+            }
+            
+            // Abort any in-flight request
+            if (currentPreviewAbortController) {
+                currentPreviewAbortController.abort();
+                currentPreviewAbortController = null;
+            }
+            
+            isPreviewLoading = true;
+            currentPreviewAbortController = new AbortController();
+            
+            roiLoadingOverlay.classList.remove('hidden');
+            roiCanvasContainer.classList.add('show');
+            roiNoPreview.classList.add('hidden');
+
+            // Cancel any existing preview session on server (fire and forget)
+            if (previewSessionId) {
+                fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ preview_session_id: previewSessionId })
+                }).catch(() => {}); // Ignore errors
+                previewSessionId = null;
+            }
+
+            const formData = new FormData();
+            if (isFile) {
+                formData.append('video_file', videoUrlOrFile);
+            } else {
+                formData.append('video_url', videoUrlOrFile);
+            }
+
+            try {
+                const response = await fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/get_video_preview'), {
+                    method: 'POST',
+                    body: formData,
+                    signal: currentPreviewAbortController.signal
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'Failed to get video preview');
+                }
+
+                // Store the session ID for later use when processing
+                previewSessionId = data.preview_session_id;
+                console.log('Preview session ID:', previewSessionId);
+
+                // Set the preview image
+                roiPreviewImage.src = data.frame;
+
+            } catch (error) {
+                // Ignore abort errors (user cancelled/page reloaded)
+                if (error.name === 'AbortError') {
+                    console.log('Preview request was aborted');
+                    return;
+                }
+                console.error('Error getting server preview:', error);
+                roiLoadingOverlay.classList.add('hidden');
+                roiCanvasContainer.classList.remove('show');
+                roiNoPreview.classList.remove('hidden');
+                roiNoPreview.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Could not load video preview.<br>${error.message}</p>
+                `;
+                previewSessionId = null;
+            } finally {
+                isPreviewLoading = false;
+                currentPreviewAbortController = null;
+            }
+        }
+
+        // When preview image loads, set up the canvas
+        roiPreviewImage.onload = () => {
+            roiLoadingOverlay.classList.add('hidden');
+            setupRoiCanvas();
+            // Redraw existing ROI if any
+            if (roiCoords) {
+                drawRoi();
+            }
+        };
+
+        // Set up the ROI canvas to match the preview image
+        function setupRoiCanvas() {
+            const rect = roiPreviewImage.getBoundingClientRect();
+            roiPreviewWidth = rect.width;
+            roiPreviewHeight = rect.height;
+            roiCanvas.width = roiPreviewWidth;
+            roiCanvas.height = roiPreviewHeight;
+        }
+
+        // Get position from mouse or touch event
+        function getEventPosition(e) {
+            const rect = roiCanvas.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        // Handle start of ROI drawing (mouse or touch)
+        function startDrawingRoi(e) {
+            e.preventDefault();
+            isDrawingRoi = true;
+            const pos = getEventPosition(e);
+            roiStartX = pos.x;
+            roiStartY = pos.y;
+        }
+
+        // Handle drawing ROI (mouse move or touch move)
+        function drawingRoi(e) {
+            if (!isDrawingRoi) return;
+            e.preventDefault();
+            const pos = getEventPosition(e);
+            const ctx = roiCanvas.getContext('2d');
+
+            // Clear canvas
+            ctx.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+
+            // Draw semi-transparent overlay over entire canvas
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, roiCanvas.width, roiCanvas.height);
+
+            // Calculate ROI rectangle
+            const x = Math.min(roiStartX, pos.x);
+            const y = Math.min(roiStartY, pos.y);
+            const width = Math.abs(pos.x - roiStartX);
+            const height = Math.abs(pos.y - roiStartY);
+
+            // Clear the ROI area (make it transparent)
+            ctx.clearRect(x, y, width, height);
+
+            // Draw ROI border
+            ctx.strokeStyle = '#FDA136';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(x, y, width, height);
+
+            // Draw corner handles
+            const handleSize = 8;
+            ctx.fillStyle = '#FDA136';
+            ctx.setLineDash([]);
+            // Top-left
+            ctx.fillRect(x - handleSize/2, y - handleSize/2, handleSize, handleSize);
+            // Top-right
+            ctx.fillRect(x + width - handleSize/2, y - handleSize/2, handleSize, handleSize);
+            // Bottom-left
+            ctx.fillRect(x - handleSize/2, y + height - handleSize/2, handleSize, handleSize);
+            // Bottom-right
+            ctx.fillRect(x + width - handleSize/2, y + height - handleSize/2, handleSize, handleSize);
+        }
+
+        // Handle end of ROI drawing
+        function endDrawingRoi(e) {
+            if (!isDrawingRoi) return;
+            isDrawingRoi = false;
+            const pos = getEventPosition(e);
+
+            // Calculate final ROI in normalized coordinates (0-1)
+            const x = Math.min(roiStartX, pos.x) / roiPreviewWidth;
+            const y = Math.min(roiStartY, pos.y) / roiPreviewHeight;
+            const width = Math.abs(pos.x - roiStartX) / roiPreviewWidth;
+            const height = Math.abs(pos.y - roiStartY) / roiPreviewHeight;
+
+            // Only save if ROI is significant (at least 5% of frame in each dimension)
+            if (width >= 0.05 && height >= 0.05) {
+                roiCoords = { x, y, width, height };
+                updateRoiCoordsDisplay();
+            } else {
+                clearRoi();
+            }
+        }
+
+        // Draw existing ROI
+        function drawRoi() {
+            if (!roiCoords) return;
+
+            const ctx = roiCanvas.getContext('2d');
+            ctx.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+
+            // Convert normalized coords to pixel coords
+            const x = roiCoords.x * roiPreviewWidth;
+            const y = roiCoords.y * roiPreviewHeight;
+            const width = roiCoords.width * roiPreviewWidth;
+            const height = roiCoords.height * roiPreviewHeight;
+
+            // Draw semi-transparent overlay
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, roiCanvas.width, roiCanvas.height);
+
+            // Clear the ROI area
+            ctx.clearRect(x, y, width, height);
+
+            // Draw ROI border
+            ctx.strokeStyle = '#FDA136';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(x, y, width, height);
+
+            // Draw corner handles
+            const handleSize = 8;
+            ctx.fillStyle = '#FDA136';
+            ctx.setLineDash([]);
+            ctx.fillRect(x - handleSize/2, y - handleSize/2, handleSize, handleSize);
+            ctx.fillRect(x + width - handleSize/2, y - handleSize/2, handleSize, handleSize);
+            ctx.fillRect(x - handleSize/2, y + height - handleSize/2, handleSize, handleSize);
+            ctx.fillRect(x + width - handleSize/2, y + height - handleSize/2, handleSize, handleSize);
+        }
+
+        // Clear ROI
+        function clearRoi() {
+            roiCoords = null;
+            const ctx = roiCanvas.getContext('2d');
+            ctx.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+            updateRoiCoordsDisplay();
+        }
+
+        // Update ROI coordinates display
+        function updateRoiCoordsDisplay() {
+            if (roiCoords) {
+                const xPct = (roiCoords.x * 100).toFixed(1);
+                const yPct = (roiCoords.y * 100).toFixed(1);
+                const wPct = (roiCoords.width * 100).toFixed(1);
+                const hPct = (roiCoords.height * 100).toFixed(1);
+                roiCoordsDisplay.textContent = `ROI: ${xPct}% x ${yPct}% → ${wPct}% × ${hPct}%`;
+                roiCoordsDisplay.classList.add('has-roi');
+            } else {
+                roiCoordsDisplay.textContent = 'No ROI selected';
+                roiCoordsDisplay.classList.remove('has-roi');
+            }
+        }
+
+        // ROI Canvas Event Listeners (Mouse)
+        roiCanvas.addEventListener('mousedown', startDrawingRoi);
+        roiCanvas.addEventListener('mousemove', drawingRoi);
+        roiCanvas.addEventListener('mouseup', endDrawingRoi);
+        roiCanvas.addEventListener('mouseleave', (e) => {
+            if (isDrawingRoi) endDrawingRoi(e);
+        });
+
+        // ROI Canvas Event Listeners (Touch)
+        roiCanvas.addEventListener('touchstart', startDrawingRoi);
+        roiCanvas.addEventListener('touchmove', drawingRoi);
+        roiCanvas.addEventListener('touchend', endDrawingRoi);
+        roiCanvas.addEventListener('touchcancel', (e) => {
+            if (isDrawingRoi) endDrawingRoi(e);
+        });
+
+        // Clear ROI button
+        clearRoiBtn.addEventListener('click', clearRoi);
+
+        // Reset preview button
+        resetPreviewBtn.addEventListener('click', () => {
+            if (currentVideoFile) {
+                loadVideoPreviewForRoi(currentVideoFile);
+            }
+            clearRoi();
+        });
+
+        // ROI overlay opacity slider
+        roiOverlayOpacitySlider.addEventListener('input', () => {
+            roiOpacityValue.textContent = `${roiOverlayOpacitySlider.value}%`;
+        });
+
+        // Handle window resize to update canvas
+        window.addEventListener('resize', () => {
+            if (roiEnabled && roiPreviewImage.src) {
+                setupRoiCanvas();
+                if (roiCoords) {
+                    drawRoi();
+                }
+            }
+        });
+
+        // Clean up preview session when user leaves the page
+        window.addEventListener('beforeunload', () => {
+            if (previewSessionId) {
+                // Use sendBeacon for reliable cleanup when page unloads
+                const data = JSON.stringify({ preview_session_id: previewSessionId });
+                navigator.sendBeacon(
+                    LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'),
+                    new Blob([data], { type: 'application/json' })
+                );
+            }
+        });
+
+        // Also handle URL input changes - debounced to avoid too many requests
+        let urlInputDebounceTimer = null;
+        videoUrlInput.addEventListener('input', () => {
+            // Clear file input when URL is entered
+            if (videoUrlInput.value) {
+                videoFileInput.value = '';
+                document.getElementById('fileNameDisplay').textContent = 'No file chosen';
+                currentVideoFile = null;
+
+                // Cancel any existing preview session
+                if (previewSessionId) {
+                    fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ preview_session_id: previewSessionId })
+                    }).catch(() => {});
+                    previewSessionId = null;
+                }
+
+                if (roiEnabled) {
+                    // Debounce URL input to avoid multiple requests while typing
+                    clearTimeout(urlInputDebounceTimer);
+                    roiCanvasContainer.classList.add('show');
+                    roiNoPreview.classList.add('hidden');
+                    roiLoadingOverlay.classList.remove('hidden');
+                    
+                    urlInputDebounceTimer = setTimeout(() => {
+                        // Use server-side preview for URL videos
+                        loadServerPreviewForRoi(videoUrlInput.value, false);
+                    }, 1000); // Wait 1 second after user stops typing
+                }
+            }
+        });
+
+        // Function to initiate video processing
+        async function initiateVideoProcessing() {
+            statusArea.classList.add('hidden');
+            errorArea.classList.add('hidden');
+            errorMessage.textContent = '';
+            liveProcessingStatusDiv.classList.remove('hidden'); /* Show live status area */
+            liveStatusMessage.textContent = 'Initiating processing...'; /* Initial message */
+
+            let videoSource = '';
+            let isFileUpload = false;
+
+            if (videoUrlInput.value) {
+                videoSource = videoUrlInput.value;
+                isFileUpload = false;
+            } else if (videoFileInput.files.length > 0) {
+                videoSource = videoFileInput.files[0];
+                isFileUpload = true;
+            } else {
+                showError('Please provide a video URL or upload a file.');
+                liveStatusMessage.textContent = 'Failed: No video provided.';
+                trackButton.disabled = false; // Re-enable if no input
+                return;
+            }
+
+            showStatus('Sending video to local processing server...');
+            trackButton.disabled = true;
+
+            const formData = new FormData();
+            
+            // If we have a preview session, use it (video already downloaded/uploaded on server)
+            if (previewSessionId) {
+                formData.append('preview_session_id', previewSessionId);
+                // Still include URL or file info as fallback
+                if (!isFileUpload && videoSource) {
+                    formData.append('video_url', videoSource);
+                }
+            } else if (isFileUpload) {
+                formData.append('video_file', videoSource);
+            } else {
+                formData.append('video_url', videoSource);
+            }
+
+            // Include ROI data if enabled and coordinates are set
+            if (roiEnabled && roiCoords) {
+                formData.append('roi_enabled', 'true');
+                formData.append('roi_x', roiCoords.x.toFixed(4));
+                formData.append('roi_y', roiCoords.y.toFixed(4));
+                formData.append('roi_width', roiCoords.width.toFixed(4));
+                formData.append('roi_height', roiCoords.height.toFixed(4));
+                formData.append('roi_show_overlay', showRoiOverlayToggle.checked ? 'true' : 'false');
+                formData.append('roi_overlay_opacity', roiOverlayOpacitySlider.value);
+            }
+
+            try {
+                const response = await fetch(LOCAL_API_ENDPOINT, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Unknown error from local server.');
+                }
+
+                const responseData = await response.json();
+                showStatus(responseData.message || 'Processing initiated. Waiting for GitHub commit...');
+                
+                // Clear preview session after successful submission
+                // The server will handle the file from the cached preview
+                previewSessionId = null;
+
+            } catch (error) {
+                console.error('Error initiating tracking:', error);
+                showError(`Failed to initiate tracking: ${error.message}. Ensure your tg.py server is running and accessible.`);
+                liveStatusMessage.textContent = `Error: ${error.message}`;
+            } finally {
+                trackButton.disabled = false;
+            }
+        }
+
 
         document.addEventListener('DOMContentLoaded', async () => {
             // Check admin login status
@@ -2823,61 +3820,8 @@
 
 
         trackButton.addEventListener('click', async () => {
-            statusArea.classList.add('hidden');
-            errorArea.classList.add('hidden');
-            errorMessage.textContent = '';
-            liveProcessingStatusDiv.classList.remove('hidden'); /* Show live status area */
-            liveStatusMessage.textContent = 'Initiating processing...'; /* Initial message */
-
-            let videoSource = '';
-            let isFileUpload = false;
-
-            if (videoUrlInput.value) {
-                videoSource = videoUrlInput.value;
-                isFileUpload = false;
-            } else if (videoFileInput.files.length > 0) {
-                videoSource = videoFileInput.files[0];
-                isFileUpload = true;
-            } else {
-                showError('Please provide a video URL or upload a file.');
-                liveStatusMessage.textContent = 'Failed: No video provided.';
-                return;
-            }
-
-            showStatus('Sending video to local processing server...');
-            trackButton.disabled = true;
-
-            const formData = new FormData();
-            if (isFileUpload) {
-                formData.append('video_file', videoSource);
-            } else {
-                formData.append('video_url', videoSource);
-            }
-            try {
-                const response = await fetch(LOCAL_API_ENDPOINT, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Unknown error from local server.');
-                }
-
-                /* Removed the direct call to startProgressBar('upload') here. */
-                /* It will now be handled by the polling mechanism in pollForProcessingStatus. */
-
-                const responseData = await response.json();
-                showStatus(responseData.message || 'Processing initiated. Waiting for GitHub commit...');
-                /* Live status will be updated by the polling mechanism, which will also trigger the progress bar */
-
-            } catch (error) {
-                console.error('Error initiating tracking:', error);
-                showError(`Failed to initiate tracking: ${error.message}. Ensure your tg.py server is running and accessible.`);
-                liveStatusMessage.textContent = `Error: ${error.message}`;
-            } finally {
-                trackButton.disabled = false;
-            }
+            // Directly initiate video processing
+            initiateVideoProcessing();
         });
 
         // PWA: Register Service Worker
