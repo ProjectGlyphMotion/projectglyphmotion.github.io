@@ -753,7 +753,7 @@ async def run_tracking_script_and_stream_output(
 
 
 # --- Unified Video Processing Function ---
-async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_file_upload: bool, progress_message_obj=None, telegram_context=None, client_ip: str = "N/A", geolocation_info: dict = None, roi_params: dict = None):
+async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_file_upload: bool, progress_message_obj=None, telegram_context=None, client_ip: str = "N/A", geolocation_info: dict = None, roi_params: dict = None, original_filename: str = None):
     """
     Unified function to process video, upload to GDrive, and update GitHub Pages.
     progress_message_obj is the actual Telegram message object to edit (for Telegram)
@@ -761,6 +761,7 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
     telegram_context is needed for sending new messages in case of errors from subprocess streams (for Telegram).
     client_ip and geolocation_info are new parameters for tracking.
     roi_params is a dict with ROI parameters from the frontend.
+    original_filename is the original filename from a preview session (for cached files).
     """
     # Ensure geolocation_info has all expected keys, even if N/A
     default_geolocation_data = {
@@ -792,16 +793,20 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
     else:
         # Check if video_source is a cached file path (string) or a FieldStorage object
         if isinstance(video_source, str) and os.path.exists(video_source):
-            # It's a cached file path - extract original filename from the path
-            # The format is: {session_id}_{original_filename} or downloaded filename
-            cached_basename = os.path.basename(video_source)
-            # Try to extract original filename after the session_id prefix (UUID_filename)
-            parts = cached_basename.split('_', 1)
-            if len(parts) > 1 and len(parts[0]) == 36:  # UUID is 36 chars
-                input_filename = parts[1]  # Original filename after UUID_
+            # It's a cached file path from preview session
+            # Use the original_filename parameter if provided (from preview session)
+            if original_filename:
+                input_filename = original_filename
+                logger.info(f"Using original filename from preview session: {input_filename}")
             else:
-                input_filename = cached_basename
-            logger.info(f"Using original filename from cached file: {input_filename}")
+                # Fallback: extract from path (legacy behavior)
+                cached_basename = os.path.basename(video_source)
+                parts = cached_basename.split('_', 1)
+                if len(parts) > 1 and len(parts[0]) == 36:  # UUID is 36 chars
+                    input_filename = parts[1]
+                else:
+                    input_filename = cached_basename
+                logger.info(f"Using filename extracted from path: {input_filename}")
         else:
             input_filename = os.path.basename(getattr(video_source, "filename", "uploaded_file.mp4"))
         local_input_path = os.path.join(INPUT_SUBDIRECTORY, input_filename)
@@ -1256,6 +1261,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 video_file = None
                 preview_session_id = None
                 cached_video_path = None
+                cached_original_filename = None  # Store original filename from preview session
 
                 # Check for preview session first (video already downloaded/uploaded)
                 if 'preview_session_id' in form:
@@ -1263,8 +1269,9 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     session = get_preview_session(preview_session_id)
                     if session and os.path.exists(session['video_path']):
                         cached_video_path = session['video_path']
+                        cached_original_filename = session.get('original_filename')  # Get original filename
                         mark_preview_session_used(preview_session_id)
-                        logger.info(f"Using cached preview video: {cached_video_path}")
+                        logger.info(f"Using cached preview video: {cached_video_path} (original: {cached_original_filename})")
                     else:
                         logger.warning(f"Preview session {preview_session_id} not found or expired, falling back to regular upload/url")
 
@@ -1326,7 +1333,8 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         telegram_context=None,
                         client_ip=client_ip, # Pass client IP
                         geolocation_info=geolocation_info, # Pass geolocation info
-                        roi_params=roi_params  # Pass ROI parameters
+                        roi_params=roi_params,  # Pass ROI parameters
+                        original_filename=cached_original_filename  # Pass original filename from preview session
                     ),
                     main_loop
                 )
@@ -1457,10 +1465,24 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         return
                 
                 # Create preview session with original filename
-                # Extract original filename from the local path if it's a file upload
+                # Extract original filename based on source type
                 original_fn = None
                 if video_file is not None:
+                    # File upload - use the original filename
                     original_fn = os.path.basename(video_file.filename) if hasattr(video_file, 'filename') else None
+                elif video_url:
+                    # URL download - extract filename from URL or use a sanitized version
+                    from urllib.parse import urlparse, unquote
+                    parsed_url = urlparse(video_url)
+                    url_path = unquote(parsed_url.path)
+                    url_filename = os.path.basename(url_path)
+                    # If there's a valid filename in the URL, use it
+                    if url_filename and '.' in url_filename:
+                        original_fn = url_filename
+                    else:
+                        # Fallback: use the domain + timestamp as filename
+                        original_fn = f"{parsed_url.netloc.replace('.', '_')}_{int(time.time())}.mp4"
+                    logger.info(f"Extracted original filename from URL: {original_fn}")
                 session_id = create_preview_session(local_video_path, original_fn)
                 
                 # Extract a frame from the video
