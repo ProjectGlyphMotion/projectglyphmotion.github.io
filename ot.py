@@ -116,7 +116,79 @@ TARGET_PROCESSING_WIDTH = 1920
 FFMPEG_CRF_VALUE = 16 # Set to 0 for bit to bit lossless pixels, or 16-23 for high quality with reasonable file size.
 FFMPEG_VIDEO_CODEC = "libx264" # Recommended for wide compatibility. Use "libx265" for HEVC (smaller files, requires x265 encoder).
 FFMPEG_PRESET = "medium" # Encoding speed/compression tradeoff: 'ultrafast', 'superfast', 'fast', 'medium', 'slow', 'slower', 'veryslow'
+
+# --- Watermark Configuration ---
+# ENABLE_WATERMARK: Master switch to turn watermark on/off
+# Set to True to add "Processed by projectglyphmotion.studio" watermark to output videos
+# Set to False to disable watermark completely
+ENABLE_WATERMARK = True  # ON by default - change to False to disable
+
+# Watermark text - displayed in bottom-right corner
+WATERMARK_TEXT = "Processed by projectglyphmotion.studio"
+
+# Watermark appearance settings (dynamic - scales with video resolution)
+# Font size is calculated as: video_height / WATERMARK_FONT_DIVISOR
+# Higher divisor = smaller text, Lower divisor = larger text
+WATERMARK_FONT_DIVISOR = 40  # Results in ~27px for 1080p, ~54px for 4K, ~18px for 720p
+
+# Watermark opacity (0.0 = invisible, 1.0 = fully opaque)
+# Recommended: 0.6-0.8 for visible but non-distracting
+WATERMARK_OPACITY = 0.7
+
+# Margin from edge (as fraction of video height)
+# 0.02 = 2% margin from bottom-right corner
+WATERMARK_MARGIN_FRACTION = 0.02
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+def get_watermark_filter():
+    """
+    Generates an FFmpeg drawtext filter for the watermark.
+    Uses dynamic expressions so it scales with any video resolution/aspect ratio.
+    Portrait videos get smaller text to avoid being too intrusive.
+    
+    Returns:
+        str: FFmpeg filter string for watermark, or empty string if disabled.
+    """
+    if not ENABLE_WATERMARK:
+        return ""
+    
+    # Escape special characters in the text for FFmpeg
+    # FFmpeg drawtext requires escaping colons and backslashes
+    escaped_text = WATERMARK_TEXT.replace("\\", "\\\\").replace(":", "\\:")
+    
+    # Dynamic FFmpeg expressions:
+    # h = video height, w = video width, th = text height, tw = text width
+    # gt(h,w) = 1 if portrait (height > width), 0 if landscape
+    # Font size scales with video dimensions for consistent appearance across resolutions
+    # Portrait videos use smaller text (1.5x larger divisor) to be less intrusive
+    
+    # Calculate divisors for portrait vs landscape
+    portrait_divisor = WATERMARK_FONT_DIVISOR * 1.5  # Smaller text for portrait
+    landscape_divisor = WATERMARK_FONT_DIVISOR       # Normal text for landscape
+    
+    # For portrait: use width as reference (since it's smaller dimension)
+    # For landscape: use height as reference
+    # This ensures watermark is proportional to the smaller dimension
+    
+    watermark_filter = (
+        f"drawtext="
+        f"text='{escaped_text}':"
+        # Dynamic font size: smaller for portrait, normal for landscape
+        # Portrait: min(w,h) / (divisor * 1.5), Landscape: h / divisor
+        f"fontsize=if(gt(h\\,w)\\,min(w\\,h)/{portrait_divisor}\\,h/{landscape_divisor}):"
+        f"fontcolor=white@{WATERMARK_OPACITY}:"  # White text with configured opacity
+        f"x=w-tw-(h*{WATERMARK_MARGIN_FRACTION}):"  # Right-aligned with dynamic margin
+        f"y=h-th-(h*{WATERMARK_MARGIN_FRACTION}):"  # Bottom-aligned with dynamic margin
+        f"box=1:"  # Enable background box
+        f"boxcolor=black@{WATERMARK_OPACITY * 0.5}:"  # Semi-transparent black background
+        # Dynamic padding: smaller for portrait
+        f"boxborderw=if(gt(h\\,w)\\,min(w\\,h)/{portrait_divisor}/4\\,h/{landscape_divisor}/4)"
+    )
+    
+    print(f"[INFO] Watermark ENABLED: \"{WATERMARK_TEXT}\"")
+    print(f"[INFO] Watermark sizing: Landscape={landscape_divisor}, Portrait={portrait_divisor} (smaller)")
+    return watermark_filter
 
 
 def get_system_utilization(device_to_use):
@@ -572,17 +644,29 @@ def main():
         vf_filter = "transpose=1" # Rotate 90 degrees clockwise (for portrait videos encoded landscape with rotate 90)
         ffmpeg_output_width = original_height # Swap for display dimensions
         ffmpeg_output_height = original_width
-        print(f"[INFO] Applying FFmpeg filter: {vf_filter}. Output dimensions will be {ffmpeg_output_width}x{ffmpeg_output_height}.")
+        print(f"[INFO] Applying FFmpeg rotation filter: {vf_filter}. Output dimensions will be {ffmpeg_output_width}x{ffmpeg_output_height}.")
     elif rotation_angle == 270:
         vf_filter = "transpose=2" # Rotate 90 degrees counter-clockwise
         ffmpeg_output_width = original_height # Swap for display dimensions
         ffmpeg_output_height = original_width
-        print(f"[INFO] Applying FFmpeg filter: {vf_filter}. Output dimensions will be {ffmpeg_output_width}x{ffmpeg_output_height}.")
+        print(f"[INFO] Applying FFmpeg rotation filter: {vf_filter}. Output dimensions will be {ffmpeg_output_width}x{ffmpeg_output_height}.")
     elif rotation_angle == 180:
         vf_filter = "transpose=2,transpose=2" # Rotate 180 degrees
         # Dimensions remain the same as 180 degree rotation doesn't swap width/height
-        print(f"[INFO] Applying FFmpeg filter: {vf_filter}. Output dimensions will remain {ffmpeg_output_width}x{ffmpeg_output_height}.")
+        print(f"[INFO] Applying FFmpeg rotation filter: {vf_filter}. Output dimensions will remain {ffmpeg_output_width}x{ffmpeg_output_height}.")
 
+    # --- Add Watermark Filter ---
+    # Watermark is applied AFTER rotation so it appears correctly positioned in final video
+    watermark_filter = get_watermark_filter()
+    if watermark_filter:
+        if vf_filter:
+            # Chain filters: rotation first, then watermark
+            vf_filter = f"{vf_filter},{watermark_filter}"
+        else:
+            vf_filter = watermark_filter
+        print(f"[INFO] Final FFmpeg filter chain: {vf_filter[:80]}..." if len(vf_filter) > 80 else f"[INFO] Final FFmpeg filter chain: {vf_filter}")
+    else:
+        print("[INFO] Watermark DISABLED.")
 
     # Ensure FFmpeg output dimensions are even for codec compatibility.
     if ffmpeg_output_width % 2 != 0:
