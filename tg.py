@@ -46,8 +46,6 @@ JWT_SECRET_KEY = 'YOUR_JWT_SECRET_KEY_HERE' # Generate a secure key, e.g., using
 # These users must also exist in ADMIN_CREDENTIALS in admin_auth.py
 # FIX: Changed this to a set of individual strings for each master admin.
 MASTER_ADMIN_USERNAMES = {"ExampleAdmin1", "ExampleAdmin2"} # Add more usernames to this set if you have multiple master admins, e.g., {"ExampleAdmin1", "another_master_admin"}
-
-# --- AdSense Configuration (New) ---
 # Global flag to enable/disable ads for all users (including non-admins)
 _ADS_ENABLED_GLOBALLY = False # Default to False, can be changed by master admin
 
@@ -1272,12 +1270,11 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         'roi_y': form['roi_y'].value if 'roi_y' in form else '0',
                         'roi_width': form['roi_width'].value if 'roi_width' in form else '1',
                         'roi_height': form['roi_height'].value if 'roi_height' in form else '1',
-                        'roi_show_overlay': form['roi_show_overlay'].value if 'roi_show_overlay' in form else 'true',
-                        'roi_overlay_opacity': form['roi_overlay_opacity'].value if 'roi_overlay_opacity' in form else '30'
+                        'roi_show_overlay': 'false',  # Disabled - no overlay in output
+                        'roi_overlay_opacity': '0'
                     }
                     logger.info(f"ROI enabled: x={roi_params['roi_x']}, y={roi_params['roi_y']}, "
-                               f"w={roi_params['roi_width']}, h={roi_params['roi_height']}, "
-                               f"overlay={roi_params['roi_show_overlay']}, opacity={roi_params['roi_overlay_opacity']}")
+                               f"w={roi_params['roi_width']}, h={roi_params['roi_height']}")
 
                 class WebProgressReporter:
                     """A dummy reporter for web progress that updates the global status."""
