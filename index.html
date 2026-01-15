@@ -1260,6 +1260,8 @@
             min-height: 200px;
             max-height: 70vh;
             overflow: hidden;
+            padding: 1rem 0.5rem; /* Add padding for portrait videos especially at top */
+            border-radius: 0.5rem;
         }
 
         /* Inner container that matches exact video dimensions */
@@ -1324,33 +1326,36 @@
             }
         }
 
-        /* Success indicator for ROI */
+        /* Success indicator for ROI - minimal and elegant */
         .roi-success-indicator {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0);
-            background: linear-gradient(135deg, rgba(52, 211, 153, 0.95), rgba(16, 185, 129, 0.95));
-            padding: 20px 40px;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            color: white;
-            box-shadow: 0 10px 40px rgba(52, 211, 153, 0.5);
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #34D399;
+            border: 1px solid rgba(52, 211, 153, 0.3);
             z-index: 25;
             display: flex;
             align-items: center;
-            gap: 10px;
-            animation: successPopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            gap: 8px;
+            animation: successPopIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        
+        .roi-success-indicator i {
+            font-size: 1rem;
         }
 
         @keyframes successPopIn {
             0% {
-                transform: translate(-50%, -50%) scale(0);
+                transform: translate(-50%, -50%) scale(0.8);
                 opacity: 0;
-            }
-            60% {
-                transform: translate(-50%, -50%) scale(1.1);
             }
             100% {
                 transform: translate(-50%, -50%) scale(1);

@@ -97,16 +97,20 @@ def generate_preview_session_id():
     import uuid
     return str(uuid.uuid4())
 
-def create_preview_session(video_path: str) -> str:
+def create_preview_session(video_path: str, original_filename: str = None) -> str:
     """Creates a new preview session and returns the session ID."""
     session_id = generate_preview_session_id()
+    # If no original filename provided, try to extract from path
+    if original_filename is None:
+        original_filename = os.path.basename(video_path)
     with _preview_sessions_lock:
         _preview_sessions[session_id] = {
             'video_path': video_path,
+            'original_filename': original_filename,
             'created_at': time.time(),
             'used': False  # Set to True when processing starts
         }
-    logger.info(f"Created preview session {session_id} for {video_path}")
+    logger.info(f"Created preview session {session_id} for {video_path} (original: {original_filename})")
     return session_id
 
 def get_preview_session(session_id: str) -> dict:
@@ -786,7 +790,20 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
         input_filename = "downloaded_video" # Placeholder, will be updated
         local_input_path = os.path.join(INPUT_SUBDIRECTORY, input_filename)
     else:
-        input_filename = os.path.basename(getattr(video_source, "filename", "uploaded_file.mp4"))
+        # Check if video_source is a cached file path (string) or a FieldStorage object
+        if isinstance(video_source, str) and os.path.exists(video_source):
+            # It's a cached file path - extract original filename from the path
+            # The format is: {session_id}_{original_filename} or downloaded filename
+            cached_basename = os.path.basename(video_source)
+            # Try to extract original filename after the session_id prefix (UUID_filename)
+            parts = cached_basename.split('_', 1)
+            if len(parts) > 1 and len(parts[0]) == 36:  # UUID is 36 chars
+                input_filename = parts[1]  # Original filename after UUID_
+            else:
+                input_filename = cached_basename
+            logger.info(f"Using original filename from cached file: {input_filename}")
+        else:
+            input_filename = os.path.basename(getattr(video_source, "filename", "uploaded_file.mp4"))
         local_input_path = os.path.join(INPUT_SUBDIRECTORY, input_filename)
         
     output_filename = f"processed_{os.path.splitext(input_filename)[0]}.mp4" # Ensure .mp4 extension for output
@@ -1439,8 +1456,12 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         self.send_api_response(500, {"success": False, "message": f"Failed to download video: {e}"})
                         return
                 
-                # Create preview session
-                session_id = create_preview_session(local_video_path)
+                # Create preview session with original filename
+                # Extract original filename from the local path if it's a file upload
+                original_fn = None
+                if video_file is not None:
+                    original_fn = os.path.basename(video_file.filename) if hasattr(video_file, 'filename') else None
+                session_id = create_preview_session(local_video_path, original_fn)
                 
                 # Extract a frame from the video
                 frame_path = os.path.join(PREVIEW_SUBDIRECTORY, f"{session_id}_frame.jpg")
