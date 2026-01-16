@@ -685,12 +685,14 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
 
 async def run_tracking_script_and_stream_output(
     input_path: str, output_path: str, progress_message_obj=None, context=None,
-    roi_params: dict = None
+    roi_params: dict = None, allowed_classes: list = None, confidence_threshold: float = None
 ) -> bool:
     """
     Runs your video tracking script by passing arguments and streams its output.
     progress_message_obj and context are optional for web server usage.
-    roi_params is a dict with ROI parameters (roi_enabled, roi_x, roi_y, roi_width, roi_height, roi_show_overlay, roi_overlay_opacity)
+    roi_params is a dict with ROI parameters.
+    allowed_classes is a list of object names to track.
+    confidence_threshold is the minimum confidence score.
     """
     try:
         command = [
@@ -702,6 +704,17 @@ async def run_tracking_script_and_stream_output(
             "--output_video", os.path.splitext(output_path)[0], # ot.py expects path without .mp4
             "--input_video", input_path # Pass input video path as an argument
         ]
+        
+        # Add allowed classes if provided
+        if allowed_classes:
+            command.append("--allowed_classes")
+            command.extend(allowed_classes)
+            logger.info(f"Custom allowed classes: {allowed_classes}")
+            
+        # Add confidence threshold if provided
+        if confidence_threshold is not None:
+            command.extend(["--confidence_threshold", str(confidence_threshold)])
+            logger.info(f"Custom confidence threshold: {confidence_threshold}")
         
         # Add ROI parameters if provided
         if roi_params and roi_params.get('roi_enabled') == 'true':
@@ -758,7 +771,7 @@ async def run_tracking_script_and_stream_output(
 
 
 # --- Unified Video Processing Function ---
-async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_file_upload: bool, progress_message_obj=None, telegram_context=None, client_ip: str = "N/A", geolocation_info: dict = None, roi_params: dict = None, original_filename: str = None):
+async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_file_upload: bool, progress_message_obj=None, telegram_context=None, client_ip: str = "N/A", geolocation_info: dict = None, roi_params: dict = None, original_filename: str = None, allowed_classes: list = None, confidence_threshold: float = None):
     """
     Unified function to process video, upload to GDrive, and update GitHub Pages.
     progress_message_obj is the actual Telegram message object to edit (for Telegram)
@@ -767,6 +780,8 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
     client_ip and geolocation_info are new parameters for tracking.
     roi_params is a dict with ROI parameters from the frontend.
     original_filename is the original filename from a preview session (for cached files).
+    allowed_classes is a list of strings specifying which objects to track.
+    confidence_threshold is a float specifying the minimum confidence for detection.
     """
     # Ensure geolocation_info has all expected keys, even if N/A
     default_geolocation_data = {
@@ -920,10 +935,12 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
         await progress_message_obj.edit_text("Video downloaded/saved. Starting object tracking...")
         set_processing_status("Video downloaded/saved. Starting object tracking...") # Update global status
     
-    # Pass the correctly determined local_input_path for processing, along with ROI params
+    # Pass the correctly determined local_input_path for processing, along with ROI params, classes, and confidence
     tracking_success = await run_tracking_script_and_stream_output(
         local_input_path, local_output_path, progress_message_obj, telegram_context,
-        roi_params=roi_params
+        roi_params=roi_params,
+        allowed_classes=allowed_classes,
+        confidence_threshold=confidence_threshold
     )
 
     if not tracking_success:
@@ -1315,6 +1332,26 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     logger.info(f"ROI enabled: x={roi_params['roi_x']}, y={roi_params['roi_y']}, "
                                f"w={roi_params['roi_width']}, h={roi_params['roi_height']}")
 
+                # Extract allowed_classes and confidence_threshold
+                allowed_classes = None
+                if 'allowed_classes' in form:
+                    # Expecting comma-separated string e.g. "person,car,dog"
+                    classes_str = form['allowed_classes'].value
+                    if classes_str:
+                         allowed_classes = [c.strip() for c in classes_str.split(',') if c.strip()]
+                         logger.info(f"Custom allowed classes from web: {allowed_classes}")
+
+                confidence_threshold = None
+                if 'confidence_threshold' in form:
+                    try:
+                        conf_val = float(form['confidence_threshold'].value)
+                        # Basic validation
+                        if 0.0 < conf_val < 1.0:
+                            confidence_threshold = conf_val
+                            logger.info(f"Custom confidence threshold from web: {confidence_threshold}")
+                    except ValueError:
+                        logger.warning("Invalid confidence_threshold value provided.")
+
                 class WebProgressReporter:
                     """A dummy reporter for web progress that updates the global status."""
                     async def edit_text(self, message):
@@ -1349,7 +1386,9 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         client_ip=client_ip, # Pass client IP
                         geolocation_info=geolocation_info, # Pass geolocation info
                         roi_params=roi_params,  # Pass ROI parameters
-                        original_filename=cached_original_filename  # Pass original filename from preview session
+                        original_filename=cached_original_filename,  # Pass original filename from preview session
+                        allowed_classes=allowed_classes,
+                        confidence_threshold=confidence_threshold
                     ),
                     main_loop
                 )

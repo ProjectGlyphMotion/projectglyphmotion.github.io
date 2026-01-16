@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlyphMotion Playground - Experimental AI</title>
+    <meta name="description" content="Experiment with real-time AI in the browser and advanced server-side tracking configurations.">
+    <link rel="icon" type="image/x-icon" href="images/project-glyph-motion.ico">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- TensorFlow.js and COCO-SSD for Neural Cam -->
+    <!-- Force high-performance GPU (discrete GPU like RTX 3050) -->
+    <script>
+        // Set WebGL flags BEFORE loading TensorFlow.js to request discrete GPU
+        window.tf = window.tf || {};
+        window.tf.env = window.tf.env || {};
+        
+        // Create a test canvas to detect GPU
+        const testCanvas = document.createElement('canvas');
+        const gl = testCanvas.getContext('webgl2', { powerPreference: 'high-performance' }) || 
+                   testCanvas.getContext('webgl', { powerPreference: 'high-performance' });
+        if (gl) {
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            if (debugInfo) {
+                window.detectedGPU = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                console.log('[GPU Detected]', window.detectedGPU);
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0A0F;
+            color: #EDEDF3;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .background-glow-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -10; pointer-events: none; overflow: hidden;
+        }
+        .glow-element {
+            position: absolute; border-radius: 50%; opacity: 0.15; mix-blend-mode: screen; filter: blur(120px);
+        }
+        .glow-1 { width: 800px; height: 800px; background: radial-gradient(circle, #FDA136 0%, transparent 70%); top: -200px; left: -200px; }
+        .glow-2 { width: 600px; height: 600px; background: radial-gradient(circle, #FF5733 0%, transparent 70%); bottom: -150px; right: -150px; }
+        .glow-3 { width: 500px; height: 500px; background: radial-gradient(circle, #8B5CF6 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        
+        /* Full width layout */
+        .main-container {
+            width: 100%;
+            max-width: 100%;
+            padding: 1rem 2rem;
+            flex: 1;
+        }
+        
+        @media (min-width: 1400px) {
+            .main-container { padding: 1.5rem 4rem; }
+        }
+
+        .content-card {
+            background-color: rgba(10, 10, 15, 0.8);
+            border: 1px solid rgba(253, 161, 54, 0.2);
+            border-radius: 1rem;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            width: 100%;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            backdrop-filter: blur(12px);
+        }
+
+        .page-title {
+            font-family: 'Press Start 2P', cursive;
+            font-weight: normal;
+            background: linear-gradient(to right, #FDA136, #FFD700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 3px rgba(0,0,0,0.3);
+            text-align: center;
+            font-size: clamp(1.1rem, 3vw, 2rem);
+            line-height: 1.4;
+        }
+        
+        .page-subtitle {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1rem;
+            margin-top: 0.75rem;
+            font-weight: 300;
+        }
+
+        .section-title {
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            color: #FDA136;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid rgba(253, 161, 54, 0.3);
+            padding-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #EA580C, #D97706);
+            color: white;
+            padding: 0.6rem 1.25rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(234, 88, 12, 0.4); }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #DC2626, #B91C1C);
+        }
+        .btn-danger:hover { box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4); }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+
+        /* Back Button - Below title */
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(10, 10, 15, 0.9);
+            border: 1px solid rgba(253, 161, 54, 0.3);
+            padding: 0.5rem 1.25rem;
+            border-radius: 2rem;
+            color: #FDA136;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            text-decoration: none;
+            margin-top: 1rem;
+        }
+        .back-btn:hover {
+            background: rgba(253, 161, 54, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Neural Cam Styles */
+        #camContainer {
+            position: relative;
+            width: 100%;
+            max-width: var(--cam-max-width, 900px);
+            margin: 0 auto;
+            border-radius: 1rem;
+            overflow: hidden;
+            background: #111;
+            box-shadow: 0 0 30px rgba(253, 161, 54, 0.15);
+            aspect-ratio: 16/9;
+            transition: max-width 0.3s ease;
+        }
+        
+        /* Size control */
+        .size-control {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .size-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.4rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .size-btn:hover { background: rgba(255, 255, 255, 0.1); }
+        .size-btn.active {
+            background: rgba(253, 161, 54, 0.2);
+            border-color: #FDA136;
+            color: #FDA136;
+        }
+        .size-label {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        video#webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror for selfie cam */
+        }
+        
+        canvas#overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            transform: scaleX(-1); /* Mirror to match video */
+        }
+        
+        .cam-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        
+        .cam-stats {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            flex-wrap: wrap;
+        }
+        
+        .stat-item {
+            background: rgba(253, 161, 54, 0.1);
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(253, 161, 54, 0.2);
+        }
+        .stat-value { color: #FDA136; font-weight: 600; }
+        
+        /* Recording indicator */
+        .recording-indicator {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(220, 38, 38, 0.9);
+            padding: 0.4rem 0.8rem;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        .recording-dot {
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Camera selector */
+        .camera-select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            min-width: 150px;
+        }
+        .camera-select:focus { outline: none; border-color: #FDA136; }
+        .camera-select option { background: #1a1a1a; }
+        
+        /* Studio Form Styles */
+        .glass-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        .glass-input:focus { outline: none; border-color: #FDA136; background: rgba(255, 255, 255, 0.08); }
+        .glass-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+
+        /* Custom File Input */
+        .file-input-wrapper {
+            position: relative;
+            overflow: visible;
+            display: block;
+            width: 100%;
+            margin-top: 0;
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .file-input-display {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px dashed rgba(253, 161, 54, 0.4);
+            color: #fff;
+            padding: 0.875rem 1rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            min-height: 70px;
+        }
+        .file-input-display:hover {
+            border-color: #FDA136;
+            background: rgba(253, 161, 54, 0.05);
+        }
+        .file-input-display i {
+            font-size: 1.5rem;
+            color: #FDA136;
+        }
+        .file-input-text {
+            flex: 1;
+        }
+        .file-input-text .title { font-weight: 500; }
+        .file-input-text .subtitle { font-size: 0.75rem; color: rgba(255, 255, 255, 0.5); margin-top: 0.25rem; }
+        .file-name { font-size: 0.85rem; color: #34D399; margin-top: 0.5rem; }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 0.5rem;
+            max-height: 220px;
+            overflow-y: auto;
+            padding: 0.75rem;
+            background: rgba(0,0,0,0.3);
+            border-radius: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .checkbox-grid::-webkit-scrollbar { width: 6px; }
+        .checkbox-grid::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 3px; }
+        .checkbox-grid::-webkit-scrollbar-thumb { background: rgba(253, 161, 54, 0.3); border-radius: 3px; }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            padding: 0.3rem 0.5rem;
+            border-radius: 0.25rem;
+            transition: background 0.2s ease;
+        }
+        .checkbox-item:hover { background: rgba(255, 255, 255, 0.05); }
+        .checkbox-item input { 
+            accent-color: #FDA136;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        .checkbox-item span { cursor: pointer; }
+
+        /* Slider Styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, #FDA136, #FF6B35);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(253, 161, 54, 0.4);
+            transition: transform 0.2s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-left-color: #FDA136;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+        .spinner-lg { width: 40px; height: 40px; border-width: 4px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Grid Layout for Studio */
+        .studio-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        @media (min-width: 1024px) {
+            .studio-grid { grid-template-columns: 1fr 1fr; }
+        }
+        
+        /* Status Message */
+        .status-msg {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+        .status-msg.info { background: rgba(253, 161, 54, 0.1); border: 1px solid rgba(253, 161, 54, 0.3); color: #FED7AA; }
+        .status-msg.success { background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3); color: #A7F3D0; }
+        .status-msg.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #FCA5A5; }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 1rem;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.8rem;
+        }
+        .footer a { color: #FDA136; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="background-glow-container">
+        <div class="glow-element glow-1"></div>
+        <div class="glow-element glow-2"></div>
+        <div class="glow-element glow-3"></div>
+    </div>
+
+    <div class="main-container">
+        <!-- Header -->
+        <header class="text-center py-8 mb-6">
+            <h1 class="page-title">Project GlyphMotion</h1>
+            <h2 class="page-title" style="font-size: clamp(0.7rem, 2vw, 1.2rem); margin-top: 0.5rem;">AI Playground</h2>
+            <p class="page-subtitle">Experimental AI features & advanced tracking configurations</p>
+            <a href="index.html" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Back to Home
+            </a>
+        </header>
+
+        <!-- Neural Cam Section -->
+        <div class="content-card">
+            <h2 class="section-title"><i class="fas fa-brain mr-2"></i>Neural Cam — Real-time Browser AI</h2>
+            <p class="text-slate-400 mb-4 text-sm">Object detection runs entirely in your browser using TensorFlow.js. Zero data leaves your device.</p>
+            
+            <div id="setupPanel" class="text-center py-8">
+                <button id="startCamBtn" class="btn text-lg px-6 py-3">
+                    <i class="fas fa-video"></i> Start Neural Cam
+                </button>
+                <p id="camStatus" class="mt-4 text-sm text-slate-500"></p>
+            </div>
+
+            <div id="camWrapper" class="hidden">
+                <!-- Size Control -->
+                <div class="size-control">
+                    <span class="size-label"><i class="fas fa-expand-arrows-alt"></i> View Size:</span>
+                    <button class="size-btn" data-size="640">Small</button>
+                    <button class="size-btn" data-size="900">Medium</button>
+                    <button class="size-btn active" data-size="1200">Large</button>
+                    <button class="size-btn" data-size="1600">XL</button>
+                    <button class="size-btn" data-size="100%">Full</button>
+                </div>
+                
+                <div id="camContainer">
+                    <video id="webcam" autoplay playsinline muted></video>
+                    <canvas id="overlay"></canvas>
+                    <div id="recordingIndicator" class="recording-indicator hidden">
+                        <div class="recording-dot"></div>
+                        <span>REC</span>
+                        <span id="recordingTime">00:00</span>
+                    </div>
+                </div>
+                
+                <div class="cam-stats">
+                    <div class="stat-item">FPS: <span id="fpsValue" class="stat-value">--</span></div>
+                    <div class="stat-item">Objects: <span id="objectCount" class="stat-value">0</span></div>
+                    <div class="stat-item">Inference: <span id="inferenceTime" class="stat-value">--</span>ms</div>
+                    <div class="stat-item">Res: <span id="resValue" class="stat-value">--</span></div>
+                    <div class="stat-item" id="gpuStatItem" style="cursor:pointer;" title="Click for GPU info">
+                        GPU: <span id="tfBackend" class="stat-value">--</span>
+                    </div>
+                </div>
+                
+                <div class="cam-controls">
+                    <!-- Camera Selection -->
+                    <select id="cameraSelect" class="camera-select">
+                        <option value="">Select Camera...</option>
+                    </select>
+                    
+                    <!-- Mobile Camera Switch -->
+                    <button id="switchCameraBtn" class="btn btn-secondary hidden">
+                        <i class="fas fa-sync-alt"></i> Switch Camera
+                    </button>
+                    
+                    <!-- Recording Controls -->
+                    <button id="recordBtn" class="btn btn-secondary">
+                        <i class="fas fa-circle text-red-500"></i> Record
+                    </button>
+                    <button id="stopRecordBtn" class="btn btn-danger hidden">
+                        <i class="fas fa-stop"></i> Stop & Download
+                    </button>
+                    
+                    <!-- Stop Camera -->
+                    <button id="stopCamBtn" class="btn btn-secondary">
+                        <i class="fas fa-power-off"></i> Stop
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Server Studio Section -->
+        <div class="content-card">
+            <h2 class="section-title"><i class="fas fa-sliders-h mr-2"></i>Tracker Studio — Server-Side Processing</h2>
+            <p class="text-slate-400 mb-6 text-sm">Process videos with YOLOv8 on our server. Customize class filters and detection sensitivity.</p>
+
+            <form id="studioForm">
+                <div class="studio-grid">
+                    <!-- Left Column: Video Input -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-2">Video URL</label>
+                            <input type="text" id="videoUrl" name="video_url" class="glass-input" placeholder="https://example.com/video.mp4">
+                        </div>
+                        
+                        <div class="text-center text-xs text-slate-500 py-2">— OR —</div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-2">Upload Video</label>
+                            <div class="file-input-wrapper">
+                                <div class="file-input-display" id="fileInputDisplay">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <div class="file-input-text">
+                                        <div class="title">Click to choose a file</div>
+                                        <div class="subtitle">MP4, MOV, AVI, WebM (Max 500MB)</div>
+                                    </div>
+                                </div>
+                                <input type="file" id="videoFile" name="video_file" accept="video/*">
+                            </div>
+                            <div id="fileName" class="file-name hidden"></div>
+                        </div>
+                        
+                        <!-- Confidence Slider -->
+                        <div class="pt-2">
+                            <label class="block text-sm font-medium text-slate-300 mb-3">
+                                Confidence Threshold: <span id="confValue" class="text-orange-400 font-bold">0.25</span>
+                            </label>
+                            <input type="range" id="confSlider" name="confidence_threshold" min="0.1" max="0.9" step="0.05" value="0.25">
+                            <div class="flex justify-between text-xs text-slate-500 mt-1">
+                                <span>More Detections</span>
+                                <span>Higher Accuracy</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Class Selection -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-sm font-medium text-slate-300">Objects to Track</label>
+                            <div class="space-x-3 text-xs">
+                                <button type="button" id="selectAllBtn" class="text-orange-400 hover:text-orange-300 transition">Select All</button>
+                                <span class="text-slate-600">|</span>
+                                <button type="button" id="clearAllBtn" class="text-slate-400 hover:text-slate-300 transition">Clear All</button>
+                            </div>
+                        </div>
+                        <div id="classGrid" class="checkbox-grid"></div>
+                        <p class="text-xs text-slate-500 mt-2"><span id="selectedCount">80</span> classes selected</p>
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <div class="text-center pt-6">
+                    <button type="submit" id="processBtn" class="btn text-lg px-8 py-3">
+                        <i class="fas fa-rocket"></i> Process Video
+                    </button>
+                </div>
+                
+                <div id="statusMessage" class="status-msg info hidden"></div>
+            </form>
+        </div>
+    </div>
+    
+    <footer class="footer">
+        Made with ❤️ by Sayan & Shitij | <a href="index.html">Return to Dashboard</a>
+    </footer>
+
+    <script>
+        // --- COCO Classes ---
+        const COCO_CLASSES = [
+            "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
+            "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
+            "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+            "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
+            "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
+            "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+            "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard",
+            "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase",
+            "scissors", "teddy bear", "hair drier", "toothbrush"
+        ];
+        
+        // --- Device Detection ---
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // --- NEURAL CAM LOGIC ---
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('overlay');
+        const ctx = canvas.getContext('2d');
+        const startCamBtn = document.getElementById('startCamBtn');
+        const stopCamBtn = document.getElementById('stopCamBtn');
+        const camWrapper = document.getElementById('camWrapper');
+        const setupPanel = document.getElementById('setupPanel');
+        const camStatus = document.getElementById('camStatus');
+        const fpsValue = document.getElementById('fpsValue');
+        const objectCount = document.getElementById('objectCount');
+        const inferenceTime = document.getElementById('inferenceTime');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const switchCameraBtn = document.getElementById('switchCameraBtn');
+        const recordBtn = document.getElementById('recordBtn');
+        const stopRecordBtn = document.getElementById('stopRecordBtn');
+        const recordingIndicator = document.getElementById('recordingIndicator');
+        const recordingTimeEl = document.getElementById('recordingTime');
+        
+        let model = null;
+        let isCamRunning = false;
+        let currentStream = null;
+        let currentFacingMode = 'environment'; // 'user' or 'environment'
+        let availableCameras = [];
+        let selectedDeviceId = null;
+        
+        // Smoothing for bounding boxes
+        let smoothedPredictions = {};
+        const SMOOTHING_FACTOR = 0.15; // Lower = smoother but more lag (was 0.25)
+        const MIN_CONFIDENCE = 0.50; // Minimum confidence to display (was 0.45)
+        const PERSISTENCE_FRAMES = 12; // Frames to keep showing a lost detection (was 8)
+        const POSITION_TOLERANCE = 100; // Pixels tolerance for matching detections (was 80)
+        
+        // Recording variables
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let isRecording = false;
+        let recordingStartTime = null;
+        let recordingInterval = null;
+        
+        // FPS calculation
+        let frameCount = 0;
+        let lastFpsTime = performance.now();
+        let currentFps = 0;
+
+        async function loadModel() {
+            camStatus.innerHTML = '<div class="spinner"></div> Initializing TensorFlow.js...';
+            startCamBtn.disabled = true;
+            try {
+                // Use WebGL only - WebGPU is unstable on Linux/NVIDIA
+                // Set WebGL optimizations
+                tf.env().set('WEBGL_FORCE_F16_TEXTURES', false);
+                tf.env().set('WEBGL_VERSION', 2);
+                tf.env().set('WEBGL_CPU_FORWARD', false);
+                tf.env().set('WEBGL_PACK', true);
+                
+                await tf.setBackend('webgl');
+                await tf.ready();
+                
+                const backend = tf.getBackend();
+                
+                // Get actual GPU name
+                let gpuName = backend.toUpperCase();
+                if (window.detectedGPU) {
+                    gpuName = window.detectedGPU
+                        .replace('ANGLE (', '')
+                        .replace(')', '')
+                        .replace('Direct3D11 vs_5_0 ps_5_0', '')
+                        .replace('NVIDIA ', '')
+                        .replace('GeForce ', '')
+                        .replace(', or similar', '')
+                        .replace('Mesa Intel', 'Intel')
+                        .replace('Mesa ', '')
+                        .trim();
+                    if (gpuName.length > 18) gpuName = gpuName.substring(0, 16) + '...';
+                }
+                
+                document.getElementById('tfBackend').textContent = gpuName;
+                document.getElementById('tfBackend').title = `Backend: ${backend}\nGPU: ${window.detectedGPU || 'Unknown'}`;
+                console.log('[TF.js] Using backend:', backend, '| GPU:', window.detectedGPU);
+                
+                camStatus.innerHTML = '<div class="spinner"></div> Loading AI Model...';
+                
+                // Use lite model for faster loading and better stability
+                model = await cocoSsd.load({ 
+                    base: 'lite_mobilenet_v2'  // Lighter model = faster & more stable
+                });
+                
+                camStatus.innerText = "Model loaded! Initializing camera...";
+                await enumerateCameras();
+                startWebcam();
+            } catch (err) {
+                camStatus.innerHTML = `<span class="text-red-400">Error: ${err.message}</span>`;
+                startCamBtn.disabled = false;
+                document.getElementById('tfBackend').textContent = 'ERROR';
+                console.error('[TF.js Error]', err);
+            }
+        }
+        
+        async function enumerateCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                availableCameras = devices.filter(device => device.kind === 'videoinput');
+                
+                cameraSelect.innerHTML = '<option value="">Select Camera...</option>';
+                availableCameras.forEach((camera, index) => {
+                    const option = document.createElement('option');
+                    option.value = camera.deviceId;
+                    option.textContent = camera.label || `Camera ${index + 1}`;
+                    cameraSelect.appendChild(option);
+                });
+                
+                // Show switch button on mobile if multiple cameras
+                if (isMobile && availableCameras.length > 1) {
+                    switchCameraBtn.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error('Error enumerating cameras:', err);
+            }
+        }
+
+        async function startWebcam(deviceId = null) {
+            try {
+                // Stop existing stream
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
+                }
+                
+                // Use native/source resolution for best quality
+                // Let the camera decide the best resolution it can provide
+                const constraints = {
+                    video: {
+                        width: { ideal: 1920 },  // Request HD/Full HD
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 30, max: 60 }
+                    }
+                };
+                
+                if (deviceId) {
+                    constraints.video.deviceId = { exact: deviceId };
+                } else if (isMobile) {
+                    constraints.video.facingMode = currentFacingMode;
+                }
+                
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    setupPanel.classList.add('hidden');
+                    camWrapper.classList.remove('hidden');
+                    
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    
+                    // Display resolution
+                    document.getElementById('resValue').textContent = `${video.videoWidth}x${video.videoHeight}`;
+                    
+                    // Set selected camera in dropdown
+                    const activeTrack = currentStream.getVideoTracks()[0];
+                    if (activeTrack) {
+                        const settings = activeTrack.getSettings();
+                        if (settings.deviceId) {
+                            cameraSelect.value = settings.deviceId;
+                            selectedDeviceId = settings.deviceId;
+                        }
+                    }
+                    
+                    isCamRunning = true;
+                    smoothedPredictions = {};
+                    predictFrame();
+                };
+            } catch (err) {
+                camStatus.innerHTML = `<span class="text-red-400">Camera Error: ${err.message}</span>`;
+                setupPanel.classList.remove('hidden');
+                startCamBtn.disabled = false;
+            }
+        }
+        
+        function stopWebcam() {
+            isCamRunning = false;
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            if (isRecording) {
+                stopRecording();
+            }
+            video.srcObject = null;
+            camWrapper.classList.add('hidden');
+            setupPanel.classList.remove('hidden');
+            startCamBtn.disabled = false;
+            camStatus.innerText = '';
+            smoothedPredictions = {};
+        }
+        
+        function switchCamera() {
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            startWebcam();
+        }
+
+        async function predictFrame() {
+            if (!isCamRunning || !model) return;
+
+            const inferenceStart = performance.now();
+            const predictions = await model.detect(video);
+            const inferenceEnd = performance.now();
+            
+            // Update stats
+            frameCount++;
+            const now = performance.now();
+            if (now - lastFpsTime >= 1000) {
+                currentFps = frameCount;
+                frameCount = 0;
+                lastFpsTime = now;
+            }
+            
+            fpsValue.textContent = currentFps;
+            objectCount.textContent = predictions.length;
+            inferenceTime.textContent = Math.round(inferenceEnd - inferenceStart);
+            
+            // Apply smoothing and persistence
+            const currentPredictions = {};
+            
+            predictions.forEach(pred => {
+                if (pred.score < MIN_CONFIDENCE) return;
+                
+                // Create a unique key based on class and rough position
+                const gridX = Math.round(pred.bbox[0] / POSITION_TOLERANCE);
+                const gridY = Math.round(pred.bbox[1] / POSITION_TOLERANCE);
+                const key = `${pred.class}_${gridX}_${gridY}`;
+                
+                currentPredictions[key] = {
+                    ...pred,
+                    framesAlive: (smoothedPredictions[key]?.framesAlive || 0) + 1,
+                    lastSeen: now
+                };
+                
+                // Smooth bounding boxes if we have previous data
+                if (smoothedPredictions[key]) {
+                    const old = smoothedPredictions[key];
+                    currentPredictions[key].bbox = [
+                        old.bbox[0] + (pred.bbox[0] - old.bbox[0]) * SMOOTHING_FACTOR,
+                        old.bbox[1] + (pred.bbox[1] - old.bbox[1]) * SMOOTHING_FACTOR,
+                        old.bbox[2] + (pred.bbox[2] - old.bbox[2]) * SMOOTHING_FACTOR,
+                        old.bbox[3] + (pred.bbox[3] - old.bbox[3]) * SMOOTHING_FACTOR
+                    ];
+                    currentPredictions[key].score = old.score + (pred.score - old.score) * SMOOTHING_FACTOR;
+                }
+            });
+            
+            // Keep recently lost detections for persistence
+            Object.keys(smoothedPredictions).forEach(key => {
+                if (!currentPredictions[key]) {
+                    const old = smoothedPredictions[key];
+                    const framesSinceSeen = old.framesAlive;
+                    if (framesSinceSeen > 0 && framesSinceSeen <= PERSISTENCE_FRAMES) {
+                        currentPredictions[key] = {
+                            ...old,
+                            framesAlive: old.framesAlive - 1,
+                            score: old.score * 0.85 // Fade out
+                        };
+                    }
+                }
+            });
+            
+            smoothedPredictions = currentPredictions;
+            
+            // Draw - NO MIRRORING, coordinates are already correct
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            Object.values(smoothedPredictions).forEach(prediction => {
+                if (prediction.score < 0.3) return; // Skip very faded predictions
+                
+                const [x, y, width, height] = prediction.bbox;
+                
+                // Color based on class
+                const hue = prediction.class.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360;
+                const alpha = Math.min(1, prediction.score);
+                const color = `hsla(${hue}, 80%, 60%, ${alpha})`;
+                const bgColor = `hsla(${hue}, 80%, 20%, ${alpha * 0.7})`;
+
+                ctx.strokeStyle = color;
+                ctx.fillStyle = color;
+                ctx.lineWidth = 3;
+                
+                // Rounded rectangle
+                const radius = 8;
+                ctx.beginPath();
+                ctx.moveTo(x + radius, y);
+                ctx.lineTo(x + width - radius, y);
+                ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+                ctx.lineTo(x + width, y + height - radius);
+                ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                ctx.lineTo(x + radius, y + height);
+                ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+                ctx.lineTo(x, y + radius);
+                ctx.quadraticCurveTo(x, y, x + radius, y);
+                ctx.closePath();
+                ctx.stroke();
+                
+                // Label
+                const text = `${prediction.class} ${Math.round(prediction.score * 100)}%`;
+                ctx.font = 'bold 14px Inter, sans-serif';
+                const textWidth = ctx.measureText(text).width;
+                const labelHeight = 22;
+                const labelY = y > labelHeight + 5 ? y - labelHeight - 5 : y + height + 5;
+                
+                // Label background (this can stay mirrored, it's just a rectangle)
+                ctx.fillStyle = bgColor;
+                ctx.beginPath();
+                ctx.roundRect(x, labelY, textWidth + 12, labelHeight, 4);
+                ctx.fill();
+                
+                // Label text - counter the CSS scaleX(-1) so text is readable
+                ctx.save();
+                ctx.scale(-1, 1); // Counter the CSS mirror
+                // Since we flipped, x positions need to be negated and offset
+                const flippedX = -(x + 6 + textWidth);
+                ctx.fillStyle = '#fff';
+                ctx.fillText(text, flippedX, labelY + 16);
+                ctx.restore();
+            });
+
+            requestAnimationFrame(predictFrame);
+        }
+        
+        // --- RECORDING LOGIC ---
+        function startRecording() {
+            if (!currentStream) return;
+            
+            // Create a canvas that combines video + overlay
+            const recordCanvas = document.createElement('canvas');
+            recordCanvas.width = video.videoWidth;
+            recordCanvas.height = video.videoHeight;
+            const recordCtx = recordCanvas.getContext('2d');
+            
+            // Capture stream from canvas
+            const canvasStream = recordCanvas.captureStream(30);
+            
+            // Add audio if available
+            const audioTracks = currentStream.getAudioTracks();
+            if (audioTracks.length > 0) {
+                canvasStream.addTrack(audioTracks[0]);
+            }
+            
+            recordedChunks = [];
+            
+            const options = { mimeType: 'video/webm;codecs=vp9' };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options.mimeType = 'video/webm';
+            }
+            
+            mediaRecorder = new MediaRecorder(canvasStream, options);
+            
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            };
+            
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `neural-cam-${Date.now()}.webm`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+            
+            // Draw loop for recording
+            function drawRecordingFrame() {
+                if (!isRecording) return;
+                recordCtx.drawImage(video, 0, 0);
+                recordCtx.drawImage(canvas, 0, 0);
+                requestAnimationFrame(drawRecordingFrame);
+            }
+            
+            mediaRecorder.start(100);
+            isRecording = true;
+            recordingStartTime = Date.now();
+            
+            // UI
+            recordBtn.classList.add('hidden');
+            stopRecordBtn.classList.remove('hidden');
+            recordingIndicator.classList.remove('hidden');
+            
+            // Update timer
+            recordingInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                const secs = String(elapsed % 60).padStart(2, '0');
+                recordingTimeEl.textContent = `${mins}:${secs}`;
+            }, 1000);
+            
+            drawRecordingFrame();
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+            clearInterval(recordingInterval);
+            
+            // UI
+            recordBtn.classList.remove('hidden');
+            stopRecordBtn.classList.add('hidden');
+            recordingIndicator.classList.add('hidden');
+            recordingTimeEl.textContent = '00:00';
+        }
+        
+        // Event Listeners
+        startCamBtn.addEventListener('click', loadModel);
+        stopCamBtn.addEventListener('click', stopWebcam);
+        switchCameraBtn.addEventListener('click', switchCamera);
+        recordBtn.addEventListener('click', startRecording);
+        stopRecordBtn.addEventListener('click', stopRecording);
+        
+        cameraSelect.addEventListener('change', (e) => {
+            if (e.target.value && isCamRunning) {
+                startWebcam(e.target.value);
+            }
+        });
+        
+        // Size Control with localStorage
+        const camContainer = document.getElementById('camContainer');
+        const sizeBtns = document.querySelectorAll('.size-btn');
+        const savedSize = localStorage.getItem('neuralCamSize') || '900';
+        
+        function setContainerSize(size) {
+            sizeBtns.forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.querySelector(`.size-btn[data-size="${size}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+            
+            if (size === '100%') {
+                camContainer.style.setProperty('--cam-max-width', '100%');
+            } else {
+                camContainer.style.setProperty('--cam-max-width', `${size}px`);
+            }
+            localStorage.setItem('neuralCamSize', size);
+        }
+        
+        // Apply saved size
+        setContainerSize(savedSize);
+        
+        sizeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                setContainerSize(btn.dataset.size);
+            });
+        });
+        
+        // GPU Info click handler
+        document.getElementById('gpuStatItem').addEventListener('click', () => {
+            const gpu = window.detectedGPU || 'Not detected';
+            const isLinux = navigator.platform.toLowerCase().includes('linux');
+            const backend = tf.getBackend();
+            const webglVersion = tf.env().get('WEBGL_VERSION');
+            
+            let msg = `🖥️ GPU Info\n`;
+            msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+            msg += `Detected: ${gpu}\n`;
+            msg += `TF Backend: ${backend}\n`;
+            msg += `WebGL Version: ${webglVersion}\n\n`;
+            
+            if (isLinux) {
+                msg += `🐧 Linux NVIDIA Tips:\n`;
+                msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+                msg += `Check if using NVIDIA:\n`;
+                msg += `  glxinfo | grep "OpenGL renderer"\n\n`;
+                msg += `Force NVIDIA for Chrome:\n`;
+                msg += `  __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia google-chrome\n\n`;
+                msg += `Or set in .bashrc:\n`;
+                msg += `  export __NV_PRIME_RENDER_OFFLOAD=1\n`;
+                msg += `  export __GLX_VENDOR_LIBRARY_NAME=nvidia\n\n`;
+                msg += `Verify NVIDIA is active:\n`;
+                msg += `  nvidia-smi\n`;
+                msg += `  prime-select query`;
+            } else {
+                msg += `For better performance, ensure hardware acceleration is enabled in browser settings.`;
+            }
+            
+            alert(msg);
+        });
+
+
+        // --- STUDIO LOGIC ---
+        const classGrid = document.getElementById('classGrid');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+        const confSlider = document.getElementById('confSlider');
+        const confValue = document.getElementById('confValue');
+        const studioForm = document.getElementById('studioForm');
+        const statusMessage = document.getElementById('statusMessage');
+        const processBtn = document.getElementById('processBtn');
+        const videoFileInput = document.getElementById('videoFile');
+        const fileInputDisplay = document.getElementById('fileInputDisplay');
+        const fileNameDisplay = document.getElementById('fileName');
+        const selectedCountEl = document.getElementById('selectedCount');
+
+        // Populate Checkboxes
+        COCO_CLASSES.forEach(cls => {
+            const div = document.createElement('div');
+            div.className = 'checkbox-item';
+            const id = `class_${cls.replace(/\s/g, '_')}`;
+            div.innerHTML = `<input type="checkbox" id="${id}" value="${cls}" checked> <label for="${id}">${cls}</label>`;
+            classGrid.appendChild(div);
+        });
+        
+        function updateSelectedCount() {
+            const count = classGrid.querySelectorAll('input:checked').length;
+            selectedCountEl.textContent = count;
+        }
+        
+        classGrid.addEventListener('change', updateSelectedCount);
+
+        function getSelectedClasses() {
+            return Array.from(classGrid.querySelectorAll('input:checked')).map(cb => cb.value);
+        }
+
+        selectAllBtn.addEventListener('click', () => {
+            classGrid.querySelectorAll('input').forEach(cb => cb.checked = true);
+            updateSelectedCount();
+        });
+        
+        clearAllBtn.addEventListener('click', () => {
+            classGrid.querySelectorAll('input').forEach(cb => cb.checked = false);
+            updateSelectedCount();
+        });
+
+        confSlider.addEventListener('input', (e) => {
+            confValue.innerText = e.target.value;
+        });
+        
+        // File input display
+        videoFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                fileNameDisplay.textContent = `Selected: ${file.name}`;
+                fileNameDisplay.classList.remove('hidden');
+            } else {
+                fileNameDisplay.classList.add('hidden');
+            }
+        });
+
+        // Backend URL Logic
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const BASE_URL = isLocal ? 'http://localhost:5000' : 'https://backend.projectglyphmotion.studio';
+
+        studioForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const videoUrl = document.getElementById('videoUrl').value;
+            const videoFile = videoFileInput.files[0];
+            const selectedClasses = getSelectedClasses();
+
+            if (!videoUrl && !videoFile) {
+                showStatus('Please provide a video URL or upload a file.', 'error');
+                return;
+            }
+            if (selectedClasses.length === 0) {
+                showStatus('Please select at least one object class to track.', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            if (videoFile) formData.append('video_file', videoFile);
+            if (videoUrl) formData.append('video_url', videoUrl);
+            
+            formData.append('allowed_classes', selectedClasses.join(','));
+            formData.append('confidence_threshold', confSlider.value);
+            formData.append('roi_enabled', 'false'); 
+
+            processBtn.disabled = true;
+            processBtn.innerHTML = '<div class="spinner"></div> Processing...';
+            showStatus('Sending request to server...', 'info');
+
+            try {
+                const response = await fetch(`${BASE_URL}/process_web_video`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    showStatus('🚀 Processing started! <a href="index.html" class="underline font-bold">Go to Dashboard</a> to monitor progress.', 'success');
+                } else {
+                    const data = await response.json().catch(() => ({}));
+                    showStatus(data.message || 'Server error occurred.', 'error');
+                }
+            } catch (err) {
+                showStatus('Network error: ' + err.message, 'error');
+            } finally {
+                processBtn.disabled = false;
+                processBtn.innerHTML = '<i class="fas fa-rocket"></i> Process Video';
+            }
+        });
+        
+        function showStatus(message, type) {
+            statusMessage.innerHTML = message;
+            statusMessage.className = `status-msg ${type}`;
+            statusMessage.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
