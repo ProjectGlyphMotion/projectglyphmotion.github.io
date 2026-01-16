@@ -1929,17 +1929,14 @@
                     </div>
                     
                     <div class="roi-instructions">
-                        <strong>Click and drag</strong> on the preview to draw a region of interest. 
-                        Only objects within this area will be tracked.
+                        <strong>Tap and drag</strong> on the preview to draw a region of interest. 
+                        Only objects within this area will be tracked. Draw again to adjust.
                     </div>
 
                     <div class="roi-controls">
                         <div class="roi-controls-row">
                             <button type="button" id="clearRoiBtn" class="roi-btn roi-btn-secondary">
-                                <i class="fas fa-undo"></i> Clear ROI
-                            </button>
-                            <button type="button" id="resetPreviewBtn" class="roi-btn roi-btn-danger">
-                                <i class="fas fa-sync-alt"></i> Reset Preview
+                                <i class="fas fa-eraser"></i> Clear Selection
                             </button>
                         </div>
 
@@ -2170,7 +2167,6 @@
         const roiCanvas = document.getElementById('roiCanvas');
         const roiLoadingOverlay = document.getElementById('roiLoadingOverlay');
         const clearRoiBtn = document.getElementById('clearRoiBtn');
-        const resetPreviewBtn = document.getElementById('resetPreviewBtn');
         const roiCoordsDisplay = document.getElementById('roiCoordsDisplay');
         const roiNoPreview = document.getElementById('roiNoPreview');
         const roiVideoFrame = document.querySelector('.roi-video-frame');
@@ -3688,10 +3684,18 @@
             const rect = roiCanvas.getBoundingClientRect();
             let clientX, clientY;
 
-            if (e.touches && e.touches.length > 0) {
+            // Handle touch events - check changedTouches first (for touchend)
+            // then touches (for touchstart/touchmove), then mouse events
+            if (e.changedTouches && e.changedTouches.length > 0) {
+                // touchend uses changedTouches since touches array is empty
+                clientX = e.changedTouches[0].clientX;
+                clientY = e.changedTouches[0].clientY;
+            } else if (e.touches && e.touches.length > 0) {
+                // touchstart and touchmove use touches
                 clientX = e.touches[0].clientX;
                 clientY = e.touches[0].clientY;
             } else {
+                // Mouse events
                 clientX = e.clientX;
                 clientY = e.clientY;
             }
@@ -3762,7 +3766,14 @@
         function endDrawingRoi(e) {
             if (!isDrawingRoi) return;
             isDrawingRoi = false;
+            
             const pos = getEventPosition(e);
+            
+            // If pos is invalid (no coordinates found), use the last known position
+            if (pos.x === undefined || pos.y === undefined || isNaN(pos.x) || isNaN(pos.y)) {
+                console.warn('[ROI] Could not get end position, keeping current ROI if any');
+                return;
+            }
 
             // Calculate final ROI in normalized coordinates (0-1)
             const x = Math.min(roiStartX, pos.x) / roiPreviewWidth;
@@ -3774,6 +3785,8 @@
             if (width >= 0.05 && height >= 0.05) {
                 roiCoords = { x, y, width, height };
                 updateRoiCoordsDisplay();
+                // Redraw the ROI to show the final selection clearly
+                drawRoi();
             } else {
                 clearRoi();
             }
@@ -3916,14 +3929,6 @@
 
         // Clear ROI button
         clearRoiBtn.addEventListener('click', clearRoi);
-
-        // Reset preview button
-        resetPreviewBtn.addEventListener('click', () => {
-            if (currentVideoFile) {
-                loadVideoPreviewForRoi(currentVideoFile);
-            }
-            clearRoi();
-        });
 
         // Debounce resize handler to prevent excessive redraws
         let resizeDebounceTimer = null;
