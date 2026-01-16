@@ -174,8 +174,103 @@
             overflow: hidden;
             background: #111;
             box-shadow: 0 0 30px rgba(253, 161, 54, 0.15);
-            aspect-ratio: 16/9;
-            transition: max-width 0.3s ease;
+            aspect-ratio: var(--cam-aspect-ratio, 16/9);
+            transition: max-width 0.3s ease, aspect-ratio 0.3s ease;
+        }
+        
+        /* Portrait mode container */
+        #camContainer.portrait-mode {
+            max-width: min(var(--cam-max-width, 400px), 90vw);
+            aspect-ratio: 9/16;
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            #camContainer {
+                border-radius: 0.5rem;
+                max-width: 100% !important;
+            }
+            #camContainer.portrait-mode {
+                max-width: 85vw !important;
+            }
+            .size-control {
+                display: none; /* Hide size control on mobile */
+            }
+        }
+        
+        /* Mobile disclaimer */
+        .mobile-disclaimer {
+            display: none;
+            background: rgba(251, 191, 36, 0.15);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.8rem;
+            color: #fbbf24;
+        }
+        .mobile-disclaimer i { margin-right: 0.5rem; }
+        @media (max-width: 768px) {
+            .mobile-disclaimer { display: block; }
+        }
+        
+        /* Fullscreen landscape mode */
+        .fullscreen-landscape {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            z-index: 9999 !important;
+            background: #000 !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+        }
+        .fullscreen-landscape video#webcam,
+        .fullscreen-landscape canvas#overlay {
+            object-fit: contain !important;
+        }
+        .fullscreen-controls {
+            position: fixed;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            display: flex;
+            gap: 0.75rem;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 0.75rem 1.5rem;
+            border-radius: 2rem;
+            backdrop-filter: blur(10px);
+        }
+        .fullscreen-controls.hidden { display: none; }
+        
+        /* Mobile camera buttons */
+        .mobile-cam-buttons {
+            display: none;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-top: 0.75rem;
+        }
+        @media (max-width: 768px) {
+            .mobile-cam-buttons { display: flex; }
+        }
+        .cam-mode-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .cam-mode-btn:hover, .cam-mode-btn.active {
+            background: rgba(253, 161, 54, 0.2);
+            border-color: #FDA136;
+            color: #FDA136;
         }
         
         /* Size control */
@@ -212,7 +307,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Mirror for selfie cam */
+            transform: var(--video-mirror, scaleX(-1)); /* Mirror for selfie cam, controllable */
         }
         
         canvas#overlay {
@@ -222,7 +317,13 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
-            transform: scaleX(-1); /* Mirror to match video */
+            transform: var(--video-mirror, scaleX(-1)); /* Mirror to match video */
+        }
+        
+        /* No mirror for rear camera or portrait */
+        #camContainer.no-mirror video#webcam,
+        #camContainer.no-mirror canvas#overlay {
+            transform: none;
         }
         
         .cam-controls {
@@ -287,9 +388,25 @@
             font-size: 0.85rem;
             cursor: pointer;
             min-width: 150px;
+            max-width: 200px;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
         }
         .camera-select:focus { outline: none; border-color: #FDA136; }
-        .camera-select option { background: #1a1a1a; }
+        .camera-select option { 
+            background: #1a1a1a; 
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Hide camera select on mobile (use switch button) */
+        @media (max-width: 768px) {
+            .camera-select {
+                display: none;
+            }
+        }
         
         /* Studio Form Styles */
         .glass-input {
@@ -496,6 +613,12 @@
                     <button class="size-btn" data-size="100%">Full</button>
                 </div>
                 
+                <!-- Mobile Disclaimer -->
+                <div class="mobile-disclaimer">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Note:</strong> Live AI detection may have reduced accuracy on mobile devices. For best results, use desktop or server-side processing.
+                </div>
+                
                 <div id="camContainer">
                     <video id="webcam" autoplay playsinline muted></video>
                     <canvas id="overlay"></canvas>
@@ -504,6 +627,19 @@
                         <span>REC</span>
                         <span id="recordingTime">00:00</span>
                     </div>
+                </div>
+                
+                <!-- Fullscreen controls (shown when in fullscreen mode) -->
+                <div id="fullscreenControls" class="fullscreen-controls hidden">
+                    <button id="fsRecordBtn" class="btn btn-secondary">
+                        <i class="fas fa-circle text-red-500"></i>
+                    </button>
+                    <button id="fsSwitchCamBtn" class="btn btn-secondary">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button id="fsExitBtn" class="btn btn-danger">
+                        <i class="fas fa-compress"></i> Exit
+                    </button>
                 </div>
                 
                 <div class="cam-stats">
@@ -517,14 +653,14 @@
                 </div>
                 
                 <div class="cam-controls">
-                    <!-- Camera Selection -->
+                    <!-- Camera Selection (Desktop) -->
                     <select id="cameraSelect" class="camera-select">
                         <option value="">Select Camera...</option>
                     </select>
                     
                     <!-- Mobile Camera Switch -->
                     <button id="switchCameraBtn" class="btn btn-secondary hidden">
-                        <i class="fas fa-sync-alt"></i> Switch Camera
+                        <i class="fas fa-sync-alt"></i> Use Rear
                     </button>
                     
                     <!-- Recording Controls -->
@@ -538,6 +674,25 @@
                     <!-- Stop Camera -->
                     <button id="stopCamBtn" class="btn btn-secondary">
                         <i class="fas fa-power-off"></i> Stop
+                    </button>
+                </div>
+                
+                <!-- Mobile-only buttons -->
+                <div class="mobile-cam-buttons">
+                    <button id="rearCamBtn" class="cam-mode-btn active">
+                        <i class="fas fa-camera"></i> Rear
+                    </button>
+                    <button id="selfieCamBtn" class="cam-mode-btn">
+                        <i class="fas fa-user"></i> Selfie
+                    </button>
+                    <button id="portraitModeBtn" class="cam-mode-btn">
+                        <i class="fas fa-mobile-alt"></i> Portrait
+                    </button>
+                    <button id="landscapeModeBtn" class="cam-mode-btn active">
+                        <i class="fas fa-tv"></i> Landscape
+                    </button>
+                    <button id="fullscreenBtn" class="cam-mode-btn">
+                        <i class="fas fa-expand"></i> Fullscreen
                     </button>
                 </div>
             </div>
@@ -737,19 +892,59 @@
         async function enumerateCameras() {
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
-                availableCameras = devices.filter(device => device.kind === 'videoinput');
+                let cameras = devices.filter(device => device.kind === 'videoinput');
+                
+                // On mobile, filter to just front and back cameras
+                // AOSP typically uses: cam0 = rear, cam1 = front
+                if (isMobile && cameras.length >= 2) {
+                    const mainCameras = [];
+                    let rearCam = null;
+                    let frontCam = null;
+                    
+                    cameras.forEach((cam, idx) => {
+                        const label = cam.label.toLowerCase();
+                        // Check for rear camera - cam0 or back/rear in label
+                        if (!rearCam && (label.includes('back') || label.includes('rear') || 
+                            label.includes('environment') || label.includes('camera 0') ||
+                            label.includes('cam0') || label.includes('0, facing back') || idx === 0)) {
+                            rearCam = { ...cam, friendlyName: '📷 Rear Camera', isRear: true };
+                        }
+                        // Check for front camera - cam1 or front/selfie in label
+                        else if (!frontCam && (label.includes('front') || label.includes('selfie') || 
+                            label.includes('user') || label.includes('camera 1') ||
+                            label.includes('cam1') || label.includes('facing front') || idx === 1)) {
+                            frontCam = { ...cam, friendlyName: '🤳 Selfie Camera', isRear: false };
+                        }
+                    });
+                    
+                    // Fallback: use first two cameras
+                    if (!rearCam && cameras[0]) {
+                        rearCam = { ...cameras[0], friendlyName: '📷 Rear Camera', isRear: true };
+                    }
+                    if (!frontCam && cameras[1]) {
+                        frontCam = { ...cameras[1], friendlyName: '🤳 Selfie Camera', isRear: false };
+                    }
+                    
+                    if (rearCam) mainCameras.push(rearCam);
+                    if (frontCam) mainCameras.push(frontCam);
+                    
+                    cameras = mainCameras;
+                }
+                
+                availableCameras = cameras;
                 
                 cameraSelect.innerHTML = '<option value="">Select Camera...</option>';
                 availableCameras.forEach((camera, index) => {
                     const option = document.createElement('option');
                     option.value = camera.deviceId;
-                    option.textContent = camera.label || `Camera ${index + 1}`;
+                    option.textContent = camera.friendlyName || camera.label || `Camera ${index + 1}`;
                     cameraSelect.appendChild(option);
                 });
                 
-                // Show switch button on mobile if multiple cameras
-                if (isMobile && availableCameras.length > 1) {
-                    switchCameraBtn.classList.remove('hidden');
+                // On mobile, hide dropdown (use our custom buttons)
+                if (isMobile) {
+                    cameraSelect.classList.add('hidden');
+                    switchCameraBtn.classList.add('hidden'); // We use the new buttons instead
                 }
             } catch (err) {
                 console.error('Error enumerating cameras:', err);
@@ -764,10 +959,9 @@
                 }
                 
                 // Use native/source resolution for best quality
-                // Let the camera decide the best resolution it can provide
                 const constraints = {
                     video: {
-                        width: { ideal: 1920 },  // Request HD/Full HD
+                        width: { ideal: 1920 },
                         height: { ideal: 1080 },
                         frameRate: { ideal: 30, max: 60 }
                     }
@@ -787,11 +981,31 @@
                     setupPanel.classList.add('hidden');
                     camWrapper.classList.remove('hidden');
                     
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
+                    const vw = video.videoWidth;
+                    const vh = video.videoHeight;
+                    canvas.width = vw;
+                    canvas.height = vh;
+                    
+                    // Detect portrait mode (height > width)
+                    const isPortrait = vh > vw;
+                    const camContainer = document.getElementById('camContainer');
+                    
+                    if (isPortrait) {
+                        camContainer.classList.add('portrait-mode');
+                        camContainer.classList.add('no-mirror'); // No mirror for portrait
+                    } else {
+                        camContainer.classList.remove('portrait-mode');
+                        // Mirror only for front/selfie camera in landscape
+                        if (currentFacingMode === 'user' || 
+                            (currentStream.getVideoTracks()[0]?.label?.toLowerCase().includes('front'))) {
+                            camContainer.classList.remove('no-mirror');
+                        } else {
+                            camContainer.classList.add('no-mirror'); // No mirror for rear camera
+                        }
+                    }
                     
                     // Display resolution
-                    document.getElementById('resValue').textContent = `${video.videoWidth}x${video.videoHeight}`;
+                    document.getElementById('resValue').textContent = `${vw}x${vh}`;
                     
                     // Set selected camera in dropdown
                     const activeTrack = currentStream.getVideoTracks()[0];
@@ -833,6 +1047,10 @@
         
         function switchCamera() {
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            // Update button text to show which camera is next
+            switchCameraBtn.innerHTML = currentFacingMode === 'user' 
+                ? '<i class="fas fa-sync-alt"></i> Use Rear' 
+                : '<i class="fas fa-sync-alt"></i> Use Selfie';
             startWebcam();
         }
 
@@ -919,10 +1137,12 @@
 
                 ctx.strokeStyle = color;
                 ctx.fillStyle = color;
-                ctx.lineWidth = 3;
+                // Scale line width based on canvas size (thicker on larger canvases)
+                const scaleFactor = Math.max(canvas.width, canvas.height) / 640;
+                ctx.lineWidth = Math.max(2, Math.round(3 * scaleFactor));
                 
-                // Rounded rectangle
-                const radius = 8;
+                // Rounded rectangle with scaled radius
+                const radius = Math.max(4, Math.round(8 * scaleFactor));
                 ctx.beginPath();
                 ctx.moveTo(x + radius, y);
                 ctx.lineTo(x + width - radius, y);
@@ -936,27 +1156,36 @@
                 ctx.closePath();
                 ctx.stroke();
                 
-                // Label
+                // Label with scaled font size
+                const fontSize = Math.max(12, Math.round(14 * scaleFactor));
                 const text = `${prediction.class} ${Math.round(prediction.score * 100)}%`;
-                ctx.font = 'bold 14px Inter, sans-serif';
+                ctx.font = `bold ${fontSize}px Inter, sans-serif`;
                 const textWidth = ctx.measureText(text).width;
-                const labelHeight = 22;
+                const labelHeight = Math.max(18, Math.round(22 * scaleFactor));
                 const labelY = y > labelHeight + 5 ? y - labelHeight - 5 : y + height + 5;
                 
-                // Label background (this can stay mirrored, it's just a rectangle)
+                // Label background
                 ctx.fillStyle = bgColor;
                 ctx.beginPath();
                 ctx.roundRect(x, labelY, textWidth + 12, labelHeight, 4);
                 ctx.fill();
                 
-                // Label text - counter the CSS scaleX(-1) so text is readable
-                ctx.save();
-                ctx.scale(-1, 1); // Counter the CSS mirror
-                // Since we flipped, x positions need to be negated and offset
-                const flippedX = -(x + 6 + textWidth);
+                // Check if we're in no-mirror mode (rear camera or portrait)
+                const camContainer = document.getElementById('camContainer');
+                const isMirrored = !camContainer.classList.contains('no-mirror');
+                
                 ctx.fillStyle = '#fff';
-                ctx.fillText(text, flippedX, labelY + 16);
-                ctx.restore();
+                if (isMirrored) {
+                    // Counter the CSS scaleX(-1) so text is readable
+                    ctx.save();
+                    ctx.scale(-1, 1);
+                    const flippedX = -(x + 6 + textWidth);
+                    ctx.fillText(text, flippedX, labelY + fontSize + 2);
+                    ctx.restore();
+                } else {
+                    // No mirroring, draw text normally
+                    ctx.fillText(text, x + 6, labelY + fontSize + 2);
+                }
             });
 
             requestAnimationFrame(predictFrame);
@@ -1120,6 +1349,233 @@
             
             alert(msg);
         });
+
+        // --- MOBILE CAMERA CONTROLS ---
+        let mobileRecordMode = 'landscape'; // 'portrait' or 'landscape'
+        let isFullscreen = false;
+        
+        const rearCamBtn = document.getElementById('rearCamBtn');
+        const selfieCamBtn = document.getElementById('selfieCamBtn');
+        const portraitModeBtn = document.getElementById('portraitModeBtn');
+        const landscapeModeBtn = document.getElementById('landscapeModeBtn');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const fullscreenControls = document.getElementById('fullscreenControls');
+        const fsRecordBtn = document.getElementById('fsRecordBtn');
+        const fsSwitchCamBtn = document.getElementById('fsSwitchCamBtn');
+        const fsExitBtn = document.getElementById('fsExitBtn');
+        
+        // Mobile camera buttons
+        if (rearCamBtn) {
+            rearCamBtn.addEventListener('click', () => {
+                if (!isCamRunning) return;
+                currentFacingMode = 'environment';
+                rearCamBtn.classList.add('active');
+                selfieCamBtn.classList.remove('active');
+                
+                // Find rear camera and use it
+                const rearCam = availableCameras.find(c => c.isRear);
+                if (rearCam) {
+                    startWebcam(rearCam.deviceId);
+                } else {
+                    startWebcam();
+                }
+            });
+        }
+        
+        if (selfieCamBtn) {
+            selfieCamBtn.addEventListener('click', () => {
+                if (!isCamRunning) return;
+                currentFacingMode = 'user';
+                selfieCamBtn.classList.add('active');
+                rearCamBtn.classList.remove('active');
+                
+                // Find front camera and use it
+                const frontCam = availableCameras.find(c => c.isRear === false);
+                if (frontCam) {
+                    startWebcam(frontCam.deviceId);
+                } else {
+                    startWebcam();
+                }
+            });
+        }
+        
+        // Portrait/Landscape mode for recording
+        if (portraitModeBtn) {
+            portraitModeBtn.addEventListener('click', () => {
+                mobileRecordMode = 'portrait';
+                portraitModeBtn.classList.add('active');
+                landscapeModeBtn.classList.remove('active');
+                
+                // Request portrait resolution
+                if (isCamRunning) {
+                    const currentDeviceId = selectedDeviceId;
+                    stopWebcam();
+                    setTimeout(() => {
+                        startWebcamWithOrientation(currentDeviceId, 'portrait');
+                    }, 300);
+                }
+            });
+        }
+        
+        if (landscapeModeBtn) {
+            landscapeModeBtn.addEventListener('click', () => {
+                mobileRecordMode = 'landscape';
+                landscapeModeBtn.classList.add('active');
+                portraitModeBtn.classList.remove('active');
+                
+                // Request landscape resolution
+                if (isCamRunning) {
+                    const currentDeviceId = selectedDeviceId;
+                    stopWebcam();
+                    setTimeout(() => {
+                        startWebcamWithOrientation(currentDeviceId, 'landscape');
+                    }, 300);
+                }
+            });
+        }
+        
+        // Fullscreen mode
+        function enterFullscreen() {
+            const camContainer = document.getElementById('camContainer');
+            camContainer.classList.add('fullscreen-landscape');
+            fullscreenControls.classList.remove('hidden');
+            isFullscreen = true;
+            
+            // Lock to landscape if supported
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(() => {});
+            }
+        }
+        
+        function exitFullscreen() {
+            const camContainer = document.getElementById('camContainer');
+            camContainer.classList.remove('fullscreen-landscape');
+            fullscreenControls.classList.add('hidden');
+            isFullscreen = false;
+            
+            // Unlock orientation
+            if (screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
+            }
+        }
+        
+        if (fullscreenBtn) {
+            fullscreenBtn.addEventListener('click', () => {
+                if (!isCamRunning) return;
+                enterFullscreen();
+            });
+        }
+        
+        if (fsExitBtn) {
+            fsExitBtn.addEventListener('click', exitFullscreen);
+        }
+        
+        if (fsRecordBtn) {
+            fsRecordBtn.addEventListener('click', () => {
+                if (isRecording) {
+                    stopRecording();
+                    fsRecordBtn.innerHTML = '<i class="fas fa-circle text-red-500"></i>';
+                } else {
+                    startRecording();
+                    fsRecordBtn.innerHTML = '<i class="fas fa-stop"></i>';
+                }
+            });
+        }
+        
+        if (fsSwitchCamBtn) {
+            fsSwitchCamBtn.addEventListener('click', () => {
+                currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+                // Update button states
+                if (currentFacingMode === 'environment') {
+                    rearCamBtn?.classList.add('active');
+                    selfieCamBtn?.classList.remove('active');
+                } else {
+                    selfieCamBtn?.classList.add('active');
+                    rearCamBtn?.classList.remove('active');
+                }
+                startWebcam();
+            });
+        }
+        
+        // Handle back button / escape to exit fullscreen
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && isFullscreen) {
+                exitFullscreen();
+            }
+        });
+        
+        // Start webcam with specific orientation
+        async function startWebcamWithOrientation(deviceId, orientation) {
+            try {
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
+                }
+                
+                const isPortrait = orientation === 'portrait';
+                const constraints = {
+                    video: {
+                        width: { ideal: isPortrait ? 1080 : 1920 },
+                        height: { ideal: isPortrait ? 1920 : 1080 },
+                        frameRate: { ideal: 30, max: 60 }
+                    }
+                };
+                
+                if (deviceId) {
+                    constraints.video.deviceId = { exact: deviceId };
+                } else if (isMobile) {
+                    constraints.video.facingMode = currentFacingMode;
+                }
+                
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    setupPanel.classList.add('hidden');
+                    camWrapper.classList.remove('hidden');
+                    
+                    const vw = video.videoWidth;
+                    const vh = video.videoHeight;
+                    canvas.width = vw;
+                    canvas.height = vh;
+                    
+                    const camContainer = document.getElementById('camContainer');
+                    const videoIsPortrait = vh > vw;
+                    
+                    if (videoIsPortrait) {
+                        camContainer.classList.add('portrait-mode');
+                    } else {
+                        camContainer.classList.remove('portrait-mode');
+                    }
+                    
+                    // Mirror only for selfie camera
+                    if (currentFacingMode === 'user') {
+                        camContainer.classList.remove('no-mirror');
+                    } else {
+                        camContainer.classList.add('no-mirror');
+                    }
+                    
+                    document.getElementById('resValue').textContent = `${vw}x${vh}`;
+                    
+                    const activeTrack = currentStream.getVideoTracks()[0];
+                    if (activeTrack) {
+                        const settings = activeTrack.getSettings();
+                        if (settings.deviceId) {
+                            cameraSelect.value = settings.deviceId;
+                            selectedDeviceId = settings.deviceId;
+                        }
+                    }
+                    
+                    isCamRunning = true;
+                    smoothedPredictions = {};
+                    predictFrame();
+                };
+            } catch (err) {
+                console.error('Camera error:', err);
+                // Fallback to regular webcam start
+                startWebcam(deviceId);
+            }
+        }
 
 
         // --- STUDIO LOGIC ---

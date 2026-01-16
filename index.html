@@ -424,6 +424,111 @@
             @apply bg-slate-700 text-slate-200 hover:bg-slate-600 focus:ring-slate-500;
             box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
         }
+        
+        /* Mobile Dropdown Menu */
+        .mobile-menu-container {
+            position: relative;
+            display: inline-block;
+        }
+        .mobile-menu-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 0.5rem;
+            color: #fff;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .mobile-menu-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+        .mobile-menu-btn .chevron {
+            transition: transform 0.2s ease;
+        }
+        .mobile-menu-btn.open .chevron {
+            transform: rotate(180deg);
+        }
+        .mobile-dropdown {
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            left: 50%;
+            transform: translateX(-50%);
+            min-width: 200px;
+            background: rgba(30, 30, 35, 0.98);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateX(-50%) translateY(-10px);
+            transition: all 0.2s ease;
+            z-index: 100;
+        }
+        .mobile-dropdown.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+        .mobile-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: #e5e5e5;
+            font-size: 0.875rem;
+            text-decoration: none;
+            transition: background 0.15s ease;
+            border: none;
+            background: none;
+            width: 100%;
+            cursor: pointer;
+            text-align: left;
+        }
+        .mobile-dropdown-item:hover {
+            background: rgba(253, 161, 54, 0.15);
+            color: #FDA136;
+        }
+        .mobile-dropdown-item i {
+            width: 1.25rem;
+            text-align: center;
+            opacity: 0.8;
+        }
+        .mobile-dropdown-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 0.25rem 0;
+        }
+        .mobile-dropdown-header {
+            padding: 0.75rem 1rem;
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        .admin-name-badge {
+            padding: 0.5rem 1rem;
+            background: linear-gradient(135deg, rgba(253, 161, 54, 0.2), rgba(251, 146, 60, 0.1));
+            border-bottom: 1px solid rgba(253, 161, 54, 0.2);
+            font-weight: 600;
+            color: #FDA136;
+            font-size: 0.9rem;
+        }
+        /* Desktop: hide mobile menu, show regular nav */
+        @media (min-width: 640px) {
+            .mobile-nav { display: none !important; }
+            .desktop-nav { display: flex !important; }
+        }
+        /* Mobile: show mobile menu, hide regular nav */
+        @media (max-width: 639px) {
+            .mobile-nav { display: flex !important; }
+            .desktop-nav { display: none !important; }
+        }
 
         /* Removed custom focus outline/shadow to use browser default */
         input:focus,
@@ -1697,7 +1802,7 @@
                 <span id="statusDot" class="status-dot"></span>
                 Server Status: <span id="statusText">Checking...</span>
             </p>
-            <div id="adminControls" class="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
+            <div id="adminControls" class="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4 desktop-nav">
                 <span id="loggedInUsername" class="text-sm font-medium text-orange-300 hidden"></span>
                 <button id="adminLogoutBtn" class="btn btn-danger text-sm py-1 px-3 hidden">Logout</button>
                 <button id="adminLoginBtn" class="btn btn-custom-primary text-sm py-1 px-3 hidden">Admin Login</button>
@@ -1705,12 +1810,67 @@
                 <button id="changePasswordBtn" class="btn btn-custom-primary text-sm py-1 px-3 hidden">Change Password</button>
                 <button id="logoutAllAdminsBtn" class="btn btn-danger text-sm py-1 px-3 hidden">Logout All Admins</button>
             </div>
-            <a href="documentation.html" class="btn btn-custom-primary py-2 px-4 text-sm ml-4">
-            <i class="fas fa-book mr-2"></i> View Documentation
-        </a>
-        <a href="playground.html" class="btn py-2 px-4 text-sm ml-4" style="background: linear-gradient(to right, #8B5CF6, #6366F1);">
-            <i class="fas fa-flask mr-2"></i> AI Playground
-        </a>
+            
+            <!-- Desktop Navigation Links -->
+            <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-4 desktop-nav">
+                <a href="documentation.html" class="btn btn-custom-primary py-2 px-4 text-sm">
+                    <i class="fas fa-book mr-2"></i> View Documentation
+                </a>
+                <a href="playground.html" class="btn py-2 px-4 text-sm" style="background: linear-gradient(to right, #8B5CF6, #6366F1);">
+                    <i class="fas fa-flask mr-2"></i> AI Playground
+                </a>
+            </div>
+            
+            <!-- Mobile Navigation -->
+            <div class="mobile-nav flex-col items-center gap-3 mt-4" style="display: none;">
+                <!-- Admin name shown when logged in -->
+                <span id="mobileAdminName" class="text-sm font-semibold text-orange-300 hidden"></span>
+                
+                <!-- Primary buttons - AI Playground first, then Documentation -->
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <a href="playground.html" class="btn py-2 px-4 text-sm" style="background: linear-gradient(to right, #8B5CF6, #6366F1);">
+                        <i class="fas fa-flask mr-2"></i> AI Playground
+                    </a>
+                    <a href="documentation.html" class="btn btn-custom-primary py-2 px-4 text-sm">
+                        <i class="fas fa-book mr-2"></i> Docs
+                    </a>
+                </div>
+                
+                <!-- More dropdown for admin options -->
+                <div class="mobile-menu-container">
+                    <button id="mobileMenuBtn" class="mobile-menu-btn" onclick="toggleMobileMenu()">
+                        <i class="fas fa-ellipsis-h"></i>
+                        <span>More</span>
+                        <i class="fas fa-chevron-down chevron"></i>
+                    </button>
+                    <div id="mobileDropdown" class="mobile-dropdown">
+                        <!-- Logged in section (hidden by default) -->
+                        <div id="mobileLoggedInSection" class="hidden">
+                            <div class="mobile-dropdown-header">Admin Options</div>
+                            <a href="admin_tracker.html" class="mobile-dropdown-item">
+                                <i class="fas fa-chart-line"></i> Admin Tracker
+                            </a>
+                            <button id="mobileChangePasswordBtn" class="mobile-dropdown-item">
+                                <i class="fas fa-key"></i> Change Password
+                            </button>
+                            <button id="mobileLogoutAllBtn" class="mobile-dropdown-item hidden">
+                                <i class="fas fa-users-slash"></i> Logout All Admins
+                            </button>
+                            <div class="mobile-dropdown-divider"></div>
+                            <button id="mobileLogoutBtn" class="mobile-dropdown-item" style="color: #f87171;">
+                                <i class="fas fa-sign-out-alt"></i> Logout
+                            </button>
+                        </div>
+                        
+                        <!-- Not logged in section -->
+                        <div id="mobileNotLoggedInSection">
+                            <button id="mobileLoginBtn" class="mobile-dropdown-item">
+                                <i class="fas fa-sign-in-alt"></i> Admin Login
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <div class="space-y-6">
@@ -2023,6 +2183,47 @@
         let sessionDurationDays = 0;
         let frameRestrictionEnabled = false; // Default frame restriction state
         let frameRestrictionValue = 0; // Default frame restriction value
+        
+        /* Mobile Menu Functions - defined early for use in DOMContentLoaded */
+        function toggleMobileMenu() {
+            const btn = document.getElementById('mobileMenuBtn');
+            const dropdown = document.getElementById('mobileDropdown');
+            btn.classList.toggle('open');
+            dropdown.classList.toggle('show');
+        }
+        
+        function updateMobileMenu(isLoggedIn, username, isMaster) {
+            const mobileAdminName = document.getElementById('mobileAdminName');
+            const mobileLoggedInSection = document.getElementById('mobileLoggedInSection');
+            const mobileNotLoggedInSection = document.getElementById('mobileNotLoggedInSection');
+            const mobileLogoutAllBtn = document.getElementById('mobileLogoutAllBtn');
+            
+            if (isLoggedIn && username) {
+                // Show admin name
+                if (mobileAdminName) {
+                    mobileAdminName.textContent = `👤 ${username}`;
+                    mobileAdminName.classList.remove('hidden');
+                }
+                
+                // Show logged in section, hide login button
+                if (mobileLoggedInSection) mobileLoggedInSection.classList.remove('hidden');
+                if (mobileNotLoggedInSection) mobileNotLoggedInSection.classList.add('hidden');
+                
+                // Show logout all only for master
+                if (mobileLogoutAllBtn) {
+                    if (isMaster) {
+                        mobileLogoutAllBtn.classList.remove('hidden');
+                    } else {
+                        mobileLogoutAllBtn.classList.add('hidden');
+                    }
+                }
+            } else {
+                // Not logged in
+                if (mobileAdminName) mobileAdminName.classList.add('hidden');
+                if (mobileLoggedInSection) mobileLoggedInSection.classList.add('hidden');
+                if (mobileNotLoggedInSection) mobileNotLoggedInSection.classList.remove('hidden');
+            }
+        }
 
         // ROI State Variables
         let roiEnabled = false;
@@ -3953,6 +4154,9 @@
                 loggedInUsernameSpan.classList.remove('logged-in-text-outline');
                 adminControlsDiv.classList.remove('hidden'); /* Ensure container is visible */
             }
+            
+            // Update mobile menu state
+            updateMobileMenu(isAdminLoggedIn, loggedInUsername, isAdminMaster);
 
             /* Load view mode preference from localStorage */
             const savedViewMode = localStorage.getItem('isCompactView');
@@ -4030,6 +4234,33 @@
             isCompactView = !isCompactView; /* Toggle the state */
             updateViewModeLayout(); /* Update the main content card layout */
             localStorage.setItem('isCompactView', isCompactView); /* Save state */
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const container = document.querySelector('.mobile-menu-container');
+            if (container && !container.contains(e.target)) {
+                document.getElementById('mobileMenuBtn')?.classList.remove('open');
+                document.getElementById('mobileDropdown')?.classList.remove('show');
+            }
+        });
+        
+        // Mobile button event listeners
+        document.getElementById('mobileLoginBtn')?.addEventListener('click', () => {
+            window.location.href = 'admin.html';
+        });
+        
+        document.getElementById('mobileLogoutBtn')?.addEventListener('click', () => {
+            adminLogoutBtn.click(); // Trigger the desktop logout
+        });
+        
+        document.getElementById('mobileChangePasswordBtn')?.addEventListener('click', () => {
+            changePasswordBtn.click(); // Trigger the desktop change password
+            toggleMobileMenu(); // Close menu
+        });
+        
+        document.getElementById('mobileLogoutAllBtn')?.addEventListener('click', () => {
+            logoutAllAdminsBtn.click(); // Trigger the desktop logout all
         });
 
         /* Event listeners for admin buttons */
