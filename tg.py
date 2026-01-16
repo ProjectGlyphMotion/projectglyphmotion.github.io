@@ -264,7 +264,9 @@ def set_processing_status(message: Union[str, None]):
 def reset_status_after_delay(delay_seconds: int = 5): # Reduced delay to 5 seconds
     """Schedules a task to reset the status to None after a delay."""
     logger.info(f"Scheduling status reset to 'None' (hide) in {delay_seconds} seconds.")
-    threading.Timer(delay_seconds, set_processing_status, args=(None,)).start() # Pass None
+    timer = threading.Timer(delay_seconds, set_processing_status, args=(None,))
+    timer.daemon = True  # Ensure timer runs even if main thread state changes
+    timer.start()
 
 def load_tracking_data():
     """Loads tracking data from the JSON file on startup."""

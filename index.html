@@ -2868,6 +2868,15 @@
                     liveStatusMessage.textContent = data.status;
                     liveProcessingStatusDiv.classList.remove('hidden');
 
+                    /* Auto-hide delete-related status messages after 3 seconds */
+                    if (data.status.includes('Successfully deleted video') || data.status.includes('Failed to delete video')) {
+                        setTimeout(() => {
+                            if (liveStatusMessage.textContent === data.status) {
+                                liveProcessingStatusDiv.classList.add('hidden');
+                            }
+                        }, 3000);
+                    }
+
                     /* Check for the specific success message to start the upload progress bar */
                     if (data.status.includes('Object tracking and GitHub Pages update complete!') && !isUploadProgressBarRunning) {
                         startProgressBar('upload');
