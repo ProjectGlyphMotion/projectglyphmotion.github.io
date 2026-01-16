@@ -514,7 +514,7 @@ async def _stream_output_and_update_message(
                     elif progress_type == 'ffmpeg':
                         ffmpeg_match = ffmpeg_regex.search(progress_info)
                         if ffmpeg_match:
-                            new_progress_text = f"Merging Audio: {progress_match.group(0).strip()}" # Fixed: use group(0) for full match
+                            new_progress_text = f"Merging Audio: {ffmpeg_match.group(0).strip()}" # Fixed: use group(0) for full match
                     
                     if new_progress_text and new_progress_text != last_progress_text and (time.time() - last_update_time > 1):
                         try:
@@ -569,7 +569,7 @@ async def _stream_output_and_update_message(
 
 
 # MODIFIED: Use yt-dlp for video downloads instead of wget for robustness
-async def download_video_async(url: str, output_dir: str, progress_message_obj=None, context=None) -> (bool, str):
+async def download_video_async(url: str, output_dir: str, progress_message_obj=None, context=None) -> tuple[bool, str]:
     """
     Asynchronously downloads a video from a URL using yt-dlp and streams progress.
     Returns (success, actual_output_filepath).
@@ -596,7 +596,8 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
             "--simulate",
             "--get-filename",
             "-o", os.path.join(output_dir, "%(title)s.%(ext)s"), # Use title for filename
-            "-f", "bestvideo+bestaudio/best", # Use the same format selection for dry run
+            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+            "--merge-output-format", "mp4",  # Ensure output format is mp4
             url
         ]
         logger.info(f"Starting yt-dlp dry-run to get filename: {' '.join(dry_run_command)}")
@@ -617,13 +618,17 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
         actual_output_filename = stdout.decode('utf-8', errors='ignore').strip()
         # Clean up any potential invalid characters in the filename, though yt-dlp --restrict-filenames helps
         actual_output_filename = re.sub(r'[\\/:*?"<>|]', '_', actual_output_filename)
+        # Ensure filename ends with .mp4
+        if not actual_output_filename.lower().endswith('.mp4'):
+            actual_output_filename = os.path.splitext(actual_output_filename)[0] + '.mp4'
         actual_output_path = os.path.join(output_dir, actual_output_filename)
 
         command = [
             "yt-dlp",
             "-o", actual_output_path,
-            # Use 'bestvideo+bestaudio/best' for highest quality without specific codec restrictions
-            "-f", "bestvideo+bestaudio/best",
+            # Use format selection compatible with mp4 output
+            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+            "--merge-output-format", "mp4",  # Ensure output is mp4
             "--progress",
             "--no-playlist",
             "--output-na-placeholder", "",
@@ -1275,15 +1280,25 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     else:
                         logger.warning(f"Preview session {preview_session_id} not found or expired, falling back to regular upload/url")
 
-                if 'video_url' in form:
-                    video_url = form['video_url'].value
-                    logger.info(f"Received video URL from web: {video_url}")
-                elif 'video_file' in form:
-                    video_file = form['video_file']
-                    logger.info(f"Received uploaded file from web: {video_file.filename}")
+                # Only require video_url or video_file if we don't have a cached video from preview session
+                if not cached_video_path:
+                    if 'video_url' in form:
+                        video_url = form['video_url'].value
+                        logger.info(f"Received video URL from web: {video_url}")
+                    elif 'video_file' in form:
+                        video_file = form['video_file']
+                        logger.info(f"Received uploaded file from web: {video_file.filename}")
+                    else:
+                        self.send_api_response(400, {"message": "No video URL or file provided."})
+                        return
                 else:
-                    self.send_api_response(400, {"message": "No video URL or file provided."})
-                    return
+                    # For cached videos, check if fallback URL/file is provided (optional)
+                    if 'video_url' in form:
+                        video_url = form['video_url'].value
+                        logger.info(f"Received fallback video URL (not used, using cached): {video_url}")
+                    elif 'video_file' in form:
+                        video_file = form['video_file']
+                        logger.info(f"Received fallback video file (not used, using cached): {getattr(video_file, 'filename', 'unknown')}")
 
                 # Extract ROI (Region of Interest) parameters from form data
                 roi_params = None
@@ -1406,6 +1421,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 
                 # Generate a new session ID
                 new_session_id = str(uuid.uuid4())
+                video_title = None  # Will store the video title from yt-dlp (only for URLs)
                 
                 if video_file is not None and hasattr(video_file, "filename") and video_file.filename:
                     # Handle file upload
@@ -1429,18 +1445,36 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     local_video_path = os.path.join(PREVIEW_SUBDIRECTORY, f"{new_session_id}_downloaded")
                     
                     try:
+                        # First, try to get the video title using yt-dlp (for better filename)
+                        title_cmd = [
+                            "yt-dlp",
+                            "--no-playlist",
+                            "--print", "title",
+                            "--no-warnings",
+                            video_url
+                        ]
+                        title_result = subprocess.run(title_cmd, capture_output=True, text=True, timeout=30)
+                        if title_result.returncode == 0 and title_result.stdout.strip():
+                            video_title = title_result.stdout.strip()
+                            # Sanitize the title for use as filename
+                            video_title = re.sub(r'[\\/:*?"<>|]', '_', video_title)
+                            video_title = video_title[:100]  # Limit length
+                            logger.info(f"Got video title from yt-dlp: {video_title}")
+                        
                         # Use yt-dlp to download the video
+                        # Use 'bestvideo+bestaudio/best' and let yt-dlp merge to mp4
                         download_cmd = [
                             "yt-dlp",
                             "--no-playlist",
-                            "-f", "best[ext=mp4]/best",  # Prefer mp4
+                            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+                            "--merge-output-format", "mp4",  # Ensure output is mp4
                             "-o", f"{local_video_path}.%(ext)s",
                             "--no-warnings",
                             video_url
                         ]
                         
                         logger.info(f"Downloading video for preview: {' '.join(download_cmd)}")
-                        result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=120)
+                        result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=300)  # Increased timeout for larger videos
                         
                         if result.returncode != 0:
                             logger.error(f"yt-dlp failed: {result.stderr}")
@@ -1448,9 +1482,15 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                             return
                         
                         # Find the downloaded file (yt-dlp adds extension)
-                        downloaded_files = [f for f in os.listdir(PREVIEW_SUBDIRECTORY) if f.startswith(f"{new_session_id}_downloaded")]
+                        # Filter out .part and .ytdl files which are incomplete downloads
+                        downloaded_files = [
+                            f for f in os.listdir(PREVIEW_SUBDIRECTORY) 
+                            if f.startswith(f"{new_session_id}_downloaded") 
+                            and not f.endswith('.part') 
+                            and not f.endswith('.ytdl')
+                        ]
                         if not downloaded_files:
-                            self.send_api_response(500, {"success": False, "message": "Downloaded video file not found"})
+                            self.send_api_response(500, {"success": False, "message": "Downloaded video file not found. Download may have failed."})
                             return
                         
                         local_video_path = os.path.join(PREVIEW_SUBDIRECTORY, downloaded_files[0])
@@ -1471,18 +1511,58 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     # File upload - use the original filename
                     original_fn = os.path.basename(video_file.filename) if hasattr(video_file, 'filename') else None
                 elif video_url:
-                    # URL download - extract filename from URL or use a sanitized version
-                    from urllib.parse import urlparse, unquote
-                    parsed_url = urlparse(video_url)
-                    url_path = unquote(parsed_url.path)
-                    url_filename = os.path.basename(url_path)
-                    # If there's a valid filename in the URL, use it
-                    if url_filename and '.' in url_filename:
-                        original_fn = url_filename
+                    # URL download - use video_title from yt-dlp if available, otherwise extract from URL
+                    if video_title:
+                        # Use the video title we got from yt-dlp (already sanitized)
+                        original_fn = f"{video_title}.mp4"
+                        logger.info(f"Using yt-dlp video title for filename: {original_fn}")
                     else:
-                        # Fallback: use the domain + timestamp as filename
-                        original_fn = f"{parsed_url.netloc.replace('.', '_')}_{int(time.time())}.mp4"
-                    logger.info(f"Extracted original filename from URL: {original_fn}")
+                        # Fallback: extract filename from URL or use a sanitized version
+                        from urllib.parse import urlparse, unquote, parse_qs
+                        parsed_url = urlparse(video_url)
+                        url_path = unquote(parsed_url.path)
+                        url_filename = os.path.basename(url_path)
+                        
+                        # Try to extract YouTube video ID from various URL formats
+                        youtube_video_id = None
+                        hostname = parsed_url.netloc.lower()
+                        
+                        # Handle different YouTube URL formats:
+                        # 1. youtube.com/watch?v=VIDEO_ID
+                        # 2. youtu.be/VIDEO_ID
+                        # 3. youtube.com/embed/VIDEO_ID
+                        # 4. youtube.com/v/VIDEO_ID
+                        # 5. youtube.com/shorts/VIDEO_ID
+                        # 6. m.youtube.com/watch?v=VIDEO_ID
+                        if 'youtube.com' in hostname or 'youtu.be' in hostname:
+                            if 'youtu.be' in hostname:
+                                # Short URL format: youtu.be/VIDEO_ID
+                                youtube_video_id = url_path.strip('/')
+                            elif '/watch' in url_path:
+                                # Standard watch URL: youtube.com/watch?v=VIDEO_ID
+                                query_params = parse_qs(parsed_url.query)
+                                youtube_video_id = query_params.get('v', [None])[0]
+                            elif '/embed/' in url_path or '/v/' in url_path:
+                                # Embed URL: youtube.com/embed/VIDEO_ID or /v/VIDEO_ID
+                                youtube_video_id = url_path.split('/')[-1]
+                            elif '/shorts/' in url_path:
+                                # Shorts URL: youtube.com/shorts/VIDEO_ID
+                                youtube_video_id = url_path.split('/shorts/')[-1].split('?')[0]
+                            
+                            if youtube_video_id:
+                                # Remove any query parameters from the video ID
+                                youtube_video_id = youtube_video_id.split('?')[0].split('&')[0]
+                                original_fn = f"youtube_{youtube_video_id}.mp4"
+                                logger.info(f"Extracted YouTube video ID: {youtube_video_id}")
+                        
+                        # If not YouTube or couldn't extract ID, use generic fallback
+                        if not original_fn:
+                            if url_filename and '.' in url_filename:
+                                original_fn = url_filename
+                            else:
+                                # Fallback: use the domain + timestamp as filename
+                                original_fn = f"{parsed_url.netloc.replace('.', '_')}_{int(time.time())}.mp4"
+                        logger.info(f"Extracted original filename from URL: {original_fn}")
                 session_id = create_preview_session(local_video_path, original_fn)
                 
                 # Extract a frame from the video
