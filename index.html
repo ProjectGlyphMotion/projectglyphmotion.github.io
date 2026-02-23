@@ -28,18 +28,555 @@
         .fluid-spring {
             transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
         }
+
+        /* ============================================ */
+        /* A redesign was needed, so here we are! */
+        /* ============================================ */
+
+        /* Navigation Pills */
+        .nav-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid transparent;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .nav-pill i { font-size: 0.75rem; opacity: 0.8; }
+        
+        .nav-pill-primary {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(99, 102, 241, 0.15));
+            color: #a78bfa;
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+        .nav-pill-primary:hover {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(99, 102, 241, 0.25));
+            border-color: rgba(139, 92, 246, 0.5);
+            transform: translateY(-1px);
+        }
+        
+        .nav-pill-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: #94a3b8;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        .nav-pill-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        .nav-pill-accent {
+            background: linear-gradient(135deg, rgba(253, 161, 54, 0.15), rgba(251, 146, 60, 0.1));
+            color: #fbbf24;
+            border-color: rgba(253, 161, 54, 0.3);
+        }
+        
+        .nav-pill-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+        .nav-pill-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        /* Input Section */
+        .input-section {
+            background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+            border: 1px solid rgba(253, 161, 54, 0.25);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        @media (min-width: 640px) {
+            .input-section { padding: 1.75rem; }
+        }
+
+        /* Section Header */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.875rem;
+            margin-bottom: 1.25rem;
+        }
+        .section-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 0.625rem;
+            background: linear-gradient(135deg, rgba(253, 161, 54, 0.12), rgba(251, 146, 60, 0.06));
+            border: 1px solid rgba(253, 161, 54, 0.15);
+            flex-shrink: 0;
+        }
+        .section-icon i {
+            color: #f59e0b;
+            font-size: 0.875rem;
+        }
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin: 0;
+            line-height: 1.3;
+        }
+        .section-subtitle {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin: 0.125rem 0 0 0;
+            line-height: 1.4;
+        }
+
+        /* Input Cards Grid */
+        .input-cards-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            width: 100%;
+        }
+        @media (min-width: 768px) {
+            .input-cards-grid {
+                display: grid;
+                grid-template-columns: 1fr auto 1fr;
+                align-items: center;
+                gap: 1rem;
+            }
+        }
+
+        /* Input Card */
+        .input-card {
+            background: rgba(15, 15, 15, 0.6);
+            border: 1px solid rgba(253, 161, 54, 0.2);
+            border-radius: 0.875rem;
+            padding: 0.875rem;
+            transition: border-color 0.2s ease;
+            min-width: 0;
+            margin-bottom: 0.75rem;
+        }
+        .input-card:focus-within {
+            border-color: rgba(253, 161, 54, 0.4);
+            background: rgba(15, 15, 15, 0.8);
+        }
+        .input-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #f59e0b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(253, 161, 54, 0.15);
+        }
+        .input-card-header i {
+            color: #fbbf24;
+            font-size: 0.75rem;
+        }
+
+        /* Input Field */
+        .input-field {
+            width: 100%;
+            min-width: 0;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.625rem;
+            color: #e2e8f0;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+        .input-field::placeholder {
+            color: #475569;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: rgba(253, 161, 54, 0.5);
+            box-shadow: 0 0 0 3px rgba(253, 161, 54, 0.1);
+        }
+
+        /* Input Divider */
+        .input-divider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 0;
+            position: relative;
+        }
+        .input-divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(253, 161, 54, 0.2), transparent);
+        }
+        .input-divider span {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            background: #000000;
+            padding: 0 1rem;
+            border: 1px solid rgba(253, 161, 54, 0.15);
+            border-radius: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+        @media (min-width: 768px) {
+            .input-divider {
+                padding: 0 0.5rem;
+            }
+        }
+
+        /* File Upload Zone */
+        .file-upload-zone {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.625rem 0.75rem;
+            background: rgba(15, 15, 15, 0.4);
+            border: 2px dashed rgba(253, 161, 54, 0.25);
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .file-upload-zone:hover {
+            border-color: rgba(253, 161, 54, 0.4);
+            background: rgba(15, 15, 15, 0.6);
+        }
+        .file-upload-content {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex: 1;
+            min-width: 0;
+        }
+        .file-upload-icon {
+            color: #64748b;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+        .file-upload-text {
+            font-size: 0.8125rem;
+            color: #64748b;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .file-upload-btn {
+            padding: 0.5rem 1rem;
+            background: linear-gradient(135deg, #f97316, #f59e0b);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+        .file-upload-zone:hover .file-upload-btn {
+            background: linear-gradient(135deg, #ea580c, #d97706);
+        }
+
+        /* Track Button */
+        .track-button {
+            position: relative;
+            width: 100%;
+            padding: 0.875rem 1.5rem;
+            margin-top: 1.25rem;
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            border: none;
+            border-radius: 0.75rem;
+            color: white;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            box-shadow: 0 2px 8px rgba(249, 115, 22, 0.25);
+        }
+        .track-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(249, 115, 22, 0.35);
+        }
+        .track-button:active {
+            transform: translateY(0) scale(0.99);
+        }
+        .track-button-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.625rem;
+        }
+        .track-button-content i {
+            font-size: 0.8125rem;
+        }
+        .track-button-shine { display: none; }
+
+        /* ROI Section Wrapper */
+        .roi-section-wrapper {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-top: 1px solid rgba(253, 161, 54, 0.15);
+            border: 1px solid rgba(253, 161, 54, 0.1);
+            border-radius: 0.75rem;
+            background: rgba(15, 15, 15, 0.3);
+        }
+        .roi-toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+        }
+        .roi-toggle-text {
+            display: flex;
+            flex-direction: column;
+        }
+        .roi-toggle-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #e2e8f0;
+        }
+        .roi-toggle-subtitle {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.125rem;
+        }
+
+        /* Info Alert */
+        .info-alert {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            margin-top: 1rem;
+            background: rgba(253, 161, 54, 0.08);
+            border: 1px solid rgba(253, 161, 54, 0.2);
+            border-radius: 0.75rem;
+            font-size: 0.8125rem;
+            color: #fcd34d;
+        }
+        .info-alert i {
+            flex-shrink: 0;
+            margin-top: 0.125rem;
+        }
+        .info-alert p {
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        /* Status Alerts */
+        .status-alert {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            margin-top: 1.5rem;
+            border-radius: 0.875rem;
+            font-size: 0.875rem;
+        }
+        .status-alert i {
+            flex-shrink: 0;
+            margin-top: 0.125rem;
+            font-size: 1rem;
+        }
+        .status-alert p {
+            margin: 0;
+            line-height: 1.5;
+        }
+        .status-info {
+            background: rgba(253, 161, 54, 0.08);
+            border: 1px solid rgba(253, 161, 54, 0.2);
+            color: #fcd34d;
+        }
+        .status-info i { color: #fbbf24; }
+        .status-error {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+        .status-error i { color: #f87171; }
+
+        /* Processing Status */
+        .processing-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            margin-top: 1.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 0.875rem;
+            font-size: 0.8125rem;
+            color: #94a3b8;
+        }
+        .processing-indicator {
+            display: flex;
+            gap: 0.25rem;
+        }
+        .processing-dot {
+            width: 6px;
+            height: 6px;
+            background: #fbbf24;
+            border-radius: 50%;
+            animation: processingBounce 1.4s infinite ease-in-out both;
+        }
+        .processing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .processing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes processingBounce {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Password Section */
+        .password-section {
+            margin-top: 3rem;
+            padding: 2rem;
+            border: 1px solid rgba(253, 161, 54, 0.1);
+            border-radius: 0.75rem;
+            background: rgba(15, 15, 15, 0.3);
+        }
+        .password-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            margin-top: 1.5rem;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .form-label {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+        .input-with-icon {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .input-with-icon .input-field {
+            padding-right: 3rem;
+        }
+        .input-icon-btn {
+            position: absolute;
+            right: 0.75rem;
+            padding: 0.5rem;
+            background: transparent;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .input-icon-btn:hover {
+            color: #fbbf24;
+        }
+
+        /* Submit Button */
+        .submit-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 0.875rem 1.5rem;
+            margin-top: 0.5rem;
+            background: linear-gradient(135deg, #f97316, #f59e0b);
+            border: none;
+            border-radius: 0.75rem;
+            color: white;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 2px 12px rgba(249, 115, 22, 0.25);
+        }
+        .submit-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(249, 115, 22, 0.35);
+        }
+        .submit-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Videos Section */
+        .videos-section {
+            margin-top: 2.5rem;
+            padding-top: 1.75rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .section-header-centered {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+        .videos-view-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            margin-bottom: 1.5rem;
+        }
+        .view-controls-sep {
+            color: rgba(253, 161, 54, 0.4);
+            font-size: 0.75rem;
+            user-select: none;
+        }
+        .view-control-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.6875rem;
+            font-weight: 500;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(253, 161, 54, 0.2);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .view-control-btn:hover {
+            background: rgba(253, 161, 54, 0.1);
+            border-color: rgba(253, 161, 54, 0.4);
+            color: #f59e0b;
+        }
+        .view-control-btn i {
+            font-size: 0.5625rem;
+        }
         
         /* Global smooth transitions for interactive elements */
         * {
             -webkit-tap-highlight-color: transparent;
         }
         
-        button, a, input, .btn, .toggle-btn-style, .switch, .roi-btn {
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-                        box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                        opacity 0.25s ease-out,
-                        background-color 0.25s ease-out,
-                        border-color 0.25s ease-out;
+        button, a, .btn, .toggle-btn-style, .switch, .roi-btn {
+            transition: transform 0.15s ease, opacity 0.15s ease;
+        }
+        
+        input {
+            transition: border-color 0.15s ease;
         }
         
         button:active, .btn:active, .roi-btn:active {
@@ -49,151 +586,51 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #0B0A0F; /* Very dark background from the new theme */
-            color: #EDEDF3; /* Light text color */
+            background-color: #000000;
+            color: #EDEDF3;
             position: relative;
             min-height: 100vh;
-            overflow-x: hidden; /* Prevent horizontal scroll */
+            overflow-x: hidden;
             display: flex;
-            flex-direction: column; /* Changed to column to allow footer at bottom */
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             padding: 1rem;
-            scroll-behavior: smooth; /* Added for smooth scrolling */
+            padding-top: 2rem;
         }
 
-        /* Background Glow Elements */
+        /* Background Glow - Static CSS gradients, no animations for performance */
         .background-glow-container {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -10; /* Behind content */
-            overflow: hidden;
-            pointer-events: none; /* Don't interfere with mouse events */
-        }
-        .glow-element {
-            position: absolute;
-            border-radius: 50%;
-            opacity: 0.2;
-            mix-blend-mode: screen; /* For vibrant overlay effect */
-            filter: blur(100px); /* Heavy blur */
-            will-change: transform, opacity; /* Optimize animations */
-        }
-        .glow-1 {
-            width: clamp(400px, 60vw, 800px);
-            height: clamp(400px, 60vw, 800px);
-            background: radial-gradient(circle at center, #FDA136 0%, rgba(253, 161, 54, 0) 70%);
-            filter: blur(120px);
-            top: -20%;
-            left: -15%;
-            animation: subtleDrift 35s infinite alternate ease-in-out;
-        }
-        .glow-2 {
-            width: clamp(350px, 50vw, 700px);
-            height: clamp(350px, 50vw, 700px);
-            background: radial-gradient(circle at center, #FF5733 0%, rgba(255, 87, 51, 0) 70%);
-            filter: blur(100px);
-            bottom: -15%;
-            right: -10%;
-            animation: subtleDrift 40s infinite alternate-reverse ease-in-out 2s;
-        }
-        .glow-3 {
-            width: clamp(300px, 40vw, 500px);
-            height: clamp(300px, 40vw, 500px);
-            background: radial-gradient(circle at center, #FF8C00 0%, rgba(255, 140, 0, 0) 70%);
-            filter: blur(90px);
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            opacity: 0.15;
-            animation: subtlePulse 20s infinite alternate ease-in-out;
-        }
-        /* New glow elements for more depth */
-        .glow-4 {
-            width: clamp(250px, 35vw, 450px);
-            height: clamp(250px, 35vw, 450px);
-            background: radial-gradient(circle at center, #00BFFF 0%, rgba(0, 191, 255, 0) 70%); /* Deep sky blue */
-            filter: blur(110px);
-            top: 10%;
-            right: 5%;
-            animation: subtleDrift 30s infinite alternate-reverse ease-in-out 1s;
-        }
-        .glow-5 {
-            width: clamp(200px, 30vw, 400px);
-            height: clamp(200px, 30vw, 400px);
-            background: radial-gradient(circle at center, #8A2BE2 0%, rgba(138, 43, 226, 0) 70%); /* Blue Violet */
-            filter: blur(95px);
-            bottom: 5%;
-            left: 5%;
-            animation: subtlePulse 25s infinite alternate ease-in-out 3s;
-        }
-
-        @keyframes subtleDrift {
-            0% { transform: translate(0, 0) scale(1); opacity: 0.1; }
-            50% { opacity: 0.25; }
-            100% { transform: translate(calc(8vw - 20px), calc(8vh - 10px)) scale(1.2); opacity: 0.1; }
-        }
-        @keyframes subtlePulse {
-            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.1; }
-            100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.2; }
-        }
-
-        /* Subtle background particle effect */
-        .particle-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -11; /* Even further back */
+            z-index: -10;
             overflow: hidden;
             pointer-events: none;
+            background: #000000;
         }
-        .particle {
-            position: absolute;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            animation: particle-fade-move 15s infinite ease-in-out alternate;
-            filter: blur(1px); /* Very subtle blur */
-        }
-        .particle:nth-child(1) { width: 3px; height: 3px; top: 10%; left: 20%; animation-delay: 0s; }
-        .particle:nth-child(2) { width: 2px; height: 2px; top: 30%; left: 50%; animation-delay: 2s; }
-        .particle:nth-child(3) { width: 4px; height: 4px; top: 60%; left: 80%; animation-delay: 4s; }
-        .particle:nth-child(4) { width: 3px; height: 3px; top: 80%; left: 10%; animation-delay: 6s; }
-        .particle:nth-child(5) { width: 2px; height: 2px; top: 40%; left: 90%; animation-delay: 8s; }
-        .particle:nth-child(6) { width: 4px; height: 4px; top: 5%; left: 70%; animation-delay: 10s; }
-        .particle:nth-child(7) { width: 3px; height: 3px; top: 95%; left: 40%; animation-delay: 12s; }
-        .particle:nth-child(8) { width: 2px; height: 2px; top: 70%; left: 30%; animation-delay: 14s; }
-
-        @keyframes particle-fade-move {
-            0% { opacity: 0; transform: translate(0, 0); }
-            20% { opacity: 0.2; }
-            80% { opacity: 0.2; }
-            100% { opacity: 0; transform: translate(10vw, 10vh); }
-        }
+        /* Removed individual glow elements - they caused heavy GPU compositing */
 
 
-        /* Main content card styling from template */
+        /* Main content card styling */
         .content-card {
-            background-color: rgba(10, 10, 15, 0.85); /* Darker background with transparency */
-            border: 1px solid rgba(253, 161, 54, 0.25); /* Orange border from theme */
+            background: #000000;
+            border: 1px solid rgba(253, 161, 54, 0.25);
             border-radius: 0.75rem;
-            color: #EDEDF3; /* Light text color */
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); /* Stronger shadow for depth */
-            position: relative; /* For z-index */
-            z-index: 10; /* Above glow elements */
-            flex-grow: 1; /* Allow content card to grow */
-            opacity: 0; /* Hidden by default for entrance animation */
-            transform: translateY(20px); /* Start slightly below */
-            transition: opacity 0.6s ease-out, transform 0.6s ease-out; /* Smooth entrance */
-            will-change: opacity, transform; /* Optimize animation */
+            color: #EDEDF3;
+            box-shadow: 
+                0 0 0 1px rgba(255, 255, 255, 0.03),
+                0 4px 6px rgba(0, 0, 0, 0.3),
+                0 20px 40px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            position: relative;
+            z-index: 10;
+            width: 100%;
         }
-        /* Class added by JS to trigger entrance animation */
         .content-card.animate-in {
             opacity: 1;
-            transform: translateY(0);
         }
 
         /* Page Title specific style from template */
@@ -202,8 +639,9 @@
             font-weight: normal;
             background: linear-gradient(to right, #FDA136, #FFD700); /* Orange to Gold gradient */
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 0 2px 3px rgba(0,0,0,0.3);
+            text-shadow: none;
             line-height: 1.3;
         }
 
@@ -372,7 +810,9 @@
         /* Custom button styles from the provided template */
         .btn {
             /* Changed transition-all to target transform and box-shadow specifically */
-            @apply font-semibold py-2 px-4 shadow-md transition-transform duration-300 subtle-spring; /* Using custom subtle-spring */
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             border-radius: 10px; /* Applied 5% typish rounded corners */
             position: relative; /* For ripple effect */
             overflow: hidden; /* For ripple effect */
@@ -421,8 +861,15 @@
             box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2); /* Thin white outline shadow */
         }
         .btn-neutral { /* New neutral button style for password generator etc. */
-            @apply bg-slate-700 text-slate-200 hover:bg-slate-600 focus:ring-slate-500;
+            background-color: rgb(51 65 85);
+            color: rgb(226 232 240);
             box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+        .btn-neutral:hover {
+            background-color: rgb(71 85 105);
+        }
+        .btn-neutral:focus {
+            box-shadow: 0 0 0 3px rgb(100 116 139 / 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
         }
         
         /* Mobile Dropdown Menu */
@@ -541,14 +988,13 @@
 
         /* Server status dot */
         .status-dot {
-            height: 10px;
-            width: 10px;
-            background-color: #bbb; /* Grey for unknown */
+            height: 8px;
+            width: 8px;
+            background-color: #64748b;
             border-radius: 50%;
             display: inline-block;
-            margin-right: 8px;
+            flex-shrink: 0;
             transition: background-color 0.3s ease;
-            will-change: background-color, transform, opacity; /* Optimize animation */
         }
         /* Pulse animation for status dot */
         @keyframes pulseDot {
@@ -571,7 +1017,6 @@
 
         /* Styles for the toggle buttons */
         .toggle-btn-style {
-            @apply px-0 py-0 text-xs transition-all duration-300 subtle-spring; /* Using custom subtle-spring */
             border-radius: 0.375rem; /* Equivalent to rounded-md for slight roundness */
             background-color: transparent; /* Fully transparent background */
             color: #FDA136; /* Orange text color */
@@ -601,7 +1046,7 @@
             margin-left: 0.25rem;
             margin-right: 0.25rem;
             transition: border-color 0.2s ease-out; /* Smooth transition for underline */
-            will-change: border-color; /* Optimize animation */
+            
         }
         .confirm-cancel-underline-btn:focus,
         .confirm-cancel-underline-btn:hover {
@@ -640,7 +1085,7 @@
             opacity: 0;
             /* Use custom cubic-bezier for a more responsive feel */
             transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1.25), opacity 0.4s ease-out;
-            will-change: transform, opacity; /* Optimize animation */
+            
         }
 
         #centralMessageOverlay.show {
@@ -670,7 +1115,7 @@
             z-index: 1003; /* Highest z-index */
             transition: width 85s ease-out, opacity 0.3s ease-in-out; /* Smooth animation, 85 seconds */
             opacity: 0; /* Initially hidden */
-            will-change: width, opacity; /* Optimize animation */
+            
         }
 
         #deleteProgressBar {
@@ -723,16 +1168,13 @@
             z-index: 20; /* Ensure it's above dimmed cards */
             position: relative; /* Needed for z-index to work */
             transition: box-shadow 0.2s ease-in-out; /* Smooth transition for when it's not glowing */
-            will-change: box-shadow; /* Optimize animation */
         }
 
         /* Style for dimmed/blurred cards */
         .video-card.dimmed {
             opacity: 0.5; /* Slightly dim */
-            filter: blur(2px); /* Subtle blur */
-            transition: opacity 0.3s ease-in-out, filter 0.3s ease-in-out; /* Smooth transition */
+            transition: opacity 0.3s ease-in-out;
             pointer-events: none; /* Prevent interaction while dimmed, optional */
-            will-change: opacity, filter; /* Optimize animation */
         }
 
         /* Video Gallery Entrance Animation */
@@ -741,9 +1183,8 @@
             100% { opacity: 1; transform: translateY(0); }
         }
         #videoGallery.animate-in {
-            animation: galleryEntrance 0.7s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Use cubic for springy entrance */
-            animation-delay: 0.3s; /* Delay after main card */
-            will-change: opacity, transform; /* Optimize animation */
+            animation: galleryEntrance 0.6s ease-out forwards;
+            animation-delay: 0.2s;
         }
 
 
@@ -792,20 +1233,17 @@
             overflow-y: auto; /* Allow scrolling if content overflows */
             color: #EDEDF3;
             
-            /* Initial state for app-opener-like animation */
-            transform: scale(0); /* Start completely scaled down */
-            opacity: 0; /* Start fully transparent */
-            /* Adjusted cubic-bezier for a more fluid, springy open */
-            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1.25), opacity 0.4s ease-out; 
-            will-change: transform, opacity; /* Optimize animation */
+            /* Initial state for animation */
+            transform: scale(0.95);
+            opacity: 0;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
             
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
         }
         #confirmationModalContent { /* Applies pop-in/out to the confirmation modal */
-            animation: popIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Use cubic for springy entrance */
-            will-change: transform, opacity; /* Optimize animation */
+            animation: popIn 0.25s ease-out forwards;
         }
         #confirmationModal.closing #confirmationModalContent {
             animation: popOut 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards; /* Snappy closing */
@@ -941,7 +1379,7 @@
             padding: 0.5rem;
             border-radius: 0.5rem;
             transition: background-color 0.2s ease, transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1.25); /* Smooth transform on hover */
-            will-change: background-color, transform; /* Optimize animation */
+            
         }
 
         .info-modal-close-btn:hover {
@@ -958,14 +1396,10 @@
         }
 
         .commit-detail-label {
-            @apply text-sm font-semibold text-orange-300; /* Stronger orange for labels */
             display: block; /* Ensure label is on its own line */
             margin-bottom: 0.25rem; /* Small space between label and value */
         }
 
-        .commit-detail-value {
-            @apply text-base text-white break-words; /* Pure white for values, allow word break */
-        }
 
         /* Individual commit detail items */
         .commit-item {
@@ -978,7 +1412,7 @@
             opacity: 0; /* Hidden for staggered fade-in */
             transform: translateY(10px); /* Start slightly below for slide-in */
             animation: fadeInAndSlightSlide 0.5s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Applied by JS with delay */
-            will-change: transform, opacity; /* Optimize animation */
+            
         }
         .commit-item:hover {
             background-color: rgba(255, 255, 255, 0.07); /* Slightly darker on hover */
@@ -1054,7 +1488,7 @@
             opacity: 0; /* Hidden for staggered fade-in */
             transform: translateY(10px); /* Start slightly below for slide-in */
             animation: fadeInAndSlightSlide 0.5s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Applied by JS with delay */
-            will-change: transform, opacity; /* Optimize animation */
+            
         }
 
         /* New Popup Title Style (Left Aligned) */
@@ -1072,7 +1506,7 @@
             opacity: 0; /* Hidden for slide-in animation */
             transform: translateY(-20px); /* Start above for slide-in */
             animation: headerSlideIn 0.5s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Use cubic for springy entrance */
-            will-change: transform, opacity; /* Optimize animation */
+            
         }
         /* Keyframe for header slide-in */
         @keyframes headerSlideIn {
@@ -1115,7 +1549,7 @@
             opacity: 0; /* Hidden for fade-in */
             transform: translateY(10px); /* Start slightly below for slide-in */
             animation: fadeInAndSlightSlide 0.5s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Apply animation */
-            will-change: transform, opacity; /* Optimize animation */
+            
         }
         .info-modal-error-message svg {
             color: #FDA136; /* Orange color for the icon */
@@ -1145,7 +1579,7 @@
             opacity: 0;
             transform: translateY(20px);
             transition: opacity 0.6s ease-out, transform 0.6s ease-out;
-            will-change: opacity, transform; /* Optimize animation */
+            
         }
         .footer-animated.animate-in {
             opacity: 1;
@@ -1187,7 +1621,7 @@
             opacity: 0;
             transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
             max-width: 90%; /* Responsive width */
-            will-change: opacity, transform;
+            
         }
 
         #pwaInstallPrompt.show {
@@ -1201,11 +1635,9 @@
         }
 
         #pwaInstallPrompt .install-button {
-            @apply bg-gradient-to-br from-orange-500 to-amber-500 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105;
             box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
         }
         #pwaInstallPrompt .dismiss-button {
-            @apply text-slate-400 hover:text-slate-200 transition-colors duration-200;
             padding: 0.5rem;
             background: none;
             border: none;
@@ -1305,20 +1737,28 @@
             align-items: center;
             justify-content: space-between;
             cursor: pointer;
-            padding: 0.5rem 0;
+            padding: 0.875rem 1rem;
+            background: rgba(15, 15, 20, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.875rem;
+            transition: all 0.25s ease;
         }
-
-        .roi-toggle-container label {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            cursor: pointer;
-            user-select: none;
+        .roi-toggle-container:hover {
+            border-color: rgba(253, 161, 54, 0.3);
+            background: rgba(15, 15, 20, 0.7);
         }
 
         .roi-toggle-container .roi-icon {
-            color: #FDA136;
-            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            background: linear-gradient(135deg, rgba(253, 161, 54, 0.15), rgba(251, 146, 60, 0.08));
+            border-radius: 0.5rem;
+            color: #fbbf24;
+            font-size: 0.875rem;
+            flex-shrink: 0;
         }
 
         /* ROI Canvas Container */
@@ -1506,24 +1946,31 @@
 
         /* ROI Instructions */
         .roi-instructions {
-            text-align: center;
-            padding: 1rem;
-            color: #9CA3AF;
-            font-size: 0.85rem;
-            background: linear-gradient(to bottom, rgba(253, 161, 54, 0.05), transparent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: #64748b;
+            font-size: 0.8125rem;
+            background: linear-gradient(to bottom, rgba(253, 161, 54, 0.03), transparent);
         }
-
+        .roi-instructions i {
+            color: #fbbf24;
+            font-size: 0.75rem;
+        }
         .roi-instructions strong {
-            color: #FDA136;
+            color: #94a3b8;
         }
 
         /* ROI Controls */
         .roi-controls {
             display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            padding: 1rem;
             align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            flex-wrap: wrap;
         }
 
         .roi-controls-row {
@@ -1678,28 +2125,38 @@
 
         /* ROI Coordinates Display */
         .roi-coords-display {
-            font-size: 0.75rem;
-            color: #6B7280;
-            font-family: monospace;
-            padding: 0.5rem 0;
+            font-size: 0.6875rem;
+            color: #475569;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+            padding: 0.375rem 0.75rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 0.375rem;
         }
 
         .roi-coords-display.has-roi {
-            color: #FDA136;
+            color: #fbbf24;
+            background: rgba(253, 161, 54, 0.1);
         }
 
         /* ROI No Preview Message */
         .roi-no-preview {
-            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1.5rem;
             text-align: center;
-            color: #6B7280;
-            font-size: 0.9rem;
+            color: #64748b;
+            font-size: 0.8125rem;
         }
 
         .roi-no-preview i {
-            font-size: 2rem;
-            margin-bottom: 0.75rem;
-            color: #4B5563;
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+            color: #475569;
+        }
+        .roi-no-preview p {
+            margin: 0;
         }
 
         /* Mobile Responsive */
@@ -1726,6 +2183,39 @@
 
             .roi-video-frame {
                 max-height: 50vh;
+            }
+
+            /* Model Selection Dropdown Mobile Optimization */
+            .custom-dropdown-button {
+                font-size: 0.813rem;
+                padding: 0.625rem 2.5rem 0.625rem 0.875rem;
+            }
+
+            .custom-dropdown-option {
+                padding: 0.875rem 1rem;
+                font-size: 0.813rem;
+            }
+
+            .option-icon {
+                font-size: 1.1rem;
+                min-width: 1.25rem;
+            }
+
+            .option-description {
+                font-size: 0.7rem;
+            }
+
+            .custom-dropdown-menu {
+                max-height: 280px;
+            }
+
+            .model-info-box {
+                padding: 0.625rem 0.875rem;
+                font-size: 0.813rem;
+            }
+
+            .model-select-label i {
+                font-size: 1rem;
             }
 
             #roiPreviewImage {
@@ -1773,142 +2263,179 @@
     <div id="deleteProgressBar" class="progress-bar"></div>
     <div id="uploadProgressBar" class="progress-bar"></div>
 
+    <!-- Background handled by CSS gradient on .background-glow-container -->
+    <div class="background-glow-container"></div>
 
-    <div class="background-glow-container">
-        <div class="glow-element glow-1"></div>
-        <div class="glow-element glow-2"></div>
-        <div class="glow-element glow-3"></div>
-        <div class="glow-element glow-4"></div> <div class="glow-element glow-5"></div> </div>
-
-    <div class="particle-container">
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-    </div>
-
-
-    <div id="mainContentCard" class="container mx-auto max-w-7xl content-card p-8 md:p-10 shadow-2xl relative z-10">
-        <header class="mb-8 text-center relative">
-            <h1 class="text-3xl sm:text-4xl md:text-4xl page-title mb-6">Project GlyphMotion</h1>
-            <p class="text-center text-slate-300 mb-4">
-                Upload a video or provide a URL to track objects.
+    <div id="mainContentCard" class="container mx-auto max-w-full content-card p-6 sm:p-8 md:p-12 shadow-2xl relative z-10">
+        <!-- Hero Header Section -->
+        <header class="mb-5 text-center relative">
+            <h1 class="text-2xl sm:text-3xl md:text-4xl page-title mb-2">Project GlyphMotion</h1>
+            <p class="text-slate-400 text-xs sm:text-sm max-w-xs sm:max-w-md mx-auto leading-relaxed font-mono tracking-wide">
+                Real-time object tracking powered by YOLOv8
             </p>
-            <p id="serverStatus" class="text-center text-slate-300 text-sm font-medium flex items-center justify-center mb-2">
+            
+            <!-- Server Status Pill -->
+            <div id="serverStatus" class="inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50">
                 <span id="statusDot" class="status-dot"></span>
-                Server Status: <span id="statusText">Checking...</span>
-            </p>
-            <div id="adminControls" class="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4 desktop-nav">
-                <span id="loggedInUsername" class="text-sm font-medium text-orange-300 hidden"></span>
-                <button id="adminLogoutBtn" class="btn btn-danger text-sm py-1 px-3 hidden">Logout</button>
-                <button id="adminLoginBtn" class="btn btn-custom-primary text-sm py-1 px-3 hidden">Admin Login</button>
-                <a href="admin_tracker.html" id="adminTrackerLink" class="btn btn-custom-primary text-sm py-1 px-3 hidden">Admin Tracker</a>
-                <button id="changePasswordBtn" class="btn btn-custom-primary text-sm py-1 px-3 hidden">Change Password</button>
-                <button id="logoutAllAdminsBtn" class="btn btn-danger text-sm py-1 px-3 hidden">Logout All Admins</button>
-            </div>
-            
-            <!-- Desktop Navigation Links -->
-            <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-4 desktop-nav">
-                <a href="documentation.html" class="btn btn-custom-primary py-2 px-4 text-sm">
-                    <i class="fas fa-book mr-2"></i> View Documentation
-                </a>
-                <a href="playground.html" class="btn py-2 px-4 text-sm" style="background: linear-gradient(to right, #8B5CF6, #6366F1);">
-                    <i class="fas fa-flask mr-2"></i> AI Playground
-                </a>
-            </div>
-            
-            <!-- Mobile Navigation -->
-            <div class="mobile-nav flex-col items-center gap-3 mt-4" style="display: none;">
-                <!-- Admin name shown when logged in -->
-                <span id="mobileAdminName" class="text-sm font-semibold text-orange-300 hidden"></span>
-                
-                <!-- Primary buttons - AI Playground first, then Documentation -->
-                <div class="flex flex-wrap items-center justify-center gap-2">
-                    <a href="playground.html" class="btn py-2 px-4 text-sm" style="background: linear-gradient(to right, #8B5CF6, #6366F1);">
-                        <i class="fas fa-flask mr-2"></i> AI Playground
-                    </a>
-                    <a href="documentation.html" class="btn btn-custom-primary py-2 px-4 text-sm">
-                        <i class="fas fa-book mr-2"></i> Docs
-                    </a>
-                </div>
-                
-                <!-- More dropdown for admin options -->
-                <div class="mobile-menu-container">
-                    <button id="mobileMenuBtn" class="mobile-menu-btn" onclick="toggleMobileMenu()">
-                        <i class="fas fa-ellipsis-h"></i>
-                        <span>More</span>
-                        <i class="fas fa-chevron-down chevron"></i>
-                    </button>
-                    <div id="mobileDropdown" class="mobile-dropdown">
-                        <!-- Logged in section (hidden by default) -->
-                        <div id="mobileLoggedInSection" class="hidden">
-                            <div class="mobile-dropdown-header">Admin Options</div>
-                            <a href="admin_tracker.html" class="mobile-dropdown-item">
-                                <i class="fas fa-chart-line"></i> Admin Tracker
-                            </a>
-                            <button id="mobileChangePasswordBtn" class="mobile-dropdown-item">
-                                <i class="fas fa-key"></i> Change Password
-                            </button>
-                            <button id="mobileLogoutAllBtn" class="mobile-dropdown-item hidden">
-                                <i class="fas fa-users-slash"></i> Logout All Admins
-                            </button>
-                            <div class="mobile-dropdown-divider"></div>
-                            <button id="mobileLogoutBtn" class="mobile-dropdown-item" style="color: #f87171;">
-                                <i class="fas fa-sign-out-alt"></i> Logout
-                            </button>
-                        </div>
-                        
-                        <!-- Not logged in section -->
-                        <div id="mobileNotLoggedInSection">
-                            <button id="mobileLoginBtn" class="mobile-dropdown-item">
-                                <i class="fas fa-sign-in-alt"></i> Admin Login
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <span class="text-slate-400 text-xs font-medium">Server: <span id="statusText" class="text-slate-300">Checking...</span></span>
             </div>
         </header>
 
-        <div class="space-y-6">
-            <div>
-                <label for="videoUrl" class="block text-sm font-medium text-slate-300 mb-2">
-                    Video URL
-                </label>
-                <input type="url" id="videoUrl" name="videoUrl" placeholder="e.g., https://example.com/my_video.mp4"
-                       class="mt-1 block w-full px-4 py-2 border border-orange-500/40 bg-slate-800 text-EDEDF3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-150 ease-in-out text-sm placeholder-slate-400 shadow-inner"
-                       oninput="document.getElementById('videoFile').value = '';"> 
+        <!-- Navigation Pills -->
+        <nav class="flex flex-col items-center gap-2 mb-6 desktop-nav">
+            <!-- Combined Navigation - All in fewer lines -->
+            <div class="flex flex-wrap items-center justify-center gap-2">
+                <a href="playground.html" class="nav-pill nav-pill-primary">
+                    <i class="fas fa-flask"></i>
+                    <span>AI Playground</span>
+                </a>
+                <a href="documentation.html" class="nav-pill nav-pill-secondary">
+                    <i class="fas fa-book"></i>
+                    <span>Docs</span>
+                </a>
+                
+                <!-- Admin Info Badge -->
+                <div id="adminInfoBadge" class="nav-pill nav-pill-accent hidden">
+                    <i class="fas fa-shield-alt"></i>
+                    <span id="loggedInUsername"></span>
+                </div>
+            </div>
+            
+            <!-- Admin Action Buttons - Second line only when logged in -->
+            <div id="adminActionButtons" class="flex flex-wrap items-center justify-center gap-2 hidden">
+                <a href="admin_tracker.html" id="adminTrackerLink" class="nav-pill nav-pill-secondary">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Tracker</span>
+                </a>
+                <button id="changePasswordBtn" class="nav-pill nav-pill-secondary">
+                    <i class="fas fa-key"></i>
+                    <span>Password</span>
+                </button>
+                <button id="logoutAllAdminsBtn" class="nav-pill nav-pill-danger">
+                    <i class="fas fa-users-slash"></i>
+                    <span>Logout All</span>
+                </button>
+                <button id="adminLogoutBtn" class="nav-pill nav-pill-danger">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+            
+            <!-- Login Button (shown when not logged in) -->
+            <div id="adminControls" class="contents">
+                <button id="adminLoginBtn" class="nav-pill nav-pill-primary hidden">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>Admin Login</span>
+                </button>
+            </div>
+        </nav>
+        
+        <!-- Mobile Navigation -->
+        <nav class="mobile-nav flex-col items-center gap-2 mb-6" style="display: none;">
+            <span id="mobileAdminName" class="text-xs font-semibold text-orange-400 bg-orange-500/10 px-3 py-1 rounded-full hidden"></span>
+            
+            <div class="flex flex-wrap items-center justify-center gap-2">
+                <a href="playground.html" class="nav-pill nav-pill-primary">
+                    <i class="fas fa-flask"></i>
+                    <span>Playground</span>
+                </a>
+                <a href="documentation.html" class="nav-pill nav-pill-secondary">
+                    <i class="fas fa-book"></i>
+                    <span>Docs</span>
+                </a>
+            </div>
+            
+            <div class="mobile-menu-container">
+                <button id="mobileMenuBtn" class="mobile-menu-btn" onclick="toggleMobileMenu()">
+                    <i class="fas fa-ellipsis-h"></i>
+                    <span>More</span>
+                    <i class="fas fa-chevron-down chevron"></i>
+                </button>
+                <div id="mobileDropdown" class="mobile-dropdown">
+                    <div id="mobileLoggedInSection" class="hidden">
+                        <div class="mobile-dropdown-header">Admin Options</div>
+                        <a href="admin_tracker.html" class="mobile-dropdown-item">
+                            <i class="fas fa-chart-line"></i> Tracker
+                        </a>
+                        <button id="mobileChangePasswordBtn" class="mobile-dropdown-item">
+                            <i class="fas fa-key"></i> Change Password
+                        </button>
+                        <button id="mobileLogoutAllBtn" class="mobile-dropdown-item hidden">
+                            <i class="fas fa-users-slash"></i> Logout All
+                        </button>
+                        <div class="mobile-dropdown-divider"></div>
+                        <button id="mobileLogoutBtn" class="mobile-dropdown-item" style="color: #f87171;">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </div>
+                    <div id="mobileNotLoggedInSection">
+                        <button id="mobileLoginBtn" class="mobile-dropdown-item">
+                            <i class="fas fa-sign-in-alt"></i> Admin Login
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Input Section -->
+        <section class="input-section">
+            <!-- Section Header -->
+            <div class="section-header">
+                <div class="section-icon">
+                    <i class="fas fa-video"></i>
+                </div>
+                <div>
+                    <h2 class="section-title">Upload Your Video</h2>
+                    <p class="section-subtitle">Paste a URL or upload a file to begin tracking</p>
+                </div>
             </div>
 
-            <div class="relative flex py-5 items-center">
-                <div class="flex-grow border-t border-orange-500/40"></div>
-                <span class="flex-shrink mx-4 text-slate-300">OR</span>
-                <div class="flex-grow border-t border-orange-500/40"></div>
+            <!-- Input Cards Container -->
+            <div class="input-cards-grid">
+                <!-- URL Input Card -->
+                <div class="input-card">
+                    <div class="input-card-header">
+                        <i class="fas fa-link"></i>
+                        <span>Video URL</span>
+                    </div>
+                    <input type="url" id="videoUrl" name="videoUrl" 
+                           placeholder="https://example.com/video.mp4"
+                           class="input-field"
+                           oninput="document.getElementById('videoFile').value = '';">
+                </div>
+
+                <!-- Divider -->
+                <div class="input-divider">
+                    <span>or</span>
+                </div>
+
+                <!-- File Upload Card -->
+                <div class="input-card">
+                    <div class="input-card-header">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Upload File</span>
+                    </div>
+                    <label class="file-upload-zone">
+                        <input type="file" id="videoFile" name="videoFile" accept="video/*" class="sr-only"
+                               onchange="document.getElementById('fileNameDisplay').textContent = this.files[0] ? this.files[0].name : 'Drop file or click to browse'; document.getElementById('videoUrl').value = ''; handleVideoFileChange(this);">
+                        <div class="file-upload-content">
+                            <i class="fas fa-file-video file-upload-icon"></i>
+                            <span id="fileNameDisplay" class="file-upload-text">Drop file or click to browse</span>
+                        </div>
+                        <span class="file-upload-btn">Browse</span>
+                    </label>
+                </div>
             </div>
 
-            <div>
-                <label for="videoFile" class="block text-sm font-medium text-slate-300 mb-2">
-                    Upload Video File
-                </label>
-                <label class="block w-full px-4 py-2 border border-orange-500/40 rounded-lg shadow-sm cursor-pointer bg-slate-800 hover:bg-slate-700/70 flex items-center justify-between transition duration-150 ease-in-out">
-                    <span id="fileNameDisplay" class="text-slate-400 flex-1 truncate pr-2">No file chosen</span>
-                    <input type="file" id="videoFile" name="videoFile" accept="video/*" class="sr-only"
-                           onchange="document.getElementById('fileNameDisplay').textContent = this.files[0] ? this.files[0].name : 'No file chosen'; document.getElementById('videoUrl').value = ''; handleVideoFileChange(this);"> 
-                    <span class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary">
-                        Browse
-                    </span>
-                </label>
-            </div>
-
-            <!-- ROI (Region of Interest) Selection Section -->
-            <div id="roiSection">
+            <!-- ROI Section -->
+            <div id="roiSection" class="roi-section-wrapper">
                 <div class="roi-toggle-container">
-                    <label>
+                    <label class="roi-toggle-label">
                         <span class="roi-icon"><i class="fas fa-crop-alt"></i></span>
-                        <span class="text-slate-300 text-sm font-medium">Enable ROI Selection</span>
+                        <div class="roi-toggle-text">
+                            <span class="roi-toggle-title">Region of Interest</span>
+                            <span class="roi-toggle-subtitle">Track objects in a specific area only</span>
+                        </div>
                     </label>
                     <label class="switch">
                         <input type="checkbox" id="enableRoiToggle">
@@ -1929,132 +2456,139 @@
                     </div>
                     
                     <div class="roi-instructions">
-                        <strong>Tap and drag</strong> on the preview to draw a region of interest. 
-                        Only objects within this area will be tracked. Draw again to adjust.
+                        <i class="fas fa-hand-pointer"></i>
+                        <span><strong>Drag</strong> to select tracking region</span>
                     </div>
 
                     <div class="roi-controls">
-                        <div class="roi-controls-row">
-                            <button type="button" id="clearRoiBtn" class="roi-btn roi-btn-secondary">
-                                <i class="fas fa-eraser"></i> Clear Selection
-                            </button>
-                        </div>
-
+                        <button type="button" id="clearRoiBtn" class="roi-btn roi-btn-secondary">
+                            <i class="fas fa-eraser"></i> Clear
+                        </button>
                         <div class="roi-coords-display" id="roiCoordsDisplay">
-                            No ROI selected
+                            No selection
                         </div>
                     </div>
                 </div>
 
                 <div id="roiNoPreview" class="roi-no-preview hidden">
                     <i class="fas fa-video"></i>
-                    <p>Select a video file or enter a URL to enable ROI selection</p>
+                    <p>Select a video to enable ROI</p>
                 </div>
             </div>
 
-            <button id="trackButton"
-                    class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-lg font-medium bg-gradient-to-br from-orange-500 to-amber-500 text-white focus:ring-orange-400 shadow-orange-600/40 hover:from-orange-600 hover:to-amber-600 transition-all duration-200 ease-in-out transform hover:scale-103 focus:outline-none focus:ring-2 focus:ring-opacity-75">
-                Start Tracking
+            <!-- Track Button -->
+            <button id="trackButton" class="track-button">
+                <span class="track-button-content">
+                    <i class="fas fa-play"></i>
+                    <span>Start Tracking</span>
+                </span>
+                <span class="track-button-shine"></span>
             </button>
 
-            <!-- New Frame Restriction Info Banner -->
-            <div id="frameRestrictionInfo" class="mt-4 p-4 info-banner rounded-lg hidden text-sm flex items-start">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-orange-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd" /></svg>
-                <p id="frameRestrictionMessage" class="font-medium"></p>
+            <!-- Frame Restriction Info -->
+            <div id="frameRestrictionInfo" class="info-alert hidden">
+                <i class="fas fa-info-circle"></i>
+                <p id="frameRestrictionMessage"></p>
             </div>
+        </section>
 
+        <!-- Status Messages -->
+        <div id="statusArea" class="status-alert status-info hidden">
+            <i class="fas fa-info-circle"></i>
+            <p id="statusMessage"></p>
         </div>
 
-        <div id="statusArea" class="mt-8 p-4 info-banner rounded-lg hidden text-sm flex items-start">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-orange-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd" /></svg>
-            <p id="statusMessage" class="font-medium"></p>
+        <div id="errorArea" class="status-alert status-error hidden">
+            <i class="fas fa-exclamation-circle"></i>
+            <p id="errorMessage"></p>
         </div>
 
-        <div id="errorArea" class="mt-4 p-4 info-banner error-banner rounded-lg hidden text-sm flex items-start">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-red-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94l-1.72-1.72Z" clip-rule="evenodd" /></svg>
-            <p id="errorMessage" class="font-medium"></p>
-        </div>
-
-        <div id="liveProcessingStatus" class="mt-4 p-3 text-center text-slate-400 text-sm glass-effect rounded-lg hidden">
-            <p id="liveStatusMessage">Idle. Upload a video to start tracking.</p>
+        <div id="liveProcessingStatus" class="processing-status hidden">
+            <div class="processing-indicator">
+                <span class="processing-dot"></span>
+                <span class="processing-dot"></span>
+                <span class="processing-dot"></span>
+            </div>
+            <p id="liveStatusMessage">Ready to process</p>
         </div>
 
         <!-- Admin Password Change Section -->
-        <div id="passwordChangeSection" class="mt-12 pt-8 border-t border-orange-500/30 hidden">
-            <h2 class="text-3xl font-bold page-title drop-shadow-lg text-center mb-6">Change Password</h2>
-            <form id="changePasswordForm" class="space-y-6">
-                <div class="password-toggle-container">
-                    <label for="currentPasswordInput" class="block text-sm font-medium text-slate-300 mb-2">
-                        Current Password
-                    </label>
-                    <input type="password" id="currentPasswordInput" name="currentPassword" placeholder="Enter current password"
-                           class="mt-1 block w-full px-4 py-2 border border-orange-500/40 bg-slate-800 text-EDEDF3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-150 ease-in-out text-sm placeholder-slate-400 shadow-inner"
-                           required>
-                    <span class="password-toggle-icon" id="toggleCurrentPassword">
-                        <i class="fas fa-eye"></i>
-                    </span>
+        <div id="passwordChangeSection" class="password-section hidden">
+            <div class="section-header">
+                <div class="section-icon">
+                    <i class="fas fa-key"></i>
                 </div>
-                <div class="password-toggle-container">
-                    <label for="newPasswordInput" class="block text-sm font-medium text-slate-300 mb-2">
-                        New Password
-                    </label>
-                    <input type="password" id="newPasswordInput" name="newPassword" placeholder="Enter new password"
-                           class="mt-1 block w-full px-4 py-2 border border-orange-500/40 bg-slate-800 text-EDEDF3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-150 ease-in-out text-sm placeholder-slate-400 shadow-inner"
-                           required>
-                    <span class="password-toggle-icon" id="toggleNewPassword">
-                        <i class="fas fa-eye"></i>
-                    </span>
+                <div>
+                    <h2 class="section-title">Change Password</h2>
+                    <p class="section-subtitle">Update your admin credentials</p>
                 </div>
-                <div class="password-toggle-container">
-                    <label for="confirmNewPasswordInput" class="block text-sm font-medium text-slate-300 mb-2">
-                        Confirm New Password
-                    </label>
-                    <input type="password" id="confirmNewPasswordInput" name="confirmNewPassword" placeholder="Confirm new password"
-                           class="mt-1 block w-full px-4 py-2 border border-orange-500/40 bg-slate-800 text-EDEDF3 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition duration-150 ease-in-out text-sm placeholder-slate-400 shadow-inner"
-                           required>
-                    <span class="password-toggle-icon" id="toggleConfirmNewPassword">
-                        <i class="fas fa-eye"></i>
-                    </span>
+            </div>
+
+            <form id="changePasswordForm" class="password-form">
+                <div class="form-group">
+                    <label for="currentPasswordInput" class="form-label">Current Password</label>
+                    <div class="input-with-icon">
+                        <input type="password" id="currentPasswordInput" name="currentPassword" 
+                               placeholder="Enter current password" class="input-field" required>
+                        <button type="button" class="input-icon-btn" id="toggleCurrentPassword">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <button type="button" id="generatePasswordBtn" class="btn btn-neutral text-sm px-4 py-2 flex-shrink-0">
-                        Generate Password
-                    </button>
-                    <input type="text" id="generatedPasswordDisplay" readonly
-                           class="flex-grow px-4 py-2 border border-slate-600 bg-slate-800 text-slate-400 rounded-lg text-sm truncate"
-                           placeholder="Generated password">
+
+                <div class="form-group">
+                    <label for="newPasswordInput" class="form-label">New Password</label>
+                    <div class="input-with-icon">
+                        <input type="password" id="newPasswordInput" name="newPassword" 
+                               placeholder="Enter new password" class="input-field" required>
+                        <button type="button" class="input-icon-btn" id="toggleNewPassword">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
-                <button type="submit" id="updatePasswordButton"
-                        class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-lg font-medium btn-custom-primary">
-                    Update Password
+
+                <div class="form-group">
+                    <label for="confirmNewPasswordInput" class="form-label">Confirm Password</label>
+                    <div class="input-with-icon">
+                        <input type="password" id="confirmNewPasswordInput" name="confirmNewPassword" 
+                               placeholder="Confirm new password" class="input-field" required>
+                        <button type="button" class="input-icon-btn" id="toggleConfirmNewPassword">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" id="updatePasswordButton" class="submit-button">
+                    <i class="fas fa-check"></i>
+                    <span>Update Password</span>
                 </button>
             </form>
-            <div id="passwordChangeStatusMessage" class="mt-4 p-4 info-banner error-banner rounded-lg hidden text-sm flex items-start">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-red-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94l-1.72-1.72Z" clip-rule="evenodd" /></svg>
-                <p id="passwordChangeMessageText" class="font-medium"></p>
-            </div>
-        </div>
-        <!-- End Admin Password Change Section -->
 
-        <div class="mt-12 pt-8 border-t border-orange-500/30" id="processedVideosSection">
-            <div class="relative flex flex-col sm:flex-row justify-center items-center mb-2">
-                <h2 class="text-3xl font-bold page-title drop-shadow-lg text-center">
-                    Processed Videos
-                </h2>
-            </div>
-            <div class="flex items-center space-x-0 justify-center mb-6">
-                <button id="toggleViewModeButton" class="toggle-btn-style hidden lg:block">
-                    Enlarge View
-                </button>
-                <span class="separator hidden lg:block">&bull;</span>
-                <button id="toggleLayoutButton" class="toggle-btn-style hidden lg:block">
-                    Show 2 Videos per Row
-                </button>
-            </div>
-            <div id="videoGallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <p id="noVideosMessage" class="text-center text-slate-400 col-span-full">No processed videos yet. Start tracking one!</p>
+            <div id="passwordChangeStatusMessage" class="status-alert status-error hidden">
+                <i class="fas fa-exclamation-circle"></i>
+                <p id="passwordChangeMessageText"></p>
             </div>
         </div>
+
+        <!-- Processed Videos Section -->
+        <section id="processedVideosSection" class="videos-section">
+            <div class="section-header-centered">
+                <h2 class="text-2xl sm:text-3xl page-title">Processed Videos</h2>
+            </div>
+            <!-- View Toggle Controls -->
+            <div class="videos-view-controls">
+                <button id="toggleLayoutButton" class="view-control-btn hidden lg:inline-flex">
+                    <i class="fas fa-th-large"></i>
+                    <span>Show 3 Videos per Row</span>
+                </button>
+            </div>
+            <div id="videoGallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <p id="noVideosMessage" class="text-center text-slate-500 col-span-full py-8">
+                    <i class="fas fa-video-slash text-2xl mb-2 block opacity-50"></i>
+                    No processed videos yet. Start tracking one!
+                </p>
+            </div>
+        </section>
     </div>
 
     <div class="w-full text-center text-slate-500 text-sm font-medium mt-8 py-4 footer-animated">
@@ -2127,18 +2661,18 @@
         const serverStatusText = document.getElementById('statusText');
         const statusDot = document.getElementById('statusDot');
         const toggleLayoutButton = document.getElementById('toggleLayoutButton');
-        const toggleViewModeButton = document.getElementById('toggleViewModeButton');
         const mainContentCard = document.getElementById('mainContentCard');
         const footerElements = document.querySelectorAll('.footer-animated'); /* Select all footer elements */
 
         // Admin related elements
         const adminLoginBtn = document.getElementById('adminLoginBtn');
         const adminLogoutBtn = document.getElementById('adminLogoutBtn');
-        const loggedInUsernameSpan = document.getElementById('loggedInUsername'); // New element
-        const adminControlsDiv = document.getElementById('adminControls'); // Get the new container
-        const adminTrackerLink = document.getElementById('adminTrackerLink'); // New element for the tracker link
-        const changePasswordBtn = document.getElementById('changePasswordBtn'); // New button for password change
-        const logoutAllAdminsBtn = document.getElementById('logoutAllAdminsBtn'); // New button for master admin logout
+        const loggedInUsernameSpan = document.getElementById('loggedInUsername');
+        const adminInfoBadge = document.getElementById('adminInfoBadge');
+        const adminActionButtons = document.getElementById('adminActionButtons');
+        const adminTrackerLink = document.getElementById('adminTrackerLink');
+        const changePasswordBtn = document.getElementById('changePasswordBtn');
+        const logoutAllAdminsBtn = document.getElementById('logoutAllAdminsBtn');
 
         // Password Change Section elements
         const passwordChangeSection = document.getElementById('passwordChangeSection');
@@ -2149,8 +2683,6 @@
         const toggleCurrentPassword = document.getElementById('toggleCurrentPassword');
         const toggleNewPassword = document.getElementById('toggleNewPassword');
         const toggleConfirmNewPassword = document.getElementById('toggleConfirmNewPassword');
-        const generatePasswordBtn = document.getElementById('generatePasswordBtn');
-        const generatedPasswordDisplay = document.getElementById('generatedPasswordDisplay');
         const updatePasswordButton = document.getElementById('updatePasswordButton');
         const passwordChangeStatusMessage = document.getElementById('passwordChangeStatusMessage');
         const passwordChangeMessageText = document.getElementById('passwordChangeMessageText');
@@ -2265,18 +2797,9 @@
 
         // Flag to prevent upload progress bar from restarting on every poll
         let isUploadProgressBarRunning = false;
-
-        /* Immediately poll for new videos, then aggressively retry every 3s for up to
-                           3 minutes to handle GitHub Pages CDN propagation delay (can be 1-3 min). */
-                        pollForNewVideos();
-                        let _aggressivePollCount = 0;
-                        const _aggressivePollInterval = setInterval(async () => {
-                            _aggressivePollCount++;
-                            await pollForNewVideos();
-                            if (_aggressivePollCount >= 60) { /* 60 × 3s = 3 minutes max */
-                                clearInterval(_aggressivePollInterval);
-                            }
-                        }, 3000);
+        
+        // Global aggressive poll interval reference - prevents stacking intervals
+        let aggressivePollIntervalRef = null;
 
         // Global variable to keep track of the currently playing video iframe
         let currentlyPlayingVideoElement = null;
@@ -2325,8 +2848,10 @@
 
 
         let lastFetchedVideos = [];
-        let isThreeColumnLayout = true; // Default to 3 columns for video gallery
-        let isCompactView = true; // Default to compact view for the main box
+        // Preload saved layout preference
+        let isThreeColumnLayout = localStorage.getItem('isThreeColumnLayout') !== null 
+            ? JSON.parse(localStorage.getItem('isThreeColumnLayout')) 
+            : true;
 
         // Master Admin Usernames (Frontend reference for UI logic - backend validates definitively)
         // This list must match the MASTER_ADMIN_USERNAMES set in tg.py for UI elements to show correctly.
@@ -2764,18 +3289,6 @@
             }
         }
 
-        /* Function to update the main content card size based on isCompactView state */
-        function updateViewModeLayout() {
-            mainContentCard.classList.remove('max-w-7xl', 'max-w-full'); /* Remove both */
-            if (isCompactView) {
-                mainContentCard.classList.add('max-w-7xl'); /* Current compact size */
-                toggleViewModeButton.textContent = 'Enlarge View';
-            } else {
-                mainContentCard.classList.add('max-w-full'); /* Wider, enlarged view */
-                toggleViewModeButton.textContent = 'Compact View';
-            }
-        }
-
         async function fetchVideos() {
             const url = `${GITHUB_PAGES_REPO_URL}${VIDEOS_JSON_PATH}?t=${new Date().getTime()}`;
             try {
@@ -2893,6 +3406,25 @@
                     if (data.status.includes('Object tracking and GitHub Pages update complete!') && !isUploadProgressBarRunning) {
                         startProgressBar('upload');
                         isUploadProgressBarRunning = true; /* Set flag to prevent re-triggering */
+
+                        /* Clear any existing aggressive poll interval to prevent stacking */
+                        if (aggressivePollIntervalRef) {
+                            clearInterval(aggressivePollIntervalRef);
+                            aggressivePollIntervalRef = null;
+                        }
+                        
+                        /* Immediately poll for new videos, then aggressively retry every 3s for up to
+                           3 minutes to handle GitHub Pages CDN propagation delay (can be 1-3 min). */
+                        pollForNewVideos();
+                        let _aggressivePollCount = 0;
+                        aggressivePollIntervalRef = setInterval(async () => {
+                            _aggressivePollCount++;
+                            await pollForNewVideos();
+                            if (_aggressivePollCount >= 60) { /* 60 × 3s = 3 minutes max */
+                                clearInterval(aggressivePollIntervalRef);
+                                aggressivePollIntervalRef = null;
+                            }
+                        }, 3000);
                         
                         /* Trigger cinematic ROI fade-out if ROI was used */
                         if (roiProcessingActive && !roiProcessingCompleteHandled) {
@@ -3408,20 +3940,6 @@
             confirmNewPasswordInput.setAttribute('type', type);
             this.querySelector('i').classList.toggle('fa-eye');
             this.querySelector('i').classList.toggle('fa-eye-slash');
-        });
-
-        // Password Generator Function
-        generatePasswordBtn.addEventListener('click', () => {
-            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+";
-            let password = "";
-            const length = 12; // Desired password length
-            for (let i = 0; i < length; i++) {
-                password += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            generatedPasswordDisplay.value = password;
-            newPasswordInput.value = password; // Auto-fill new password field
-            confirmNewPasswordInput.value = password; // Auto-fill confirm new password field
-            showPasswordChangeMessage('Password generated and filled!', false);
         });
 
         // Handle password change form submission
@@ -4153,14 +4671,11 @@
 
             if (isAdminLoggedIn) {
                 adminLoginBtn.classList.add('hidden');
-                adminLogoutBtn.classList.remove('hidden');
-                adminTrackerLink.classList.remove('hidden'); // Show admin tracker link
-                changePasswordBtn.classList.remove('hidden'); // Show change password button
+                adminInfoBadge.classList.remove('hidden');
+                adminActionButtons.classList.remove('hidden');
+                
                 if (loggedInUsername) {
-                    loggedInUsernameSpan.textContent = `Logged in as: ${loggedInUsername}`;
-                    loggedInUsernameSpan.classList.remove('hidden');
-                    /* Apply outline to the span itself */
-                    loggedInUsernameSpan.classList.add('logged-in-text-outline');
+                    loggedInUsernameSpan.textContent = loggedInUsername;
                 }
                 // Show logout all button only if master admin
                 if (isAdminMaster) {
@@ -4168,37 +4683,20 @@
                 } else {
                     logoutAllAdminsBtn.classList.add('hidden');
                 }
-                adminControlsDiv.classList.remove('hidden'); /* Ensure container is visible */
             } else {
                 adminLoginBtn.classList.remove('hidden');
-                adminLogoutBtn.classList.add('hidden');
-                adminTrackerLink.classList.add('hidden'); // Hide admin tracker link
-                changePasswordBtn.classList.add('hidden'); // Hide change password button
-                logoutAllAdminsBtn.classList.add('hidden'); // Hide logout all button
-                loggedInUsernameSpan.classList.add('hidden');
-                /* Ensure the group outline is not applied when not logged in */
-                loggedInUsernameSpan.classList.remove('logged-in-text-outline');
-                adminControlsDiv.classList.remove('hidden'); /* Ensure container is visible */
+                adminInfoBadge.classList.add('hidden');
+                adminActionButtons.classList.add('hidden');
             }
             
             // Update mobile menu state
             updateMobileMenu(isAdminLoggedIn, loggedInUsername, isAdminMaster);
 
-            /* Load view mode preference from localStorage */
-            const savedViewMode = localStorage.getItem('isCompactView');
-            if (savedViewMode !== null) {
-                isCompactView = JSON.parse(savedViewMode);
-            }
-            /* Load layout preference from localStorage */
-            const savedLayout = localStorage.getItem('isThreeColumnLayout');
-            if (savedLayout !== null) {
-                isThreeColumnLayout = JSON.parse(savedLayout);
-            }
+            /* View mode and layout preferences already preloaded at initialization */
 
             lastFetchedVideos = await fetchVideos();
             renderVideos(lastFetchedVideos);
             updateVideoGalleryLayout(); /* Set initial video gallery layout */
-            updateViewModeLayout(); /* Set initial main box view mode */
             setInterval(pollForNewVideos, POLLING_INTERVAL_VIDEOS);
             setInterval(pollForProcessingStatus, POLLING_INTERVAL_STATUS); /* Start polling for live status */
             setInterval(checkServerHealth, POLLING_INTERVAL_SERVER_HEALTH); /* Start polling for server health */
@@ -4253,13 +4751,6 @@
             isThreeColumnLayout = !isThreeColumnLayout; /* Toggle the state */
             updateVideoGalleryLayout(); /* Update the layout */
             localStorage.setItem('isThreeColumnLayout', isThreeColumnLayout); /* Save state */
-        });
-
-        /* Event listener for the toggle view mode button (compact/enlarged box) */
-        toggleViewModeButton.addEventListener('click', () => {
-            isCompactView = !isCompactView; /* Toggle the state */
-            updateViewModeLayout(); /* Update the main content card layout */
-            localStorage.setItem('isCompactView', isCompactView); /* Save state */
         });
 
         // Close mobile menu when clicking outside
@@ -4326,7 +4817,6 @@
             currentPasswordInput.value = '';
             newPasswordInput.value = '';
             confirmNewPasswordInput.value = '';
-            generatedPasswordDisplay.value = '';
         });
 
         // Handle Logout All Admins button click
