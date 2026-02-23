@@ -37,7 +37,7 @@ TRACKING_DATA_FILE = 'tracking_data.json' # New file to store tracking data
 # Frame Restriction Configuration
 FRAME_RESTRICTION_ENABLED = True # Set to True to enable frame count restriction
 FRAME_RESTRICTION_VALUE = 7000 # Max allowed frames for video processing
-FFPROBE_TIMEOUT_SECONDS = 30 # Timeout for ffprobe command in seconds
+FFPROBE_TIMEOUT_SECONDS = 10 # Timeout for ffprobe command in seconds
 
 # JWT Secret Key (VERY IMPORTANT: Replace with a strong, random key in production!)
 JWT_SECRET_KEY = 'YOUR_JWT_SECRET_KEY_HERE' # Generate a secure key, e.g., using os.urandom(32) and base64 encoding
@@ -416,51 +416,189 @@ def get_geolocation_data(ip_address: str) -> dict:
 async def get_video_frame_count(video_path: str) -> Union[int, None]:
     """
     Uses ffprobe to get the total number of frames in a video.
-    Returns the frame count as an int, or None if it cannot be determined (e.g., timeout, error).
+    Strategy:
+      1. Read nb_frames from container metadata (instant, no decoding).
+      2. If unavailable (returns 'N/A' or empty), calculate from duration × fps (also instant).
+    Returns the frame count as an int, or None if it cannot be determined.
     """
-    try:
-        # Command to get number of frames using ffprobe
-        command = [
-            "ffprobe",
-            "-v", "error",
-            "-select_streams", "v:0", # Select only the first video stream
-            "-count_frames", # Count frames
-            "-show_entries", "stream=nb_read_frames", # Show number of read frames
-            "-of", "default=nokey=1:noprint_wrappers=1", # Output format: raw number
-            video_path
-        ]
-        logger.info(f"Running ffprobe to get frame count: {' '.join(command)}")
+    async def run_ffprobe(args: list) -> tuple[int, str, str]:
+        """Helper to run an ffprobe command with timeout, returns (returncode, stdout, stderr)."""
         process = await asyncio.create_subprocess_exec(
-            *command,
+            *args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
         try:
-            # Use communicate with a timeout
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=FFPROBE_TIMEOUT_SECONDS)
         except asyncio.TimeoutError:
             logger.error(f"FFprobe command timed out after {FFPROBE_TIMEOUT_SECONDS} seconds for {video_path}. Terminating process.")
-            process.kill() # Terminate the ffprobe process
-            await process.wait() # Wait for it to clean up
-            return None # Indicate failure due to timeout
+            process.kill()
+            await process.wait()
+            return -1, "", "timeout"
+        return process.returncode, stdout.decode('utf-8', errors='ignore').strip(), stderr.decode('utf-8', errors='ignore').strip()
 
-        if process.returncode == 0:
+    try:
+        # --- Step 1: Try reading nb_frames from container metadata (near-instant) ---
+        cmd_metadata = [
+            "ffprobe", "-v", "error",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=nb_frames",
+            "-of", "default=nokey=1:noprint_wrappers=1",
+            video_path
+        ]
+        logger.info(f"Running ffprobe (metadata) to get frame count: {' '.join(cmd_metadata)}")
+        rc, stdout, stderr = await run_ffprobe(cmd_metadata)
+
+        if rc == 0 and stdout and stdout not in ('N/A', 'n/a', ''):
             try:
-                frame_count = int(stdout.decode('utf-8').strip())
-                logger.info(f"FFprobe successfully retrieved frame count: {frame_count} for {video_path}")
+                frame_count = int(stdout)
+                logger.info(f"FFprobe (metadata) retrieved frame count: {frame_count} for {video_path}")
                 return frame_count
             except ValueError:
-                logger.error(f"Could not parse frame count from ffprobe output: {stdout.decode('utf-8').strip()}")
-                return None
+                logger.warning(f"Could not parse nb_frames from metadata output: '{stdout}', falling back to duration×fps.")
+        elif rc == -1:
+            return None  # Timed out
         else:
-            logger.error(f"FFprobe failed with exit code {process.returncode}: {stderr.decode('utf-8').strip()}")
+            logger.warning(f"nb_frames not available in metadata (output: '{stdout}'), falling back to duration×fps.")
+
+        # --- Step 2: Fallback — calculate from duration and avg_frame_rate (also near-instant) ---
+        cmd_duration = [
+            "ffprobe", "-v", "error",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=duration,avg_frame_rate",
+            "-of", "default=nokey=1:noprint_wrappers=1",
+            video_path
+        ]
+        logger.info(f"Running ffprobe (duration+fps) fallback for frame count: {' '.join(cmd_duration)}")
+        rc, stdout, stderr = await run_ffprobe(cmd_duration)
+
+        if rc == 0 and stdout:
+            lines = [l.strip() for l in stdout.splitlines() if l.strip() and l.strip() not in ('N/A', 'n/a')]
+            try:
+                # ffprobe outputs avg_frame_rate first, then duration (order depends on show_entries)
+                # Parse both: one will be a fraction (fps), one a float (duration)
+                duration = None
+                fps = None
+                for token in lines:
+                    if '/' in token:
+                        num, den = token.split('/')
+                        if float(den) != 0:
+                            fps = float(num) / float(den)
+                    else:
+                        try:
+                            duration = float(token)
+                        except ValueError:
+                            pass
+                if duration is not None and fps is not None and fps > 0:
+                    frame_count = int(round(duration * fps))
+                    logger.info(f"FFprobe (duration×fps) calculated frame count: {frame_count} (duration={duration:.2f}s, fps={fps:.3f}) for {video_path}")
+                    return frame_count
+                else:
+                    logger.error(f"Could not extract valid duration/fps from ffprobe output: {lines}")
+                    return None
+            except Exception as parse_err:
+                logger.error(f"Error parsing duration/fps from ffprobe output '{stdout}': {parse_err}")
+                return None
+        elif rc == -1:
+            return None  # Timed out
+        else:
+            logger.error(f"FFprobe (duration+fps) failed with exit code {rc}: {stderr}")
             return None
+
     except FileNotFoundError:
         logger.error("ffprobe command not found. Please ensure FFmpeg is installed and in your system's PATH.")
         return None
     except Exception as e:
         logger.error(f"An unexpected error occurred while getting frame count: {e}", exc_info=True)
         return None
+
+
+# --- Codec Compatibility Check and Transcode ---
+
+async def ensure_h264_codec(video_path: str, progress_message_obj=None) -> tuple[bool, str]:
+    """
+    Checks if the video uses a codec compatible with OpenCV (H.264).
+    If it's AV1, VP9, or other incompatible codec, transcodes to H.264 using GPU if available.
+    Overwrites the original file with the transcoded version so paths stay consistent.
+    Returns (success, final_video_path).
+    """
+    # Codecs that OpenCV's VideoCapture cannot reliably decode
+    INCOMPATIBLE_CODECS = {'av1', 'av01', 'vp9', 'vp8'}
+    try:
+        # Detect codec using ffprobe
+        cmd = [
+            "ffprobe", "-v", "error",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=codec_name",
+            "-of", "default=nokey=1:noprint_wrappers=1",
+            video_path
+        ]
+        process = await asyncio.create_subprocess_exec(
+            *cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10)
+        codec = stdout.decode('utf-8', errors='ignore').strip().lower()
+        logger.info(f"Detected video codec: '{codec}' for {video_path}")
+
+        if codec not in INCOMPATIBLE_CODECS:
+            logger.info(f"Codec '{codec}' is OpenCV-compatible. No transcode needed.")
+            return True, video_path
+
+        # Codec is incompatible — need to transcode to H.264
+        logger.warning(f"Codec '{codec}' is not compatible with OpenCV. Transcoding to H.264...")
+        if progress_message_obj:
+            await progress_message_obj.edit_text(f"Transcoding from {codec.upper()} to H.264 for processing (this may take a moment)...")
+        set_processing_status(f"Transcoding from {codec.upper()} to H.264...")
+
+        temp_path = video_path + '.transcode_tmp.mp4'
+
+        # Try GPU (NVENC) first for speed, fall back to CPU
+        for encoder, extra_args in [('h264_nvenc', ['-preset', 'p4']), ('libx264', ['-preset', 'ultrafast', '-crf', '18'])]:
+            transcode_cmd = [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-i", video_path,
+                "-c:v", encoder, *extra_args,
+                "-c:a", "copy",
+                temp_path
+            ]
+            logger.info(f"Transcoding with {encoder}: {' '.join(transcode_cmd)}")
+            transcode_proc = await asyncio.create_subprocess_exec(
+                *transcode_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            _, stderr = await transcode_proc.communicate()
+            if transcode_proc.returncode == 0:
+                # Replace original file with transcoded version
+                try:
+                    os.replace(temp_path, video_path)
+                except OSError as e:
+                    logger.error(f"Could not replace original file after transcode: {e}")
+                    return False, video_path
+                logger.info(f"Transcode to H.264 successful using {encoder}. File updated: {video_path}")
+                return True, video_path
+            else:
+                err_msg = stderr.decode('utf-8', errors='ignore').strip()
+                logger.warning(f"Transcode with {encoder} failed (will try next): {err_msg[:200]}")
+                # Clean up failed temp file if it exists
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except OSError:
+                        pass
+
+        logger.error(f"All transcode attempts failed for {video_path}.")
+        return False, video_path
+
+    except asyncio.TimeoutError:
+        logger.error("Codec detection timed out.")
+        return False, video_path
+    except FileNotFoundError:
+        logger.error("ffprobe/ffmpeg not found during codec check.")
+        return False, video_path
+    except Exception as e:
+        logger.error(f"Unexpected error in ensure_h264_codec: {e}", exc_info=True)
+        return False, video_path
 
 
 # --- Helper Functions for Streaming Subprocess Output ---
@@ -597,9 +735,12 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
             "yt-dlp",
             "--simulate",
             "--get-filename",
-            "-o", os.path.join(output_dir, "%(title)s.%(ext)s"), # Use title for filename
-            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+            "-o", "%(title)s.%(ext)s",  # No dir prefix; we join manually below
+            "-f", "bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/bestvideo[ext=mp4][vcodec!*=av01]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc]+bestaudio/best",
             "--merge-output-format", "mp4",  # Ensure output format is mp4
+            "--no-playlist",  # Only get filename for the target video, not the entire playlist
+            "--restrict-filenames",  # Sanitise to ASCII-safe chars (matches actual download)
+            "--js-runtimes", "node",  # Use Node.js as JS runtime for YouTube extraction
             url
         ]
         logger.info(f"Starting yt-dlp dry-run to get filename: {' '.join(dry_run_command)}")
@@ -617,25 +758,39 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
                 await progress_message_obj.edit_text(f"Download setup failed (dry-run): {error_msg[:200]}...")
             return False, ""
 
-        actual_output_filename = stdout.decode('utf-8', errors='ignore').strip()
-        # Clean up any potential invalid characters in the filename, though yt-dlp --restrict-filenames helps
+        raw_dry_run_output = stdout.decode('utf-8', errors='ignore').strip()
+        # Take only the FIRST non-empty line — safety net if playlist output slips through
+        actual_output_filename = next(
+            (line.strip() for line in raw_dry_run_output.splitlines() if line.strip()), ""
+        )
+        # Remove any remaining OS-unsafe characters
         actual_output_filename = re.sub(r'[\\/:*?"<>|]', '_', actual_output_filename)
         # Ensure filename ends with .mp4
         if not actual_output_filename.lower().endswith('.mp4'):
             actual_output_filename = os.path.splitext(actual_output_filename)[0] + '.mp4'
+        # Truncate stem so total filename stays well within the Linux 255-byte limit
+        stem, ext = os.path.splitext(actual_output_filename)
+        max_stem_bytes = 180  # leaves room for extension + headroom
+        encoded_stem = stem.encode('utf-8')
+        if len(encoded_stem) > max_stem_bytes:
+            stem = encoded_stem[:max_stem_bytes].decode('utf-8', errors='ignore').rstrip()
+            logger.warning(f"Filename stem truncated to {max_stem_bytes} bytes to avoid OS limit.")
+        actual_output_filename = stem + ext
         actual_output_path = os.path.join(output_dir, actual_output_filename)
 
         command = [
             "yt-dlp",
             "-o", actual_output_path,
-            # Use format selection compatible with mp4 output
-            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+            # Prefer H.264 (avc) to ensure OpenCV compatibility. Explicitly avoid AV1 (av01) and VP9.
+            # Fallback chain: H.264 mp4 → non-AV1 mp4 → H.264 any container → absolute best
+            "-f", "bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/bestvideo[ext=mp4][vcodec!*=av01]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc]+bestaudio/best",
             "--merge-output-format", "mp4",  # Ensure output is mp4
             "--progress",
             "--no-playlist",
             "--output-na-placeholder", "",
             "--restrict-filenames",
             "--continue",
+            "--js-runtimes", "node",  # Use Node.js as JS runtime for YouTube extraction
             url
         ]
         logger.info(f"Starting yt-dlp command: {' '.join(command)}")
@@ -702,8 +857,10 @@ async def run_tracking_script_and_stream_output(
             "-u",
             "ot.py",
             "--model", "yolov8m.pt",
-            # Ensure output_path has an extension (e.g., .mp4) if not already present
-            "--output_video", os.path.splitext(output_path)[0], # ot.py expects path without .mp4
+            # Pass the full .mp4 path — ot.py already does: if not endswith('.mp4'): strip+add .mp4
+            # DO NOT strip .mp4 here: titles like 'R.D._Burman' have dots that os.path.splitext
+            # mistakes for an extension, silently dropping the last segment from the output filename.
+            "--output_video", output_path,
             "--input_video", input_path # Pass input video path as an argument
         ]
         
@@ -888,7 +1045,28 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
         set_processing_status("Video download failed.") # Update global status
         reset_status_after_delay() # Reset status after failure
         return False
-    
+
+    # --- Codec Compatibility Check (must run before frame count and tracking) ---
+    # OpenCV cannot decode AV1 or VP9. Transcode to H.264 if needed.
+    codec_ok, local_input_path = await ensure_h264_codec(local_input_path, progress_message_obj)
+    if not codec_ok:
+        message = "Video codec is not supported and transcoding failed. Please try a different video or format."
+        logger.error(message)
+        if progress_message_obj:
+            await progress_message_obj.edit_text(message)
+        set_processing_status(message)
+        reset_status_after_delay()
+        if os.path.exists(local_input_path):
+            try:
+                os.remove(local_input_path)
+            except OSError:
+                pass
+        return False
+    # Update dependent paths in case filename changed (it shouldn't, but be safe)
+    input_filename = os.path.basename(local_input_path)
+    output_filename = f"processed_{os.path.splitext(input_filename)[0]}.mp4"
+    local_output_path = os.path.join(OUTPUT_SUBDIRECTORY, output_filename)
+
     # --- Frame Restriction Check ---
     if FRAME_RESTRICTION_ENABLED:
         if progress_message_obj:

@@ -314,6 +314,10 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
         return False, None
 
     # 3. Upload Video to Google Drive
+    if not os.path.exists(processed_video_path):
+        logger.error(f"Processed video file not found on disk: '{processed_video_path}'. "
+                     f"Check that ot.py saved it at exactly this path (watch for dot-in-title truncation bugs).")
+        return False, None
     file_id, web_view_link = upload_to_google_drive(drive_service, processed_video_path, folder_id)
     if not file_id:
         logger.error(f"Failed to upload {processed_video_path} to Google Drive. Aborting GitHub Pages update.")

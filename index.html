@@ -2266,6 +2266,18 @@
         // Flag to prevent upload progress bar from restarting on every poll
         let isUploadProgressBarRunning = false;
 
+        /* Immediately poll for new videos, then aggressively retry every 3s for up to
+                           3 minutes to handle GitHub Pages CDN propagation delay (can be 1-3 min). */
+                        pollForNewVideos();
+                        let _aggressivePollCount = 0;
+                        const _aggressivePollInterval = setInterval(async () => {
+                            _aggressivePollCount++;
+                            await pollForNewVideos();
+                            if (_aggressivePollCount >= 60) { /* 60 × 3s = 3 minutes max */
+                                clearInterval(_aggressivePollInterval);
+                            }
+                        }, 3000);
+
         // Global variable to keep track of the currently playing video iframe
         let currentlyPlayingVideoElement = null;
 
