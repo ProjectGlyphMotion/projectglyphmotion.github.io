@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <title>Changelogs | Project GlyphMotion</title>
+    <meta name="description" content="Changelogs for Project GlyphMotion - A comprehensive record of updates, improvements, and bug fixes for our AI-powered video generation app. Stay informed about the latest developments and enhancements in our project.">
+    <link rel="icon" type="image/x-icon" href="images/project-glyph-motion.ico">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script src="https://unpkg.com/@studio-freight/lenis@1.0.39/dist/lenis.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        retro: ['"Press Start 2P"', 'cursive'],
+                    },
+                    colors: {
+                        black: '#030303',
+                        surface: '#0a0a0c',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #030303;
+            color: #e4e4e7;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* Optimized Hardware-Accelerated Background Glows (No Lag) */
+        .bg-glow-main {
+            position: fixed; top: -30vh; left: 50%; transform: translateX(-50%);
+            width: 150vw; height: 100vh;
+            background: radial-gradient(ellipse at 50% 30%, rgba(245, 158, 11, 0.15) 0%, transparent 60%);
+            pointer-events: none; z-index: 0;
+            will-change: transform;
+        }
+
+        /* Vivid Static Mesh Background */
+        .bg-mesh {
+            position: fixed; inset: 0; background-size: 35px 35px;
+            /* Center the background position so it grows symmetrically for perfect OCD alignment */
+            background-position: center top; 
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+            z-index: 1; pointer-events: none;
+        }
+
+        /* Cinematic Scanlines */
+        .scanlines {
+            position: fixed; inset: 0; pointer-events: none; z-index: 2;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px; opacity: 0.3;
+        }
+
+        /* Advanced Glass Cards */
+        .commit-card {
+            background: linear-gradient(180deg, rgba(16, 16, 20, 0.85) 0%, rgba(10, 10, 12, 0.98) 100%);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05); border-top: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.9);
+            border-radius: 1.25rem; position: relative;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); z-index: 10;
+        }
+        .commit-card:hover {
+            transform: translateY(-4px);
+            background: linear-gradient(180deg, rgba(20, 20, 26, 0.9) 0%, rgba(12, 12, 15, 1) 100%);
+            border-color: rgba(245, 158, 11, 0.4); border-top-color: rgba(245, 158, 11, 0.7);
+            box-shadow: 0 15px 35px -10px rgba(0,0,0,0.8), 0 0 25px -5px rgba(245, 158, 11, 0.15);
+        }
+
+        .tech-details-pane {
+            background: #070709; border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 1rem; box-shadow: inset 0 2px 20px rgba(0,0,0,0.8);
+            position: relative; overflow: hidden;
+        }
+        .diagnostic-block {
+            background: rgba(14, 14, 18, 0.6); border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 0.75rem; padding: 1.25rem; transition: all 0.3s ease;
+        }
+        .diagnostic-block:hover {
+            border-color: rgba(245, 158, 11, 0.2); background: rgba(18, 18, 24, 0.9);
+        }
+
+        /* Interactive Timeline UI */
+        .timeline-track {
+            position: absolute; left: 0; top: 2.5rem; bottom: 0; width: 2px;
+            background: rgba(255,255,255,0.08); z-index: 0;
+        }
+        .timeline-fill {
+            position: absolute; left: 0; top: 0; width: 100%; height: 0%;
+            background: linear-gradient(to bottom, #f59e0b, #ea580c);
+            box-shadow: 0 0 15px #f59e0b; z-index: 1;
+        }
+
+        /* Live Breathing Dots */
+        .timeline-dot {
+            position: absolute; left: -7px; top: 2.5rem; width: 16px; height: 16px;
+            border-radius: 50%; background: #030303; border: 3px solid rgba(255,255,255,0.2);
+            z-index: 10; transition: all 0.5s ease;
+            animation: breathe-idle 3s infinite alternate ease-in-out;
+        }
+        .timeline-dot.active {
+            background: #f59e0b; border-color: #ea580c;
+            animation: breathe-active 2s infinite alternate ease-in-out;
+        }
+
+        @keyframes breathe-idle {
+            0% { box-shadow: 0 0 0 rgba(255,255,255,0); transform: scale(1); }
+            100% { box-shadow: 0 0 10px rgba(255,255,255,0.1); transform: scale(1.05); }
+        }
+        @keyframes breathe-active {
+            0% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.4); transform: scale(1.1); }
+            100% { box-shadow: 0 0 25px rgba(245, 158, 11, 0.8); transform: scale(1.25); }
+        }
+
+        /* Copy Button */
+        .copy-hash-btn { cursor: pointer; transition: all 0.2s; }
+        .copy-hash-btn:hover { background: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.5); }
+        .copy-hash-btn:active { transform: scale(0.95); }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #030303; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; border: 2px solid #030303; }
+        ::-webkit-scrollbar-thumb:hover { background: #f59e0b; }
+    </style>
+</head>
+<body class="relative min-h-screen">
+
+    <div class="bg-glow-main"></div>
+    <div class="bg-mesh"></div>
+    <div class="scanlines"></div>
+
+    <main class="relative z-10 max-w-7xl mx-auto px-4 md:px-8 pt-12 md:pt-20 pb-32">
+        
+        <header class="flex flex-col items-center justify-center text-center mb-20 relative z-10 gs-reveal">
+            <h2 class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-4 flex items-center gap-3">
+                <span class="w-8 h-px bg-zinc-700"></span> Changelogs <span class="w-8 h-px bg-zinc-700"></span>
+            </h2>
+            <h1 class="font-retro text-3xl sm:text-4xl md:text-5xl lg:text-[46px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-8">
+                Project<br class="md:hidden" /><span class="md:ml-6">GlyphMotion</span>
+            </h1>
+            
+            <div class="flex flex-wrap items-center justify-evenly gap-4 md:gap-8 px-8 py-4 w-full md:w-[700px] mx-auto rounded-2xl border border-zinc-800/80 bg-surface/40 backdrop-blur-xl shadow-2xl">
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i data-lucide="activity" class="w-3 h-3 text-amber-500"></i> Project Age</span>
+                    <span id="stat-age" class="text-sm md:text-base font-outfit font-semibold text-zinc-200">Calculating...</span>
+                </div>
+                <div class="w-px h-8 bg-zinc-800/80 hidden sm:block"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i data-lucide="git-commit" class="w-3 h-3 text-amber-500"></i> Tracked Updates</span>
+                    <span class="text-sm md:text-base font-outfit font-semibold text-zinc-200">9 Core Commits</span>
+                </div>
+                <div class="w-px h-8 bg-zinc-800/80 hidden sm:block"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i data-lucide="clock" class="w-3 h-3 text-amber-500"></i> Last Updated</span>
+                    <span id="stat-latest" class="text-sm md:text-base font-outfit font-semibold text-zinc-200">Calculating...</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="relative ml-4 md:ml-10" id="timeline-container">
+            <div class="timeline-track" id="timeline-track">
+                <div class="timeline-fill" id="timeline-fill"></div>
+            </div>
+
+            <div class="space-y-16 pb-10">
+                
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-02-23T23:15:09+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card flex flex-col h-full overflow-hidden">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 group-hover/author:border-amber-500 transition-colors shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 group-hover/author:text-amber-400 font-semibold transition-colors">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Mon Feb 23, 2026</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-amber-500"></i> <span class="relative-time-display font-semibold text-amber-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 flex-grow">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-amber-500/20 bg-amber-500/10 text-amber-500 text-xs font-mono font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(245,158,11,0.1)]">
+                                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Visual Overhaul
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Complete UI redesign and performance optimization</h2>
+                                <p class="font-outfit text-zinc-400 text-base leading-relaxed mb-8">A massive frontend transformation standardizing the app on a modern, dark, AI-centric aesthetic while aggressively stripping out performance-heavy CSS.</p>
+                                
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/fb6fe235782b5b7e20f080f847d557bef1eef450" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-amber-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-amber-500"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('fb6fe235782b5b7e20f080f847d557bef1eef450', 'fb6fe23', this)">
+                                        fb6fe23 <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-amber-500 to-amber-900/20"></div>
+                                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800/50">
+                                    <div class="p-1.5 rounded-md bg-zinc-800/50 border border-zinc-700"><i data-lucide="layers" class="w-4 h-4 text-zinc-300"></i></div>
+                                    <h3 class="font-outfit text-white text-lg font-semibold tracking-wide">Architecture Changes</h3>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-amber-500 text-sm font-semibold uppercase tracking-widest flex items-center gap-2 mb-4"><i data-lucide="palette" class="w-4 h-4"></i> The Redesign</h4>
+                                        <ul class="font-outfit text-zinc-400 text-sm space-y-3">
+                                            <li class="flex items-start gap-2.5"><i data-lucide="check-circle" class="w-4 h-4 text-amber-500/50 shrink-0"></i> Removed password generator entirely.</li>
+                                            <li class="flex items-start gap-2.5"><i data-lucide="check-circle" class="w-4 h-4 text-amber-500/50 shrink-0"></i> Implemented modern AI-tools inspired dark theme with pitch black backgrounds.</li>
+                                            <li class="flex items-start gap-2.5"><i data-lucide="check-circle" class="w-4 h-4 text-amber-500/50 shrink-0"></i> Removed compact mode; standardized on full-screen layout only.</li>
+                                            <li class="flex items-start gap-2.5"><i data-lucide="check-circle" class="w-4 h-4 text-amber-500/50 shrink-0"></i> Added orange accent borders to upload areas.</li>
+                                            <li class="flex items-start gap-2.5"><i data-lucide="check-circle" class="w-4 h-4 text-amber-500/50 shrink-0"></i> Changed subtitle font to monospace for a tech aesthetic.</li>
+                                        </ul>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-blue-400 text-sm font-semibold uppercase tracking-widest flex items-center gap-2 mb-4"><i data-lucide="zap" class="w-4 h-4"></i> Performance</h4>
+                                        <ul class="font-outfit text-zinc-400 text-sm space-y-3">
+                                            <li class="flex items-start gap-2.5"><i data-lucide="cpu" class="w-4 h-4 text-blue-500/50 shrink-0"></i> Eliminated heavy blur animations and background glow elements causing GPU lag.</li>
+                                            <li class="flex items-start gap-2.5"><i data-lucide="cpu" class="w-4 h-4 text-blue-500/50 shrink-0"></i> Converted <code>@apply</code> directives to regular CSS.</li>
+                                            <li class="flex items-start gap-2.5"><i data-lucide="cpu" class="w-4 h-4 text-blue-500/50 shrink-0"></i> Fixed 15+ CSS syntax errors.</li>
+                                            <li class="flex items-start gap-2.5"><i data-lucide="cpu" class="w-4 h-4 text-blue-500/50 shrink-0"></i> Removed <code>will-change</code> memory bloat.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-auto border-t border-zinc-800/60 bg-black/50 px-6 py-4">
+                            <div class="flex items-center gap-2 mb-3 text-xs font-mono text-zinc-500 uppercase tracking-widest">
+                                <i data-lucide="git-merge" class="w-3.5 h-3.5 text-zinc-600"></i> Related Minor Update
+                            </div>
+                            <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/d707e8189bcb65e0ff534b520ea85b91ff4e7cdf" target="_blank" class="group flex items-center justify-between p-3 rounded-lg border border-zinc-800/50 bg-zinc-900/30 hover:border-amber-500/30 hover:bg-zinc-800/40 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <span class="bg-black px-1.5 py-0.5 rounded text-[10px] font-mono border border-zinc-700 text-amber-500">d707e81</span>
+                                    <div>
+                                        <h4 class="font-outfit text-sm font-medium text-zinc-300 group-hover:text-amber-400 transition-colors">Adjust Project GlyphMotion heading position</h4>
+                                        <p class="text-xs text-zinc-500 mt-0.5">A pinpoint CSS margin adjustment to perfectly center the main title [OCD Edition].</p>
+                                    </div>
+                                </div>
+                                <i data-lucide="arrow-up-right" class="w-4 h-4 text-zinc-600 group-hover:text-amber-500"></i>
+                            </a>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-02-23T22:56:31+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 group-hover/author:border-purple-500 shadow-lg transition-colors">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold group-hover/author:text-purple-400 transition-colors">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Mon Feb 23, 2026</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-purple-500"></i> <span class="relative-time-display font-semibold text-purple-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-purple-500/30 bg-purple-500/10 text-purple-400 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="braces" class="w-3.5 h-3.5"></i> Backend Core
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Resolve yt-dlp playlist filename & dot-in-title output path bugs</h2>
+                                <p class="font-outfit text-zinc-400 text-base leading-relaxed mb-8">Critical backend patches fixing file truncation issues on Linux, broken extensions from complex YouTube titles, and adding aggressive frontend polling.</p>
+                                
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/81b10a109abd56b56a1921c8b9f9a03d9db4ac7d" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-purple-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-purple-500"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('81b10a109abd56b56a1921c8b9f9a03d9db4ac7d', '81b10a1', this)">
+                                        81b10a1 <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-purple-500 to-purple-900/20"></div>
+                                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800/50">
+                                    <div class="p-1.5 rounded-md bg-zinc-800/50 border border-zinc-700"><i data-lucide="terminal" class="w-4 h-4 text-purple-400"></i></div>
+                                    <h3 class="font-outfit text-white text-lg font-semibold tracking-wide">Code Diagnostics</h3>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="terminal-square" class="w-4 h-4 text-purple-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">tg.py dry-run</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Added <code class="text-xs bg-black px-1 border border-zinc-800 rounded">--no-playlist</code> and <code class="text-xs bg-black px-1 border border-zinc-800 rounded">--restrict-filenames</code>. Forced script to take only the first line of output, and truncated file stems to >180 bytes to strictly adhere to the Linux 255-byte limit.</p>
+                                        </div>
+                                    </div>
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="file-code" class="w-4 h-4 text-purple-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">tg.py run</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Passed the full <code class="text-xs bg-black text-amber-200 px-1 rounded border border-zinc-800">.mp4</code> path directly to <code class="text-xs bg-black text-amber-200 px-1 rounded border border-zinc-800">ot.py --output_video</code> instead of stripping extensions. Previously, titles with dots (e.g., "R.D. Burman") caused <code class="text-xs bg-black px-1 border border-zinc-800 rounded">splitext</code> to drop segments, breaking the upload chain.</p>
+                                        </div>
+                                    </div>
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="cloud-lightning" class="w-4 h-4 text-purple-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">gh.py & App</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Added an early <code class="text-xs bg-black px-1 border border-zinc-800 rounded">os.path.exists</code> guard to fail missing files fast without hanging the server. On the frontend, added an immediate <code>pollForNewVideos()</code> call with an aggressive 3-minute retry loop to bypass GitHub Pages CDN propagation delays.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-01-16T17:23:00+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Fri Jan 16, 2026</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-emerald-500"></i> <span class="relative-time-display font-semibold text-emerald-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="smartphone" class="w-3.5 h-3.5"></i> Mobile Experience
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Playground Mobile Fixes</h2>
+                                <p class="font-outfit text-zinc-400 text-base leading-relaxed mb-8">A massive accessibility update for mobile users interacting with the AI Playground. It introduces logical scaling for the detection boxes so they aren't massive on small screens, and fixes camera switching bugs on Android/AOSP devices.</p>
+                                
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/d9a86613a09356b73a815f09a81736d4e0512bf7" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-emerald-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-emerald-500"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('d9a86613a09356b73a815f09a81736d4e0512bf7', 'd9a8661', this)">
+                                        d9a8661 <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-500 to-emerald-900/20"></div>
+                                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800/50">
+                                    <div class="p-1.5 rounded-md bg-zinc-800/50 border border-zinc-700"><i data-lucide="monitor-smartphone" class="w-4 h-4 text-emerald-400"></i></div>
+                                    <h3 class="font-outfit text-white text-lg font-semibold tracking-wide">Developer Diagnostics</h3>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="maximize" class="w-4 h-4 text-emerald-500"></i> Detection Scaling</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Line width now actively scales based on canvas size. Font sizes and box corner radii scale proportionally, preventing overlapping blobs on phones.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="camera" class="w-4 h-4 text-emerald-500"></i> Hardware Targeting</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Camera detection improved to use index fallback (cam0 = rear, cam1 = front) specifically resolving stream freezing for AOSP hardware limits.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-01-16T16:42:30+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Fri Jan 16, 2026</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-emerald-500"></i> <span class="relative-time-display font-semibold text-emerald-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="cpu" class="w-3.5 h-3.5"></i> Major Feature
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Add AI Playground page with custom tracker options</h2>
+                                <p class="font-outfit text-zinc-400 text-base leading-relaxed mb-8">Creation of the dedicated <code class="bg-black text-amber-200 px-1.5 py-0.5 rounded text-sm font-mono border border-zinc-800">playground.html</code> environment introducing live client-side tracking and advanced server-side YOLOv8 configs.</p>
+                                
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/69b7e6b721c908d7e5c097e5bf88ed2f279142b3" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-emerald-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-emerald-500"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('69b7e6b721c908d7e5c097e5bf88ed2f279142b3', '69b7e6b', this)">
+                                        69b7e6b <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-500 to-emerald-900/20"></div>
+                                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800/50">
+                                    <div class="p-1.5 rounded-md bg-zinc-800/50 border border-zinc-700"><i data-lucide="circuit-board" class="w-4 h-4 text-emerald-400"></i></div>
+                                    <h3 class="font-outfit text-white text-lg font-semibold tracking-wide">Architecture Changes</h3>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-emerald-400 text-sm font-bold uppercase tracking-widest flex items-center gap-2 mb-3"><i data-lucide="webcam" class="w-4 h-4"></i> Neural Cam</h4>
+                                        <p class="font-outfit text-zinc-400 text-sm leading-relaxed mb-4">Real-time browser-based object detection using TensorFlow.js + COCO-SSD.</p>
+                                        <ul class="font-outfit text-zinc-300 text-[13px] space-y-2">
+                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Live bounding box overlays</li>
+                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Active readouts for FPS, inference time, & GPU</li>
+                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Video recording (WebM export)</li>
+                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Mirrored video with un-mirrored text labels</li>
+                                        </ul>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-emerald-400 text-sm font-bold uppercase tracking-widest flex items-center gap-2 mb-3"><i data-lucide="server-cog" class="w-4 h-4"></i> Tracker Studio</h4>
+                                        <p class="font-outfit text-zinc-400 text-sm leading-relaxed mb-4">Advanced UI for server-side YOLOv8 processing configs connecting to <code class="bg-black text-amber-200 px-1 py-0.5 rounded text-[10px] font-mono border border-zinc-800">tg.py</code>.</p>
+                                        <ul class="font-outfit text-zinc-300 text-[13px] space-y-2">
+                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Filter from 80 distinct COCO classes</li>
+                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Confidence threshold slider adjustments</li>
+                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Backend accepts <code class="text-xs text-amber-200">allowed_classes</code> natively</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-01-15T19:16:33+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Thu Jan 15, 2026</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-blue-500"></i> <span class="relative-time-display font-semibold text-blue-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="boxes" class="w-3.5 h-3.5"></i> System Architecture
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Comprehensive ROI Selection Engine</h2>
+                                <p class="font-outfit text-zinc-400 text-base leading-relaxed mb-8">A monumental feature allowing users to draw a "Region of Interest" directly on the video frame before processing. We implemented a secure server-side preview system that generates snapshots via FFmpeg for both uploaded files and YouTube URLs, storing them temporarily in memory.</p>
+                                
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/39279d25795a39fa31cef77c1c4854591e2eb80c" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-blue-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-blue-500"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('39279d25795a39fa31cef77c1c4854591e2eb80c', '39279d2', this)">
+                                        39279d2 <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-500 to-blue-900/20"></div>
+                                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800/50">
+                                    <div class="p-1.5 rounded-md bg-zinc-800/50 border border-zinc-700"><i data-lucide="database" class="w-4 h-4 text-blue-400"></i></div>
+                                    <h3 class="font-outfit text-white text-lg font-semibold tracking-wide">Developer Diagnostics</h3>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="clock" class="w-4 h-4 text-blue-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Session Cache Management</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Added <code class="text-xs bg-black px-1 border border-zinc-800 rounded">/get_video_preview</code> endpoint. The backend maintains active preview sessions that automatically clean up abandoned <code>preview_temp</code> files after 5 minutes using a 60-second polling scheduler thread.</p>
+                                        </div>
+                                    </div>
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="frame" class="w-4 h-4 text-blue-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Canvas Mapping</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">The UI handles mapping the user's drawn 2D-context rectangle directly to the original video dimensions, bypassing CSS distortion issues across portrait/landscape resolutions.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-01-15T17:02:27+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Thu Jan 15, 2026</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-rose-500"></i> <span class="relative-time-display font-semibold text-rose-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-rose-500/30 bg-rose-500/10 text-rose-400 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Security
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Watermark Output Videos</h2>
+                                <p class="font-outfit text-zinc-400 text-base leading-relaxed mb-8">Implemented a small unobtrusive watermark to all server-processed videos. This acts as a protective measure to ensure content processed by our models isn't copied or falsely claimed by unknown external sources.</p>
+                                
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/cd3bfee1b8bab2ecd6d50bcf689c89531e518503" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-rose-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-rose-500"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('cd3bfee1b8bab2ecd6d50bcf689c89531e518503', 'cd3bfee', this)">
+                                        cd3bfee <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8 flex items-center justify-center">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-rose-500 to-rose-900/20"></div>
+                                <div class="text-center">
+                                    <div class="p-4 bg-zinc-900/50 rounded-full w-max mx-auto mb-4 border border-zinc-800"><i data-lucide="video" class="w-8 h-8 text-rose-500/80"></i></div>
+                                    <p class="font-mono text-zinc-400 text-sm">OpenCV VideoWriter logic updated in core tracking module.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2025-07-01T01:57:13+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Tue Jul 1, 2025</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-indigo-500"></i> <span class="relative-time-display font-semibold text-indigo-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Open Source
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Backend Fully Public</h2>
+                                <p class="font-outfit text-zinc-400 text-base leading-relaxed mb-8">Taking the next major step by fully releasing the backend code to the public. This allows developers to self-host the Flask and YOLOv8 pipeline locally instead of relying solely on our servers.</p>
+                                
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/ef40f675b1cab87ae898557acfe911e636aeff22" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-indigo-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-indigo-500"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('ef40f675b1cab87ae898557acfe911e636aeff22', 'ef40f67', this)">
+                                        ef40f67 <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8 flex items-center justify-center">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-indigo-500 to-indigo-900/20"></div>
+                                <div class="text-center">
+                                    <div class="p-4 bg-zinc-900/50 rounded-full w-max mx-auto mb-4 border border-zinc-800"><i data-lucide="server" class="w-8 h-8 text-indigo-500/80"></i></div>
+                                    <p class="font-mono text-zinc-400 text-sm">tg.py and associated tracking logic open-sourced to public.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2025-06-15T03:50:15+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-4 flex-wrap">
+                                <div class="flex items-center gap-3">
+                                    <a href="https://github.com/sayann70" target="_blank" class="flex items-center gap-2 group/author">
+                                        <img src="https://avatars.githubusercontent.com/u/89209532?v=4" alt="Sayan Sarkar" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                        <span class="text-sm font-mono text-zinc-300 font-semibold transition-colors">Sayan Sarkar</span>
+                                    </a>
+                                    <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                                </div>
+                                <span class="text-zinc-700 hidden sm:block">|</span>
+                                <div class="flex items-center gap-3">
+                                    <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                        <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                        <span class="text-sm font-mono text-zinc-300 font-semibold transition-colors">Shitij Halder</span>
+                                    </a>
+                                    <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Co-Author</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Sun Jun 15, 2025</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-zinc-500"></i> <span class="relative-time-display font-semibold text-zinc-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-zinc-500/30 bg-zinc-500/10 text-zinc-400 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="flag" class="w-3.5 h-3.5"></i> The Beginning
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Initial Public Release</h2>
+                                <p class="font-outfit text-zinc-400 text-base leading-relaxed mb-8">The absolute genesis of Project GlyphMotion. This marks the day the repository was established, launching the initial static Progressive Web App infrastructure and paving the way for everything to come.</p>
+                                
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/4c42c66d77c923ced4a82bcabc889119b377bb61" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-zinc-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-zinc-400"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('4c42c66d77c923ced4a82bcabc889119b377bb61', '4c42c66', this)">
+                                        4c42c66 <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-zinc-500 to-zinc-900/20"></div>
+                                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800/50">
+                                    <div class="p-1.5 rounded-md bg-zinc-800/50 border border-zinc-700"><i data-lucide="rocket" class="w-4 h-4 text-zinc-300"></i></div>
+                                    <h3 class="font-outfit text-white text-lg font-semibold tracking-wide">Developer Diagnostics</h3>
+                                </div>
+                                <div class="diagnostic-block flex items-start gap-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="network" class="w-4 h-4 text-zinc-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Infrastructure Setup</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Configured GitHub Pages static routing via CNAME records and pushed the core UI logic mapping to our custom domains.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <div class="relative pl-10 md:pl-16 pt-8">
+                    <div class="timeline-dot" style="top: 2rem;"></div>
+                    <p class="text-xs font-mono text-zinc-500 uppercase tracking-widest mt-1 ml-6">End of git history</p>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <footer class="relative z-10 pb-8 pt-4">
+        <div class="max-w-max mx-auto px-6 py-3 rounded-full bg-surface/80 backdrop-blur-md border border-zinc-800/60 shadow-[0_0_20px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 transition-all hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)]">
+            <i data-lucide="terminal-square" class="w-4 h-4 text-amber-500"></i>
+            <p class="text-zinc-400 text-sm font-mono tracking-wide">
+                Maintained by <span class="text-zinc-200 font-semibold">Project GlyphMotion</span>
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+
+        // 1. Lenis Smooth Scroll Initialization
+        const lenis = new Lenis({
+            duration: 1.2,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            direction: 'vertical',
+            gestureDirection: 'vertical',
+            smooth: true,
+            mouseMultiplier: 1,
+            smoothTouch: false,
+            touchMultiplier: 2,
+            infinite: false,
+        });
+
+        function raf(time) {
+            lenis.raf(time);
+            requestAnimationFrame(raf);
+        }
+        requestAnimationFrame(raf);
+
+        // 2. GSAP Animations & Timeline Integration
+        gsap.registerPlugin(ScrollTrigger);
+
+        // Map Lenis scroll to ScrollTrigger
+        lenis.on('scroll', ScrollTrigger.update);
+        gsap.ticker.add((time)=>{ lenis.raf(time * 1000) });
+        gsap.ticker.lagSmoothing(0);
+
+        // Timeline Fill Animation - Updated trigger end point to ensure it hits the last dot
+        gsap.to("#timeline-fill", {
+            height: "100%",
+            ease: "none",
+            scrollTrigger: {
+                trigger: "#timeline-container",
+                start: "top 50%",
+                end: "bottom 90%", // Changing this ensures it fully completes before scroll bottom
+                scrub: true,
+                onUpdate: (self) => {
+                    const dots = document.querySelectorAll('.timeline-dot');
+                    dots.forEach((dot, index) => {
+                        const dotRect = dot.getBoundingClientRect();
+                        const viewportCenter = window.innerHeight / 2;
+                        
+                        // Give the last dot a slightly earlier threshold so it activates at bottom of scroll
+                        const isLastDot = index === dots.length - 1;
+                        const threshold = isLastDot ? window.innerHeight * 0.9 : viewportCenter + 20;
+
+                        if (dotRect.top <= threshold) {
+                            dot.classList.add('active');
+                        } else {
+                            dot.classList.remove('active');
+                        }
+                    });
+                }
+            }
+        });
+
+        // Cinematic Reveal for Header
+        gsap.fromTo('.gs-reveal', 
+            { y: 50, opacity: 0 },
+            { y: 0, opacity: 1, duration: 1.2, ease: "power3.out", delay: 0.2 }
+        );
+
+        // Cinematic Reveal for Cards
+        gsap.utils.toArray('.gs-card').forEach(card => {
+            gsap.fromTo(card,
+                { y: 60, opacity: 0 },
+                {
+                    y: 0, opacity: 1,
+                    duration: 0.8,
+                    ease: "power3.out",
+                    scrollTrigger: {
+                        trigger: card,
+                        start: "top 85%",
+                        toggleActions: "play none none reverse"
+                    }
+                }
+            );
+        });
+
+        // 3. Telemetry / Time Calculations
+        function getRelativeTime(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+
+            if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+            const diffInMinutes = Math.floor(diffInSeconds / 60);
+            if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+            const diffInHours = Math.floor(diffInMinutes / 60);
+            if (diffInHours < 24) return `${diffInHours}h ago`;
+            const diffInDays = Math.floor(diffInHours / 24);
+            if (diffInDays < 30) return `${diffInDays}d ago`;
+            const diffInMonths = Math.floor(diffInDays / 30);
+            if (diffInMonths < 12) return `${diffInMonths}mo ago`;
+            const diffInYears = Math.floor(diffInDays / 365);
+            return `${diffInYears}y ago`;
+        }
+
+        function calculateTelemetry() {
+            const commits = document.querySelectorAll('.commit-entry');
+            if (commits.length === 0) return;
+
+            commits.forEach(commit => {
+                const dateStr = commit.getAttribute('data-date');
+                if (dateStr) {
+                    const timeDisplay = commit.querySelector('.relative-time-display');
+                    if(timeDisplay) timeDisplay.textContent = getRelativeTime(dateStr);
+                }
+            });
+
+            const genesisDateStr = commits[commits.length - 1].getAttribute('data-date');
+            const latestDateStr = commits[0].getAttribute('data-date');
+
+            if (genesisDateStr && latestDateStr) {
+                const genesisDate = new Date(genesisDateStr);
+                const now = new Date();
+                const diffInDays = Math.floor((now - genesisDate) / (1000 * 60 * 60 * 24));
+                
+                document.getElementById('stat-age').textContent = `${diffInDays} Days`;
+                document.getElementById('stat-latest').textContent = getRelativeTime(latestDateStr);
+            }
+        }
+        window.addEventListener('load', calculateTelemetry);
+
+        // 4. Pro Copy Hash Function - Updated to be clean and inline
+        function copyHash(fullHash, shortHash, btnElement) {
+            navigator.clipboard.writeText(fullHash).then(() => {
+                // Save original HTML state
+                const originalHTML = btnElement.innerHTML;
+                
+                // Swap classes to look green/success
+                btnElement.classList.remove('bg-black', 'border-zinc-700');
+                btnElement.classList.add('bg-emerald-500/10', 'border-emerald-500/50', 'text-emerald-500');
+                
+                // Set inner HTML with check icon
+                btnElement.innerHTML = `${shortHash} <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-500"></i>`;
+                lucide.createIcons();
+                
+                // Revert after 2 seconds
+                setTimeout(() => {
+                    btnElement.classList.remove('bg-emerald-500/10', 'border-emerald-500/50', 'text-emerald-500');
+                    btnElement.classList.add('bg-black', 'border-zinc-700');
+                    btnElement.innerHTML = originalHTML;
+                    lucide.createIcons();
+                }, 2000);
+            });
+        }
+
+        // Kill Switch for PWA Caching
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
