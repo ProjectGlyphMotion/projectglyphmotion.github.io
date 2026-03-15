@@ -1805,27 +1805,31 @@
             min-height: 200px;
             max-height: 70vh;
             overflow: hidden;
-            padding: 1rem 0.5rem; /* Add padding for portrait videos especially at top */
+            padding: 1rem 0.5rem;
             border-radius: 0.5rem;
-        }
+            width: 100%;
+}
 
         /* Inner container that matches exact video dimensions */
         .roi-video-frame {
-            position: relative;
-            display: inline-block;
-            max-width: 100%;
-            max-height: 70vh;
-        }
+             position: relative;
+             display: flex;
+             justify-content: center;
+             align-items: center;
+             width: 100%;
+             height: 100%;
+             max-width: 100%;
+             max-height: 70vh;
+}
 
         /* Preview Image */
         #roiPreviewImage {
-            display: block;
-            max-width: 100%;
-            max-height: 70vh;
-            width: auto;
-            height: auto;
-            background-color: #0d0d12;
-        }
+             display: block;
+             width: 100%;
+             height: 100%;
+             object-fit: contain;
+             background-color: #0d0d12;
+}
 
         /* Canvas Overlay - positioned exactly over the image */
         #roiCanvas {
@@ -2220,6 +2224,9 @@
 
             #roiPreviewImage {
                 max-height: 50vh;
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
             }
 
             .roi-instructions {
@@ -2240,6 +2247,9 @@
 
             #roiPreviewImage {
                 max-height: 60vh;
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
             }
         }
 
@@ -2255,6 +2265,9 @@
 
             #roiPreviewImage {
                 max-height: 70vh;
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
             }
         }
     </style>
@@ -2857,6 +2870,7 @@
 
 
         let lastFetchedVideos = [];
+        let lastDeleteStatusShown = '';
         // Preload saved layout preference
         let isThreeColumnLayout = localStorage.getItem('isThreeColumnLayout') !== null 
             ? JSON.parse(localStorage.getItem('isThreeColumnLayout')) 
@@ -3380,11 +3394,12 @@
         /* Function to poll for live processing status */
         async function pollForProcessingStatus() {
             try {
-                const response = await fetch(LOCAL_STATUS_ENDPOINT);
+                const response = await fetch(LOCAL_STATUS_ENDPOINT, { cache: 'no-store' });
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
+                const currentStatus = (data.status || '').trim();
                 
                 // Update frame restriction values
                 frameRestrictionEnabled = data.frameRestrictionEnabled;
@@ -3398,21 +3413,29 @@
                 }
 
 
-                if (data.status) {
-                    liveStatusMessage.textContent = data.status;
-                    liveProcessingStatusDiv.classList.remove('hidden');
+                const isDeleteStatus = currentStatus.includes('Successfully deleted video') || currentStatus.includes('Failed to delete video');
 
-                    /* Auto-hide delete-related status messages after 3 seconds */
-                    if (data.status.includes('Successfully deleted video') || data.status.includes('Failed to delete video')) {
-                        setTimeout(() => {
-                            if (liveStatusMessage.textContent === data.status) {
-                                liveProcessingStatusDiv.classList.add('hidden');
-                            }
-                        }, 3000);
+                if (currentStatus) {
+                    if (isDeleteStatus && lastDeleteStatusShown === currentStatus) {
+                        liveProcessingStatusDiv.classList.add('hidden');
+                    } else {
+                        liveStatusMessage.textContent = currentStatus;
+                        liveProcessingStatusDiv.classList.remove('hidden');
+
+                        if (isDeleteStatus) {
+                            lastDeleteStatusShown = currentStatus;
+                            setTimeout(() => {
+                                if (liveStatusMessage.textContent === currentStatus) {
+                                    liveProcessingStatusDiv.classList.add('hidden');
+                                }
+                            }, 3000);
+                        } else {
+                            lastDeleteStatusShown = '';
+                        }
                     }
 
                     /* Check for the specific success message to start the upload progress bar */
-                    if (data.status.includes('Object tracking and GitHub Pages update complete!') && !isUploadProgressBarRunning) {
+                    if (currentStatus.includes('Object tracking and GitHub Pages update complete!') && !isUploadProgressBarRunning) {
                         startProgressBar('upload');
                         isUploadProgressBarRunning = true; /* Set flag to prevent re-triggering */
 
@@ -3440,13 +3463,14 @@
                             roiProcessingCompleteHandled = true;
                             triggerRoiCompletionAnimation();
                         }
-                    } else if (!data.status.includes('Object tracking and GitHub Pages update complete!') && isUploadProgressBarRunning) {
+                    } else if (!currentStatus.includes('Object tracking and GitHub Pages update complete!') && isUploadProgressBarRunning) {
                         /* Reset flag if status changes from the completion message (e.g., a new process starts) */
                         isUploadProgressBarRunning = false;
                     }
 
                 } else {
                     liveProcessingStatusDiv.classList.add('hidden');
+                    lastDeleteStatusShown = '';
                     isUploadProgressBarRunning = false; /* Reset if status is empty/not present */
                 }
             } catch (error) {

@@ -2,7 +2,7 @@
 
 // Increment version on updates to trigger cache invalidation and fresh content fetching.
 // This is critical for ensuring users get the latest version of your PWA.
-const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.10'; // <-- CHANGED TO v1.0.10 to force update!
+const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.11'; // <-- CHANGED TO v1.0.11 to force update!
 const OFFLINE_URL = '/offline.html'; // Path to your custom offline page
 
 // List of URLs to cache when the service worker is installed.
@@ -99,6 +99,18 @@ self.addEventListener('fetch', (event) => {
     // Determine if the request URL should use a network-first strategy
     const requestUrl = new URL(event.request.url);
     const pathname = requestUrl.pathname;
+
+    // Never cache dynamic backend/API endpoints.
+    // These must always come from network to avoid stale processing/deletion status.
+    const dynamicApiPaths = [
+        '/status',
+        '/admin_tracker_data',
+        '/get_ad_settings'
+    ];
+    if (dynamicApiPaths.includes(pathname)) {
+        event.respondWith(fetch(event.request));
+        return;
+    }
 
     // Check if the exact pathname (including leading slash) is in networkFirstUrls
     const isNetworkFirst = networkFirstUrls.includes(pathname);

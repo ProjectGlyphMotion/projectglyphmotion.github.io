@@ -19,6 +19,7 @@ import socket # Added: Import the socket module for socket.timeout
 import base64  # For encoding preview images
 import uuid  # For generating unique session IDs
 import shutil  # For moving cached preview files
+from urllib.parse import urlparse
 
 # Import the gh.py script
 from gh import update_github_pages_with_video, delete_video_from_drive_and_github, get_commit_details
@@ -254,17 +255,34 @@ def clear_all_sessions():
         _invalidated_tokens.clear()
 
 
+_status_update_counter = 0
+
 def set_processing_status(message: Union[str, None]):
     """Sets the global processing status message."""
-    global _current_processing_status
+    global _current_processing_status, _status_update_counter
     with _status_lock:
         _current_processing_status = message
+        _status_update_counter += 1
     logger.info(f"Global Status Update: {message}")
 
-def reset_status_after_delay(delay_seconds: int = 5): # Reduced delay to 5 seconds
-    """Schedules a task to reset the status to None after a delay."""
+def reset_status_after_delay(delay_seconds: int = 5):
+    """Schedules a task to reset the status to None after a delay, ONLY if no new status has been set."""
     logger.info(f"Scheduling status reset to 'None' (hide) in {delay_seconds} seconds.")
-    timer = threading.Timer(delay_seconds, set_processing_status, args=(None,))
+    
+    with _status_lock:
+        current_counter = _status_update_counter
+    
+    def delayed_reset():
+        global _current_processing_status
+        with _status_lock:
+            # Only reset if the status hasn't been updated since we started the timer
+            if _status_update_counter == current_counter:
+                _current_processing_status = None
+                logger.info("Global Status Reset to None.")
+            else:
+                logger.info("Global Status Reset cancelled: new status was set in the meantime.")
+
+    timer = threading.Timer(delay_seconds, delayed_reset)
     timer.daemon = True  # Ensure timer runs even if main thread state changes
     timer.start()
 
@@ -1347,6 +1365,9 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         try:
             self.send_response(status_code)
             self.send_header('Content-type', 'application/json')
+            self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
             self._set_cors_headers() # Set CORS headers for all responses
             self.end_headers()
             self.wfile.write(json.dumps(data).encode('utf-8'))
@@ -1359,8 +1380,12 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_HEAD(self):
         """Handle HEAD requests for status check."""
-        if self.path == '/status':
+        request_path = urlparse(self.path).path
+        if request_path == '/status':
             self.send_response(200)
+            self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
             self._set_cors_headers()
             self.end_headers()
             logger.info("Handled HEAD request for /status.")
@@ -2051,11 +2076,15 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             await progress_reporter.edit_text(f"An unexpected error occurred during deletion: {e}")
             logger.error(f"Unhandled exception during deletion for {file_id}: {e}", exc_info=True)
         finally:
-            reset_status_after_delay()
+            # We use a short delay of 2 seconds here to avoid the status message from 
+            # flashing repeatedly in the frontend's 2-second polling loop.
+            reset_status_after_delay(2)
 
 
     def do_GET(self):
-        if self.path == '/status':
+        request_path = urlparse(self.path).path
+
+        if request_path == '/status':
             with _status_lock: # Read the global status safely
                 status_message = _current_processing_status
             
@@ -2066,14 +2095,14 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 "frameRestrictionValue": FRAME_RESTRICTION_VALUE
             }
             self.send_api_response(200, response_data)
-        elif self.path == '/admin_tracker_data': # New endpoint for admin tracker data (protected)
+        elif request_path == '/admin_tracker_data': # New endpoint for admin tracker data (protected)
             admin_payload = self._authenticate_request()
             if not admin_payload: return # _authenticate_request already sent response
 
             with _tracking_data_lock:
                 self.send_api_response(200, {"trackingData": _tracking_data})
             logger.info(f"Served /admin_tracker_data to admin: {admin_payload.get('username')}")
-        elif self.path == '/get_ad_settings': # New endpoint for getting ad settings
+        elif request_path == '/get_ad_settings': # New endpoint for getting ad settings
             # This endpoint is public, no authentication needed
             self.send_api_response(200, {
                 "ads_enabled_globally": _ADS_ENABLED_GLOBALLY,
