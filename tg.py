@@ -93,6 +93,22 @@ _token_invalidation_lock = threading.Lock()
 _preview_sessions = {}
 _preview_sessions_lock = threading.Lock()
 
+
+def run_async_loop(loop: asyncio.AbstractEventLoop):
+    """Runs an asyncio event loop forever in a dedicated daemon thread."""
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
+
+
+def _log_scheduled_future_error(future, operation_name: str):
+    """Logs unhandled exceptions from run_coroutine_threadsafe futures."""
+    try:
+        exc = future.exception()
+        if exc:
+            logger.error(f"Scheduled async operation '{operation_name}' failed: {exc}", exc_info=True)
+    except Exception as callback_error:
+        logger.error(f"Error while checking future for '{operation_name}': {callback_error}", exc_info=True)
+
 def generate_preview_session_id():
     """Generates a unique preview session ID."""
     import uuid
@@ -1582,7 +1598,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 else:
                     video_source = video_url
 
-                asyncio.run_coroutine_threadsafe(
+                processing_future = asyncio.run_coroutine_threadsafe(
                     process_video_unified(
                         video_source,
                         is_file_upload=is_file_upload,
@@ -1597,6 +1613,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     ),
                     main_loop
                 )
+                processing_future.add_done_callback(lambda future: _log_scheduled_future_error(future, "process_web_video"))
 
                 self.send_api_response(200, {"message": "Processing initiated. Check GitHub Pages for updates."})
 
@@ -1887,10 +1904,11 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
                 main_loop = self.server.main_asyncio_loop
                 
-                asyncio.run_coroutine_threadsafe(
+                delete_future = asyncio.run_coroutine_threadsafe(
                     self._perform_delete_operation(file_id, web_progress_reporter_instance),
                     main_loop
                 )
+                delete_future.add_done_callback(lambda future: _log_scheduled_future_error(future, "delete_video"))
                 
                 self.send_api_response(200, {"message": f"Deletion initiated for video ID: {file_id}. Gallery will update shortly."})
 
@@ -2148,9 +2166,12 @@ def main():
         JWT_SECRET_KEY = os.urandom(32).hex()
         logger.warning(f"Generated a temporary JWT_SECRET_KEY: {JWT_SECRET_KEY}. CHANGE THIS IN PRODUCTION!")
 
-    main_loop = asyncio.get_event_loop()
+    web_asyncio_loop = asyncio.new_event_loop()
+    web_asyncio_thread = threading.Thread(target=run_async_loop, args=(web_asyncio_loop,), daemon=True)
+    web_asyncio_thread.start()
+    logger.info("Dedicated web asyncio loop started")
 
-    web_server_thread = threading.Thread(target=run_web_server, args=(WEB_SERVER_PORT, main_loop,), daemon=True)
+    web_server_thread = threading.Thread(target=run_web_server, args=(WEB_SERVER_PORT, web_asyncio_loop,), daemon=True)
     web_server_thread.start()
     logger.info(f"Web server thread started on port {WEB_SERVER_PORT}")
 
@@ -2176,6 +2197,11 @@ def main():
     except Exception as e:
         logger.error(f"Bot error: {e}")
         raise
+    finally:
+        try:
+            web_asyncio_loop.call_soon_threadsafe(web_asyncio_loop.stop)
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     try:
