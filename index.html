@@ -9,9 +9,46 @@
     <link rel="manifest" href="/manifest.json"> <!-- IMPORTANT: manifest.json link should always be relative to the root if using a custom domain --> <!-- PWA: Link to manifest file -->
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+
+        /* -- NEW BACKGROUND STYLES -- */
+        body {
+            background-color: #030303;
+            color: #e4e4e7;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        .bg-glow-main {
+            position: fixed; top: -30vh; left: 50%; transform: translateX(-50%);
+            width: 150vw; height: 100vh;
+            background: radial-gradient(ellipse at 50% 30%, rgba(245, 158, 11, 0.15) 0%, transparent 60%);
+            pointer-events: none; z-index: 0;
+            will-change: transform;
+        }
+
+        .bg-mesh {
+            position: fixed; inset: 0; background-size: 35px 35px;
+            background-position: center top; 
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+            z-index: 1; pointer-events: none;
+        }
+
+        .scanlines {
+            position: fixed; inset: 0; pointer-events: none; z-index: 2;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px; opacity: 0.3;
+        }
+
+
         /* Define custom cubic-bezier for a more "springy" feel */
         /* Inspired by Mac-like animations, slightly overshoots and settles */
         .cubic-ease-in-out {
@@ -2271,18 +2308,45 @@
             }
         }
     </style>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        retro: ['"Press Start 2P"', 'cursive'],
+                    },
+                    colors: {
+                        black: '#030303',
+                        surface: '#0a0a0c',
+                    }
+                }
+            }
+        }
+    </script>
+
 </head>
 <body class="min-h-screen py-8 px-4">
+
+    <div class="bg-glow-main"></div>
+    <div class="bg-mesh"></div>
+    <div class="scanlines"></div>
+
     <div id="deleteProgressBar" class="progress-bar"></div>
     <div id="uploadProgressBar" class="progress-bar"></div>
 
     <!-- Background handled by CSS gradient on .background-glow-container -->
-    <div class="background-glow-container"></div>
-
+    
     <div id="mainContentCard" class="container mx-auto max-w-full content-card p-6 sm:p-8 md:p-12 shadow-2xl relative z-10">
         <!-- Hero Header Section -->
         <header class="mb-5 text-center relative">
-            <h1 class="text-2xl sm:text-3xl md:text-4xl page-title mb-2" style="margin-left: 1.8rem;">Project GlyphMotion</h1>
+            <h1 class="font-retro text-3xl sm:text-4xl md:text-5xl lg:text-[46px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-3">
+                Project<br class="md:hidden" /><span class="md:ml-6">GlyphMotion</span>
+            </h1>
             <p class="text-slate-400 text-xs sm:text-sm max-w-xs sm:max-w-md mx-auto leading-relaxed font-mono tracking-wide">
                 Real-time object tracking powered by YOLOv8
             </p>
@@ -5006,6 +5070,86 @@
                 console.log('[PWA] Install prompt dismissed recently, keeping hidden.');
             }
         }
+    
+        // UNIVERSAL SCALING FIX
+        (function () {
+            const REFERENCE_WIDTH = 1920;
+            const MIN_ZOOM = 0.6;
+            const MAX_ZOOM = 1.0;
+
+            function applyScaling() {
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                if (viewportWidth <= 1024) {
+                    document.documentElement.style.zoom = '1';
+                    document.documentElement.style.setProperty('--real-vh', viewportHeight + 'px');
+                    return;
+                }
+
+                let zoomLevel = viewportWidth / REFERENCE_WIDTH;
+                zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel));
+
+                document.documentElement.style.zoom = zoomLevel;
+
+                const realVh = viewportHeight / zoomLevel;
+                document.documentElement.style.setProperty('--real-vh', realVh + 'px');
+            }
+
+            applyScaling();
+
+            let resizeTimeout;
+            window.addEventListener('resize', function () {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(applyScaling, 100);
+            });
+        })();
+
+        // OPTIONAL DEBUG PANEL (Press Ctrl+Shift+D to toggle)
+        const debugDiv = document.createElement('div');
+        debugDiv.id = 'viewport-debug';
+        debugDiv.style.cssText = `
+            position: fixed;
+            bottom: 18px;
+            right: 18px;
+            background: linear-gradient(135deg, #1A1821 80%, #C5A065 100%);
+            color: #C5A065;
+            padding: 16px 22px 14px 22px;
+            border-radius: 1.5rem;
+            font-family: 'Manrope', 'Italiana', 'Dancing Script', monospace;
+            font-size: 13px;
+            z-index: 99999;
+            display: none;
+            line-height: 1.7;
+            border: 1.5px solid #C5A065;
+            box-shadow: 0 8px 32px -8px rgba(197,160,101,0.18), 0 2px 8px rgba(26,24,33,0.12);
+            backdrop-filter: blur(4px);
+            transition: box-shadow 0.3s, background 0.3s;
+            letter-spacing: 0.02em;
+            min-width: 260px;
+            max-width: 340px;
+            text-shadow: 0 1px 2px #18181844;
+        `;
+        document.body.appendChild(debugDiv);
+
+        function updateDebugPanel() {
+            debugDiv.innerHTML = `
+                <strong>Viewport:</strong> ${window.innerWidth} x ${window.innerHeight} <br>
+                <strong>Zoom:</strong> ${document.documentElement.style.zoom || 1} <br>
+                <strong>DPR:</strong> ${window.devicePixelRatio}
+            `;
+        }
+        
+        window.addEventListener('resize', updateDebugPanel);
+        updateDebugPanel();
+
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
+            }
+        });
+
     </script>
 </body>
 </html>

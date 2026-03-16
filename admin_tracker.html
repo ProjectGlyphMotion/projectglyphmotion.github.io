@@ -9,9 +9,44 @@
     <link rel="manifest" href="/manifest.json"> <!-- IMPORTANT: manifest.json link should always be relative to the root if using a custom domain --> <!-- PWA: Link to manifest file -->
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+
+        /* -- NEW BACKGROUND STYLES -- */
+        body {
+            background-color: #030303;
+            color: #e4e4e7;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        .bg-glow-main {
+            position: fixed; top: -30vh; left: 50%; transform: translateX(-50%);
+            width: 150vw; height: 100vh;
+            background: radial-gradient(ellipse at 50% 30%, rgba(245, 158, 11, 0.15) 0%, transparent 60%);
+            z-index: 0; pointer-events: none; opacity: 0.8;
+            mix-blend-mode: screen;
+        }
+
+        .bg-mesh {
+            position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: 0.3;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .scanlines {
+            position: fixed; inset: 0; pointer-events: none; z-index: 2;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px; opacity: 0.3;
+        }
+
+
         /* Define custom cubic-bezier for a more "springy" feel */
         .cubic-ease-in-out {
             transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1.25); /* More pronounced overshoot for opening */
@@ -60,7 +95,7 @@
         .glow-1 {
             width: clamp(400px, 60vw, 800px);
             height: clamp(400px, 60vw, 800px);
-            background: radial-gradient(circle at center, #FDA136 0%, rgba(253, 161, 54, 0) 70%);
+            background: radial-gradient(circle at center, #f59e0b 0%, rgba(245, 158, 11, 0) 70%);
             filter: blur(120px);
             top: -20%;
             left: -15%;
@@ -150,19 +185,31 @@
         }
 
         /* Main content card styling - Reused from index.html */
+        #mainContentCard {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        #mainContentCard.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
         .content-card {
-            background-color: rgba(10, 10, 15, 0.85);
-            border: 1px solid rgba(253, 161, 54, 0.25);
-            border-radius: 0.75rem;
+            background-color: rgba(10, 10, 12, 0.6);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1.5rem;
             color: #EDEDF3;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), inset 0 1px 0 0 rgba(255,255,255,0.05);
             position: relative;
             z-index: 10;
             flex-grow: 1;
             opacity: 0;
             transform: translateY(20px);
             transition: opacity 0.6s ease-out, transform 0.6s ease-out;
-            will-change: opacity, transform;
         }
         .content-card.animate-in {
             opacity: 1;
@@ -173,7 +220,7 @@
         .page-title {
             font-family: 'Press Start 2P', cursive;
             font-weight: normal;
-            background: linear-gradient(to right, #FDA136, #FFD700);
+            background: linear-gradient(to right, #f59e0b, #FFD700);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             text-shadow: 0 2px 3px rgba(0,0,0,0.3);
@@ -190,11 +237,11 @@
 
         /* Info banner styling - Reused from index.html */
         .info-banner {
-            background-color: rgba(253, 161, 54, 0.1);
-            border: 1px solid rgba(253, 161, 54, 0.3);
+            background-color: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
             color: #FED7AA;
             border-left-width: 4px;
-            border-left-color: #FDA136;
+            border-left-color: #f59e0b;
         }
         .info-banner.error-banner {
             background-color: rgba(255, 0, 0, 0.1);
@@ -211,8 +258,8 @@
 
         /* Loading spinner */
         .spinner {
-            border: 4px solid rgba(253, 161, 54, 0.2);
-            border-top: 4px solid #FDA136;
+            border: 4px solid rgba(245, 158, 11, 0.2);
+            border-top: 4px solid #f59e0b;
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -237,8 +284,17 @@
             box-shadow: 0 8px 15px rgba(0,0,0,0.4);
         }
         .btn-custom-primary {
-            @apply bg-gradient-to-br from-orange-500 to-amber-500 text-white focus:ring-orange-400 shadow-orange-600/40 hover:from-orange-600 hover:to-amber-600;
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+            background: linear-gradient(to right, rgba(245,158,11,0.2), rgba(245,158,11,0.1));
+            border: 1px solid rgba(245,158,11,0.3);
+            color: #f59e0b;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(4px);
+        }
+        .btn-custom-primary:hover {
+            background: linear-gradient(to right, rgba(245,158,11,0.8), rgba(245,158,11,0.6));
+            color: white;
+            border-color: rgba(245,158,11,0.8);
+            box-shadow: 0 0 15px rgba(245,158,11,0.3);
         }
         .btn-danger { /* Added danger button style */
             @apply bg-gradient-to-br from-red-500 to-rose-500 text-white focus:ring-red-400 shadow-red-600/40 hover:from-red-600 hover:to-rose-600;
@@ -250,7 +306,7 @@
             @apply px-0 py-0 text-xs transition-all duration-300 subtle-spring;
             border-radius: 0.375rem; /* Equivalent to rounded-md for slight roundness */
             background-color: transparent; /* Fully transparent background */
-            color: #FDA136; /* Orange text color */
+            color: #f59e0b; /* Orange text color */
             box-shadow: none; /* No shadow */
             border: 1px solid transparent; /* Ensure a border is always there for smooth transition */
             display: inline-flex; /* Use inline-flex for button content alignment */
@@ -260,12 +316,12 @@
         .toggle-btn-style:hover {
             /* Removed glow effects for hover */
             transform: translateY(-1px); /* Slight lift on hover */
-            background-color: rgba(253, 161, 54, 0.1); /* Subtle orange tint on hover */
-            border-color: #FDA136; /* Introduce border on hover */
+            background-color: rgba(245, 158, 11, 0.1); /* Subtle orange tint on hover */
+            border-color: #f59e0b; /* Introduce border on hover */
         }
         /* Removed .active style for these buttons as requested */
         .separator {
-            color: #FDA116; /* Orange color for the dot */
+            color: #f59e0b; /* Orange color for the dot */
             font-size: 1.5rem; /* Make the dot larger */
             margin: 0 0.25rem; /* Reduced space around the dot */
         }
@@ -310,10 +366,10 @@
             transition: width 0.3s ease-in-out, opacity 0.3s ease-in-out;
             opacity: 0;
             will-change: width, opacity;
-            background-color: #FDA136;
+            background-color: #f59e0b;
         }
         #pollProgressBar {
-            background-color: #FDA136;
+            background-color: #f59e0b;
             transition: width linear;
         }
 
@@ -337,7 +393,7 @@
 
         #centralMessageContent {
             background-color: rgba(10, 10, 15, 0.95);
-            border: 1px solid rgba(253, 161, 54, 0.5);
+            border: 1px solid rgba(245, 158, 11, 0.5);
             border-radius: 0.75rem;
             padding: 2rem;
             text-align: center;
@@ -392,7 +448,7 @@
         }
         .logged-in-text-outline:hover {
             background-color: rgba(255, 255, 255, 0.05);
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 0 2px rgba(253, 161, 54, 0.2);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 0 2px rgba(245, 158, 11, 0.2);
         }
 
         /* New Tracker Card Styles */
@@ -405,34 +461,43 @@
 
         @media (min-width: 640px) { /* sm breakpoint */
             .tracker-card-grid {
-                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* 2-3 columns on small screens */
+                grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2 columns on small screens */
             }
         }
         @media (min-width: 1024px) { /* lg breakpoint */
             .tracker-card-grid {
-                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); /* 3-4 columns on larger screens */
+                grid-template-columns: repeat(3, minmax(0, 1fr)); /* 3 columns on larger screens */
             }
         }
         @media (min-width: 1280px) { /* xl breakpoint */
             .tracker-card-grid {
-                grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); /* Even wider for very large screens */
+                grid-template-columns: repeat(3, minmax(0, 1fr)); /* 3 columns on very large screens */
             }
         }
 
         .tracker-card {
-            background-color: rgba(15, 15, 20, 0.9); /* Darker background for card */
-            border: 1px solid rgba(253, 161, 54, 0.3); /* Orange border */
-            border-radius: 0.75rem;
+            background-color: rgba(20, 20, 24, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: 1.25rem;
             padding: 1.5rem;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.4); /* Deeper shadow */
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4), inset 0 1px 0 0 rgba(255,255,255,0.05);
             display: flex;
             flex-direction: column;
-            gap: 1rem; /* Space between sections inside card */
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+            gap: 1rem;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease, border-color 0.3s ease;
             will-change: transform, box-shadow;
-            opacity: 0; /* Hidden for entrance animation */
-            transform: translateY(20px); /* Start slightly below */
-            animation: cardEntrance 0.6s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards; /* Applied by JS with delay */
+            opacity: 0;
+            transform: translateY(20px);
+            animation: cardEntrance 0.6s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards;
+        }
+        .tracker-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6), 0 0 20px -5px rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.3);
+            border-top-color: rgba(245, 158, 11, 0.5);
         }
         .tracker-card:hover {
             transform: translateY(-5px) scale(1.01);
@@ -448,13 +513,15 @@
         .card-section-title {
             font-size: 0.9rem;
             font-weight: 600;
-            color: #FDA136; /* Orange color for section titles */
-            border-bottom: 1px dashed rgba(253, 161, 54, 0.15); /* Subtle dashed underline */
+            color: #f59e0b;
+            border-bottom: 1px solid rgba(245, 158, 11, 0.2);
             padding-bottom: 0.5rem;
             margin-bottom: 0.75rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
         .card-detail-item {
@@ -467,8 +534,9 @@
         }
         .card-detail-label {
             font-weight: 500;
-            color: #FFD700; /* Gold for labels */
-            flex-shrink: 0; /* Prevent label from shrinking */
+            color: #fbbf24;
+            flex-shrink: 0;
+            font-size: 0.85rem;
         }
         .card-detail-value {
             word-break: break-all; /* Ensure long values wrap */
@@ -501,7 +569,7 @@
         }
         .card-detail-value.sha-container:hover .copy-icon {
             opacity: 1;
-            color: #FDA136;
+            color: #f59e0b;
             transform: scale(1.1);
         }
         .copy-icon.copied-success {
@@ -560,9 +628,9 @@
                 gap: 0.75rem; /* Space between links */
             }
         }
-        /* For 3-column layout (large screens and up), links should stack */
+        /* Since we strictly use 3 columns now, ensure links stack neatly on large screens */
         @media (min-width: 1024px) { /* lg breakpoint */
-            .tracker-card-grid.lg\:grid-cols-3 .lat-lon-links-group {
+            .tracker-card-grid .lat-lon-links-group {
                 flex-direction: column; /* Stack links vertically */
                 align-items: flex-start;
                 gap: 0.25rem; /* Smaller gap between stacked links */
@@ -575,7 +643,10 @@
             gap: 0.75rem; /* Space between label and the value/links container */
         }
         .card-detail-item.lat-lon-item .card-detail-label {
-            margin-bottom: 0; /* Remove default margin-bottom from label */
+            font-weight: 500;
+            color: #fbbf24;
+            flex-shrink: 0;
+            font-size: 0.85rem;
         }
 
 
@@ -700,7 +771,7 @@
             grid-template-columns: 1fr;
             gap: 1rem;
             padding-top: 1rem;
-            border-top: 1px solid rgba(253, 161, 54, 0.2);
+            border-top: 1px solid rgba(245, 158, 11, 0.2);
             margin-top: 1rem;
         }
         .info-detail-grid div {
@@ -712,7 +783,7 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
         .info-detail-grid strong {
-            color: #FDA136;
+            color: #f59e0b;
             display: block;
             margin-bottom: 0.25rem;
             font-size: 0.8rem;
@@ -746,30 +817,52 @@
             margin-right: 0.5rem;
         }
     </style>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        retro: ['"Press Start 2P"', 'cursive'],
+                    },
+                    colors: {
+                        black: '#030303',
+                        surface: '#0a0a0c',
+                    }
+                }
+            }
+        }
+    </script>
+
 </head>
-<body class="min-h-screen py-8 px-4">
+<body class="min-h-screen py-8 px-4 flex flex-col items-center">
+
+    <div class="bg-glow-main"></div>
+    <div class="bg-mesh"></div>
+    <div class="scanlines"></div>
+
     <div class="progress-bar" id="pageLoadProgressBar"></div>
     <div class="progress-bar" id="pollProgressBar"></div>
 
-    <div class="background-glow-container">
-        <div class="glow-element glow-1"></div>
-        <div class="glow-element glow-2"></div>
-        <div class="glow-element glow-3"></div>
-        <div class="glow-element glow-4"></div>
-        <div class="glow-element glow-5"></div>
+            </div>
+
+    <div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div>
     </div>
 
-    <div class="particle-container">
-        <div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div>
-    </div>
-
-    <div id="mainContentCard" class="container mx-auto max-w-7xl content-card p-8 md:p-10 shadow-2xl relative z-10 flex flex-col">
-        <header class="mb-8 text-center relative">
-            <h1 class="text-3xl sm:text-4xl md:text-4xl page-title mb-6">Admin Tracker</h1>
-            <p class="text-center text-slate-300 mb-4">
-                View processed video commits and request origins.
-            </p>
-            <div id="adminTrackerControls" class="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4 mb-0">
+    <main id="mainContentCard" class="relative z-10 max-w-[95%] mx-auto px-4 md:px-8 pt-4 md:pt-6 pb-32 flex flex-col w-full">
+        <header class="flex flex-col items-center justify-center text-center mb-6 relative z-10 w-full gs-reveal">
+            <h2 class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-4 flex items-center gap-3">
+                <span class="w-8 h-px bg-zinc-700"></span> Admin Tracker <span class="w-8 h-px bg-zinc-700"></span>
+            </h2>
+            <h1 class="font-retro text-3xl sm:text-4xl md:text-5xl lg:text-[46px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-2 whitespace-nowrap">
+                Project<br class="md:hidden" /><span class="md:ml-6">GlyphMotion</span>
+            </h1>
+            
+            <div id="adminTrackerControls" class="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4 mb-0 mt-4">
                 <span id="loggedInUsername" class="text-sm font-medium text-orange-300 hidden"></span>
                 <button id="refreshDataBtn" class="btn btn-custom-primary py-2 px-4 text-sm">
                     <i class="fas fa-sync-alt mr-2"></i> Refresh
@@ -778,15 +871,6 @@
                 <button id="goBackBtn"
                         class="btn btn-custom-primary py-2 px-4 text-sm">
                     <i class="fas fa-arrow-left mr-2"></i> Back to Home
-                </button>
-            </div>
-            <div class="flex items-center space-x-0 justify-center mb-6 mt-4 lg:block hidden">
-                <button id="toggleViewModeButton" class="toggle-btn-style">
-                    <i class="fas fa-expand-alt mr-1"></i> Enlarge View
-                </button>
-                <span class="separator">•</span>
-                <button id="toggleLayoutButton" class="toggle-btn-style">
-                    <i class="fas fa-th-large mr-1"></i> Show 2 Columns
                 </button>
             </div>
         </header>
@@ -806,16 +890,16 @@
 
         <div id="trackerCardsContainer" class="tracker-card-grid">
             </div>
-    </div>
+    </main>
 
-    <div class="w-full text-center text-slate-500 text-sm font-medium mt-8 py-4 footer-animated">
-        Made with ❤️ by Sayan and Shitij
-    </div>
-    <div class="w-full text-center text-slate-600 text-sm mt-2 mb-4 footer-animated">
-        This project is based on the <a href="https://github.com/ultralytics/ultralytics"
-        class="text-blue-400 hover:underline">Ultralytics YOLO v8(m)</a>,
-        an acclaimed real-time object detection and image segmentation model.
-    </div>
+    <footer class="relative z-10 pb-8 pt-4 mt-auto w-full footer-animated">
+        <div class="max-w-max mx-auto px-6 py-3 rounded-full bg-surface/80 backdrop-blur-md border border-zinc-800/60 shadow-[0_0_20px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 transition-all hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)]">
+            <i data-lucide="terminal-square" class="w-4 h-4 text-amber-500"></i>
+            <p class="text-zinc-400 text-sm font-mono tracking-wide">
+                Maintained by <span class="text-zinc-200 font-semibold">Project GlyphMotion</span>
+            </p>
+        </div>
+    </footer>
 
     <div id="centralMessageOverlay" class="hidden">
         <div id="centralMessageContent">
@@ -845,8 +929,6 @@
         const pollProgressBar = document.getElementById('pollProgressBar');
         const loggedInUsernameSpan = document.getElementById('loggedInUsername');
         const refreshDataBtn = document.getElementById('refreshDataBtn');
-        const toggleLayoutButton = document.getElementById('toggleLayoutButton');
-        const toggleViewModeButton = document.getElementById('toggleViewModeButton');
         // Removed logoutAllAdminsBtn constant as the button is removed from HTML
 
         const centralMessageOverlay = document.getElementById('centralMessageOverlay');
@@ -865,9 +947,6 @@
         const GITHUB_PAGES_REPO_URL = 'https://projectglyphmotion.studio/';
 
         const POLLING_INTERVAL_DURATION_SECONDS = 1;
-
-        let isThreeColumnLayout = false;
-        let isCompactView = true;
 
         let isAdminLoggedIn = false;
         let loggedInUsername = '';
@@ -926,7 +1005,7 @@
                 centralMessageContent.style.borderColor = 'rgba(255, 87, 51, 0.5)';
                 centralMessageContent.style.color = '#FFD7D7';
             } else {
-                centralMessageContent.style.borderColor = 'rgba(253, 161, 54, 0.5)';
+                centralMessageContent.style.borderColor = 'rgba(245, 158, 11, 0.5)';
                 centralMessageContent.style.color = '#EDEDF3';
             }
 
@@ -1132,32 +1211,7 @@
                 noDataMessage.classList.remove('hidden');
                 trackerCardsContainer.classList.add('hidden');
             }
-            updateTrackerCardsLayout();
-            updateViewModeLayout();
         }
-
-        function updateTrackerCardsLayout() {
-            trackerCardsContainer.classList.remove('lg:grid-cols-3', 'lg:grid-cols-2');
-            if (isThreeColumnLayout) {
-                trackerCardsContainer.classList.add('lg:grid-cols-3');
-                toggleLayoutButton.innerHTML = '<i class="fas fa-th-list mr-1"></i> Show 2 Columns';
-            } else {
-                trackerCardsContainer.classList.add('lg:grid-cols-2');
-                toggleLayoutButton.innerHTML = '<i class="fas fa-th-large mr-1"></i> Show 3 Columns';
-            }
-        }
-
-        function updateViewModeLayout() {
-            mainContentCard.classList.remove('max-w-7xl', 'max-w-full');
-            if (isCompactView) {
-                mainContentCard.classList.add('max-w-7xl');
-                toggleViewModeButton.innerHTML = '<i class="fas fa-expand-alt mr-1"></i> Enlarge View';
-            } else {
-                mainContentCard.classList.add('max-w-full');
-                toggleViewModeButton.innerHTML = '<i class="fas fa-compress-alt mr-1"></i> Compact View';
-            }
-        }
-
 
         function showInfoModal(geolocationData, originX, originY) {
             infoModal.classList.remove('closing');
@@ -1283,13 +1337,9 @@
                 // Removed display logic for logoutAllAdminsBtn
             }
 
-            const savedViewMode = localStorage.getItem('adminTrackerIsCompactView');
-            if (savedViewMode !== null) {
-                isCompactView = JSON.parse(savedViewMode);
-            }
-            const savedLayout = localStorage.getItem('adminTrackerIsThreeColumnLayout');
-            if (savedLayout !== null) {
-                isThreeColumnLayout = JSON.parse(savedLayout);
+            // Initialize Lucide icons
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
             }
 
             fetchTrackingData();
@@ -1319,18 +1369,6 @@
 
         refreshDataBtn.addEventListener('click', () => {
             fetchTrackingData();
-        });
-
-        toggleLayoutButton.addEventListener('click', () => {
-            isThreeColumnLayout = !isThreeColumnLayout;
-            updateTrackerCardsLayout();
-            localStorage.setItem('adminTrackerIsThreeColumnLayout', isThreeColumnLayout);
-        });
-
-        toggleViewModeButton.addEventListener('click', () => {
-            isCompactView = !isCompactView;
-            updateViewModeLayout();
-            localStorage.setItem('adminTrackerIsCompactView', isCompactView);
         });
 
         // Removed Logout All Admins button click listener
@@ -1439,6 +1477,86 @@
                 console.log('[PWA] Install prompt dismissed recently, keeping hidden.');
             }
         }
+    
+        // UNIVERSAL SCALING FIX
+        (function () {
+            const REFERENCE_WIDTH = 1920;
+            const MIN_ZOOM = 0.6;
+            const MAX_ZOOM = 1.0;
+
+            function applyScaling() {
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                if (viewportWidth <= 1024) {
+                    document.documentElement.style.zoom = '1';
+                    document.documentElement.style.setProperty('--real-vh', viewportHeight + 'px');
+                    return;
+                }
+
+                let zoomLevel = viewportWidth / REFERENCE_WIDTH;
+                zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel));
+
+                document.documentElement.style.zoom = zoomLevel;
+
+                const realVh = viewportHeight / zoomLevel;
+                document.documentElement.style.setProperty('--real-vh', realVh + 'px');
+            }
+
+            applyScaling();
+
+            let resizeTimeout;
+            window.addEventListener('resize', function () {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(applyScaling, 100);
+            });
+        })();
+
+        // OPTIONAL DEBUG PANEL (Press Ctrl+Shift+D to toggle)
+        const debugDiv = document.createElement('div');
+        debugDiv.id = 'viewport-debug';
+        debugDiv.style.cssText = `
+            position: fixed;
+            bottom: 18px;
+            right: 18px;
+            background: linear-gradient(135deg, #1A1821 80%, #C5A065 100%);
+            color: #C5A065;
+            padding: 16px 22px 14px 22px;
+            border-radius: 1.5rem;
+            font-family: 'Manrope', 'Italiana', 'Dancing Script', monospace;
+            font-size: 13px;
+            z-index: 99999;
+            display: none;
+            line-height: 1.7;
+            border: 1.5px solid #C5A065;
+            box-shadow: 0 8px 32px -8px rgba(197,160,101,0.18), 0 2px 8px rgba(26,24,33,0.12);
+            backdrop-filter: blur(4px);
+            transition: box-shadow 0.3s, background 0.3s;
+            letter-spacing: 0.02em;
+            min-width: 260px;
+            max-width: 340px;
+            text-shadow: 0 1px 2px #18181844;
+        `;
+        document.body.appendChild(debugDiv);
+
+        function updateDebugPanel() {
+            debugDiv.innerHTML = `
+                <strong>Viewport:</strong> ${window.innerWidth} x ${window.innerHeight} <br>
+                <strong>Zoom:</strong> ${document.documentElement.style.zoom || 1} <br>
+                <strong>DPR:</strong> ${window.devicePixelRatio}
+            `;
+        }
+        
+        window.addEventListener('resize', updateDebugPanel);
+        updateDebugPanel();
+
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
+            }
+        });
+
     </script>
 </body>
 </html>

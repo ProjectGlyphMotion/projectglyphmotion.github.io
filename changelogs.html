@@ -988,6 +988,86 @@
                 }
             });
         }
+    
+        // UNIVERSAL SCALING FIX
+        (function () {
+            const REFERENCE_WIDTH = 1920;
+            const MIN_ZOOM = 0.6;
+            const MAX_ZOOM = 1.0;
+
+            function applyScaling() {
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                if (viewportWidth <= 1024) {
+                    document.documentElement.style.zoom = '1';
+                    document.documentElement.style.setProperty('--real-vh', viewportHeight + 'px');
+                    return;
+                }
+
+                let zoomLevel = viewportWidth / REFERENCE_WIDTH;
+                zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel));
+
+                document.documentElement.style.zoom = zoomLevel;
+
+                const realVh = viewportHeight / zoomLevel;
+                document.documentElement.style.setProperty('--real-vh', realVh + 'px');
+            }
+
+            applyScaling();
+
+            let resizeTimeout;
+            window.addEventListener('resize', function () {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(applyScaling, 100);
+            });
+        })();
+
+        // OPTIONAL DEBUG PANEL (Press Ctrl+Shift+D to toggle)
+        const debugDiv = document.createElement('div');
+        debugDiv.id = 'viewport-debug';
+        debugDiv.style.cssText = `
+            position: fixed;
+            bottom: 18px;
+            right: 18px;
+            background: linear-gradient(135deg, #1A1821 80%, #C5A065 100%);
+            color: #C5A065;
+            padding: 16px 22px 14px 22px;
+            border-radius: 1.5rem;
+            font-family: 'Manrope', 'Italiana', 'Dancing Script', monospace;
+            font-size: 13px;
+            z-index: 99999;
+            display: none;
+            line-height: 1.7;
+            border: 1.5px solid #C5A065;
+            box-shadow: 0 8px 32px -8px rgba(197,160,101,0.18), 0 2px 8px rgba(26,24,33,0.12);
+            backdrop-filter: blur(4px);
+            transition: box-shadow 0.3s, background 0.3s;
+            letter-spacing: 0.02em;
+            min-width: 260px;
+            max-width: 340px;
+            text-shadow: 0 1px 2px #18181844;
+        `;
+        document.body.appendChild(debugDiv);
+
+        function updateDebugPanel() {
+            debugDiv.innerHTML = `
+                <strong>Viewport:</strong> ${window.innerWidth} x ${window.innerHeight} <br>
+                <strong>Zoom:</strong> ${document.documentElement.style.zoom || 1} <br>
+                <strong>DPR:</strong> ${window.devicePixelRatio}
+            `;
+        }
+        
+        window.addEventListener('resize', updateDebugPanel);
+        updateDebugPanel();
+
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
+            }
+        });
+
     </script>
 </body>
 </html>
