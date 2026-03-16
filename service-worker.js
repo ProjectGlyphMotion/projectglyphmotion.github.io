@@ -2,7 +2,8 @@
 
 // Increment version on updates to trigger cache invalidation and fresh content fetching.
 // This is critical for ensuring users get the latest version of your PWA.
-const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.11'; // <-- CHANGED TO v1.0.11 to force update!
+const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.12'; // Bumped to force SW update and runtime cache policy refresh.
+const THUMBNAIL_CACHE_NAME = 'glyphmotion-thumbnail-cache-v1';
 const OFFLINE_URL = '/offline.html'; // Path to your custom offline page
 
 // List of URLs to cache when the service worker is installed.
@@ -84,6 +85,40 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    const requestUrl = new URL(event.request.url);
+    const isDriveThumbnailRequest =
+        event.request.destination === 'image' && (
+            (requestUrl.hostname === 'drive.google.com' && requestUrl.pathname === '/thumbnail') ||
+            requestUrl.hostname === 'lh3.googleusercontent.com' ||
+            requestUrl.hostname === 'googleusercontent.com'
+        );
+
+    // Cache Google Drive thumbnail images aggressively across reloads.
+    // These responses are typically opaque (cross-origin no-cors), so we allow caching status 0 responses.
+    if (isDriveThumbnailRequest) {
+        event.respondWith(
+            caches.open(THUMBNAIL_CACHE_NAME).then((thumbCache) => {
+                return thumbCache.match(event.request).then((cachedResponse) => {
+                    if (cachedResponse) {
+                        return cachedResponse;
+                    }
+
+                    return fetch(event.request)
+                        .then((networkResponse) => {
+                            if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque' || networkResponse.type === 'opaqueredirect')) {
+                                thumbCache.put(event.request, networkResponse.clone());
+                            }
+                            return networkResponse;
+                        })
+                        .catch(() => {
+                            return caches.match('/images/thumbnail_fallback.jpg');
+                        });
+                });
+            })
+        );
+        return;
+    }
+
     // Filter out non-HTTP/HTTPS requests (e.g., chrome-extension://) or requests to external CDNs
     // This is important for cdn.tailwindcss.com and fonts.googleapis.com
     if (!event.request.url.startsWith(self.location.origin + '/') &&
@@ -97,7 +132,6 @@ self.addEventListener('fetch', (event) => {
     // This is aligned with the recommendation to self-host Tailwind in production.
 
     // Determine if the request URL should use a network-first strategy
-    const requestUrl = new URL(event.request.url);
     const pathname = requestUrl.pathname;
 
     // Never cache dynamic backend/API endpoints.

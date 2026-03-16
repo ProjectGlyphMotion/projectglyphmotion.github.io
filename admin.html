@@ -292,41 +292,83 @@
         const NGROK_PUBLIC_URL = 'https://backend.projectglyphmotion.studio'; // This value is updated by web_server_public.py
         const LOCAL_LOGIN_ENDPOINT = NGROK_PUBLIC_URL + '/login';
         const LOCAL_STATUS_ENDPOINT = NGROK_PUBLIC_URL + '/status';
+        const LOCAL_STATUS_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/status';
+        let healthEventSource = null;
+        let healthFallbackIntervalRef = null;
 
-        // Ping the server to check status dynamically like index.html
-        async function checkServerHealth() {
+        function setServerOnlineState(isOnline) {
             const statusDot = document.getElementById('serverStatusDot');
             const statusPing = document.getElementById('serverStatusPing');
             const statusText = document.getElementById('serverStatusText');
             const widget = document.getElementById('serverStatusWidget');
 
+            if (isOnline) {
+                statusDot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500';
+                statusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
+                statusText.textContent = 'SYSTEM ONLINE';
+                statusText.className = 'text-[10px] font-mono font-medium tracking-wider text-emerald-400 transition-colors';
+                widget.className = 'inline-flex items-center gap-2 px-3 py-1.5 mb-4 bg-emerald-500/10 backdrop-blur-md border border-emerald-500/30 rounded-full cursor-help transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.15)]';
+            } else {
+                statusDot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500';
+                statusPing.className = 'hidden';
+                statusText.textContent = 'SYSTEM OFFLINE';
+                statusText.className = 'text-[10px] font-mono font-medium tracking-wider text-red-400 transition-colors';
+                widget.className = 'inline-flex items-center gap-2 px-3 py-1.5 mb-4 bg-red-500/10 backdrop-blur-md border border-red-500/30 rounded-full cursor-help transition-all duration-300 shadow-[0_0_15px_rgba(239,68,68,0.15)]';
+            }
+        }
+
+        // Ping the server to check status dynamically like index.html
+        async function checkServerHealth() {
             try {
                 const response = await fetch(LOCAL_STATUS_ENDPOINT, { method: 'HEAD' }); 
-                
                 if (response.ok) {
-                    // Online State
-                    statusDot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500';
-                    statusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
-                    statusText.textContent = 'SYSTEM ONLINE';
-                    statusText.className = 'text-[10px] font-mono font-medium tracking-wider text-emerald-400 transition-colors';
-                    widget.className = 'inline-flex items-center gap-2 px-3 py-1.5 mb-4 bg-emerald-500/10 backdrop-blur-md border border-emerald-500/30 rounded-full cursor-help transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.15)]';
+                    setServerOnlineState(true);
                 } else {
                     throw new Error('Response not OK');
                 }
             } catch (error) {
-                // Offline State
-                statusDot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500';
-                statusPing.className = 'hidden'; // Stop pinging when offline
-                statusText.textContent = 'SYSTEM OFFLINE';
-                statusText.className = 'text-[10px] font-mono font-medium tracking-wider text-red-400 transition-colors';
-                widget.className = 'inline-flex items-center gap-2 px-3 py-1.5 mb-4 bg-red-500/10 backdrop-blur-md border border-red-500/30 rounded-full cursor-help transition-all duration-300 shadow-[0_0_15px_rgba(239,68,68,0.15)]';
+                setServerOnlineState(false);
                 console.error('Error checking server health:', error.message);
             }
         }
+
+        function startHealthFallbackPolling() {
+            if (healthFallbackIntervalRef) return;
+            checkServerHealth();
+            healthFallbackIntervalRef = setInterval(checkServerHealth, 30000);
+        }
+
+        function stopHealthFallbackPolling() {
+            if (!healthFallbackIntervalRef) return;
+            clearInterval(healthFallbackIntervalRef);
+            healthFallbackIntervalRef = null;
+        }
+
+        function setupHealthStream() {
+            if (!window.EventSource) {
+                startHealthFallbackPolling();
+                return;
+            }
+
+            if (healthEventSource) {
+                healthEventSource.close();
+            }
+
+            healthEventSource = new EventSource(LOCAL_STATUS_EVENTS_ENDPOINT);
+
+            healthEventSource.onopen = () => {
+                setServerOnlineState(true);
+                stopHealthFallbackPolling();
+            };
+
+            healthEventSource.onerror = () => {
+                setServerOnlineState(false);
+                startHealthFallbackPolling();
+            };
+        }
         
-        // Execute status check initially and then every 10 seconds
-        checkServerHealth();
-        setInterval(checkServerHealth, 10000);
+        // Prefer realtime stream and fallback to sparse polling only if needed
+        setupHealthStream();
 
         const adminLoginForm = document.getElementById('adminLoginForm');
         const adminUsernameInput = document.getElementById('adminUsernameInput');

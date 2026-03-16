@@ -19,7 +19,7 @@ import socket # Added: Import the socket module for socket.timeout
 import base64  # For encoding preview images
 import uuid  # For generating unique session IDs
 import shutil  # For moving cached preview files
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 # Import the gh.py script
 from gh import update_github_pages_with_video, delete_video_from_drive_and_github, get_commit_details
@@ -281,6 +281,19 @@ def set_processing_status(message: Union[str, None]):
         _status_update_counter += 1
     logger.info(f"Global Status Update: {message}")
 
+def get_status_payload() -> dict:
+    """Builds a consistent status payload for REST and SSE consumers."""
+    with _status_lock:
+        status_message = _current_processing_status
+        status_counter = _status_update_counter
+
+    return {
+        "status": status_message if status_message is not None else "",
+        "statusCounter": status_counter,
+        "frameRestrictionEnabled": FRAME_RESTRICTION_ENABLED,
+        "frameRestrictionValue": FRAME_RESTRICTION_VALUE
+    }
+
 def reset_status_after_delay(delay_seconds: int = 5):
     """Schedules a task to reset the status to None after a delay, ONLY if no new status has been set."""
     logger.info(f"Scheduling status reset to 'None' (hide) in {delay_seconds} seconds.")
@@ -289,11 +302,12 @@ def reset_status_after_delay(delay_seconds: int = 5):
         current_counter = _status_update_counter
     
     def delayed_reset():
-        global _current_processing_status
+        global _current_processing_status, _status_update_counter
         with _status_lock:
             # Only reset if the status hasn't been updated since we started the timer
             if _status_update_counter == current_counter:
                 _current_processing_status = None
+                _status_update_counter += 1
                 logger.info("Global Status Reset to None.")
             else:
                 logger.info("Global Status Reset cancelled: new status was set in the meantime.")
@@ -1322,8 +1336,10 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         Log an arbitrary request, but filter out frequent /status checks
         and simplify the log message.
         """
-        # Filter out /status GET and HEAD requests to reduce log verbosity
-        if self.path == '/status' and (self.command == 'GET' or self.command == 'HEAD'):
+        request_path = urlparse(self.path).path
+
+        # Filter out high-frequency health/status/event endpoints to reduce log verbosity
+        if request_path in ('/status', '/events/status', '/events/admin_tracker_data') and (self.command == 'GET' or self.command == 'HEAD'):
             return
 
         # Log other requests with a simplified format
@@ -1409,11 +1425,95 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             # Fallback for other HEAD requests, might return 404 or just headers
             super().do_HEAD() # Call the base class method
 
+    def _send_sse_event(self, event_name: str, data: dict):
+        """Sends one SSE event to the connected client."""
+        event_payload = json.dumps(data, ensure_ascii=False)
+        self.wfile.write(f"event: {event_name}\n".encode('utf-8'))
+        self.wfile.write(f"data: {event_payload}\n\n".encode('utf-8'))
+        self.wfile.flush()
+
+    def _stream_status_events(self):
+        """Streams realtime status updates using Server-Sent Events."""
+        self.send_response(200)
+        self.send_header('Content-type', 'text/event-stream')
+        self.send_header('Cache-Control', 'no-cache, no-transform')
+        self.send_header('Connection', 'keep-alive')
+        self._set_cors_headers()
+        self.end_headers()
+
+        logger.info("SSE status stream connected")
+
+        last_seen_counter = -1
+        last_heartbeat = time.time()
+
+        try:
+            while True:
+                payload = get_status_payload()
+                current_counter = payload.get("statusCounter", -1)
+
+                if current_counter != last_seen_counter:
+                    self._send_sse_event("status", payload)
+                    last_seen_counter = current_counter
+
+                now = time.time()
+                if now - last_heartbeat >= 20:
+                    self._send_sse_event("heartbeat", {"ts": int(now)})
+                    last_heartbeat = now
+
+                time.sleep(0.5)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.info("SSE status stream disconnected")
+        except Exception as e:
+            logger.warning(f"SSE stream error: {e}")
+
+    def _stream_admin_tracker_events(self, admin_username: str):
+        """Streams realtime admin tracker updates using Server-Sent Events."""
+        self.send_response(200)
+        self.send_header('Content-type', 'text/event-stream')
+        self.send_header('Cache-Control', 'no-cache, no-transform')
+        self.send_header('Connection', 'keep-alive')
+        self._set_cors_headers()
+        self.end_headers()
+
+        logger.info(f"SSE admin tracker stream connected for admin: {admin_username}")
+
+        last_signature = None
+        last_heartbeat = time.time()
+
+        try:
+            while True:
+                with _tracking_data_lock:
+                    tracking_data_snapshot = json.loads(json.dumps(_tracking_data, ensure_ascii=False))
+
+                payload = {"trackingData": tracking_data_snapshot}
+                current_signature = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+                if current_signature != last_signature:
+                    self._send_sse_event("trackingData", payload)
+                    last_signature = current_signature
+
+                now = time.time()
+                if now - last_heartbeat >= 20:
+                    self._send_sse_event("heartbeat", {"ts": int(now)})
+                    last_heartbeat = now
+
+                time.sleep(0.75)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.info(f"SSE admin tracker stream disconnected for admin: {admin_username}")
+        except Exception as e:
+            logger.warning(f"SSE admin tracker stream error for {admin_username}: {e}")
+
     def _get_auth_token(self):
-        """Extracts JWT from Authorization header."""
+        """Extracts JWT from Authorization header or SSE query string token."""
         auth_header = self.headers.get('Authorization')
         if auth_header and auth_header.startswith('Bearer '):
             return auth_header.split(' ')[1]
+
+        query_params = parse_qs(urlparse(self.path).query)
+        token_from_query = query_params.get('token', [None])[0]
+        if token_from_query:
+            return token_from_query
+
         return None
 
     def _decode_jwt(self, token: str) -> dict | None:
@@ -1465,6 +1565,34 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             logger.warning(f"Attempted login with non-existent username in token: {payload.get('username')}")
             # Use self.send_api_response for consistency
             self.send_api_response(401, {"message": "Invalid token (user not found)."})
+            return None
+
+        return payload
+
+    def _authenticate_sse_request(self) -> dict | None:
+        """
+        Authenticates SSE requests using the same JWT validation path,
+        returning None and sending 401 headers when invalid.
+        """
+        token = self._get_auth_token()
+        if not token:
+            self.send_response(401)
+            self._set_cors_headers()
+            self.end_headers()
+            return None
+
+        payload = self._decode_jwt(token)
+        if not payload:
+            self.send_response(401)
+            self._set_cors_headers()
+            self.end_headers()
+            return None
+
+        if payload.get('username') not in ADMIN_CREDENTIALS:
+            logger.warning(f"Attempted SSE access with non-existent username in token: {payload.get('username')}")
+            self.send_response(401)
+            self._set_cors_headers()
+            self.end_headers()
             return None
 
         return payload
@@ -2103,16 +2231,15 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         request_path = urlparse(self.path).path
 
         if request_path == '/status':
-            with _status_lock: # Read the global status safely
-                status_message = _current_processing_status
-            
-            # Include frame restriction config in the status response
-            response_data = {
-                "status": status_message if status_message is not None else "",
-                "frameRestrictionEnabled": FRAME_RESTRICTION_ENABLED,
-                "frameRestrictionValue": FRAME_RESTRICTION_VALUE
-            }
-            self.send_api_response(200, response_data)
+            self.send_api_response(200, get_status_payload())
+        elif request_path == '/events/status':
+            self._stream_status_events()
+        elif request_path == '/events/admin_tracker_data':
+            admin_payload = self._authenticate_sse_request()
+            if not admin_payload:
+                return
+
+            self._stream_admin_tracker_events(admin_payload.get('username', 'unknown'))
         elif request_path == '/admin_tracker_data': # New endpoint for admin tracker data (protected)
             admin_payload = self._authenticate_request()
             if not admin_payload: return # _authenticate_request already sent response

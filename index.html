@@ -2894,9 +2894,12 @@
         // IMPORTANT: This should now be your custom domain for GitHub Pages
         const GITHUB_PAGES_REPO_URL = 'https://projectglyphmotion.studio/';
         const VIDEOS_JSON_PATH = 'videos.json';
-        const POLLING_INTERVAL_VIDEOS = 10000; // Poll videos.json every 10 seconds
+        const POLLING_INTERVAL_VIDEOS = 120000; // Passive poll every 2 minutes
+        const AGGRESSIVE_POLL_INTERVAL_VIDEOS = 2000; // Fast poll after processing completion
+        const AGGRESSIVE_POLL_MAX_ATTEMPTS = 90; // 3 minutes max at 2s interval
         const POLLING_INTERVAL_STATUS = 2000; // Poll live status every 2 seconds
         const POLLING_INTERVAL_SERVER_HEALTH = 5000; // Poll server health every 5 seconds (new)
+        const POLLING_INTERVAL_STATUS_FALLBACK = 15000; // Used only when SSE is unavailable
 
         // --- AUTO-DETECT LOCAL DEVELOPMENT vs PRODUCTION ---
         // Detects if running on localhost/127.0.0.1 and uses local backend
@@ -2926,6 +2929,7 @@
 
         const LOCAL_API_ENDPOINT = NGROK_PUBLIC_URL + '/process_web_video';
         const LOCAL_STATUS_ENDPOINT = NGROK_PUBLIC_URL + '/status';
+        const LOCAL_STATUS_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/status';
         const LOCAL_DELETE_ENDPOINT = NGROK_PUBLIC_URL + '/delete_video'; // New endpoint for deletion
         const LOCAL_COMMIT_INFO_ENDPOINT = NGROK_PUBLIC_URL + '/get_github_commit_info'; // New endpoint for commit info
         const LOCAL_LOGOUT_ENDPOINT = NGROK_PUBLIC_URL + '/logout'; // New endpoint for logout
@@ -2935,6 +2939,15 @@
 
         let lastFetchedVideos = [];
         let lastDeleteStatusShown = '';
+        let statusEventSource = null;
+        let statusFallbackIntervalRef = null;
+        let videosJsonETag = null;
+        let videosPollInFlight = false;
+        let videosPollingTimerRef = null;
+        let isAggressivePollingActive = false;
+        let aggressivePollAttempts = 0;
+        const warmedThumbnailUrls = new Set();
+        let lastVideosSignature = '';
         // Preload saved layout preference
         let isThreeColumnLayout = localStorage.getItem('isThreeColumnLayout') !== null 
             ? JSON.parse(localStorage.getItem('isThreeColumnLayout')) 
@@ -3132,7 +3145,7 @@
         thumbnailPlaceholder.setAttribute('data-file-id', googleDriveFileId);
         const thumbnailUrl = googleDriveFileId ? `https://drive.google.com/thumbnail?id=${googleDriveFileId}` : `/images/thumbnail_fallback.jpg`;
         thumbnailPlaceholder.innerHTML = `
-            <img src="${thumbnailUrl}" alt="Video thumbnail" class="w-full h-full object-cover rounded-lg"
+            <img src="${thumbnailUrl}" alt="Video thumbnail" class="w-full h-full object-cover rounded-lg" loading="lazy" decoding="async"
                  onerror="this.onerror=null;this.src='/images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
                             <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </div>
@@ -3233,9 +3246,9 @@
                 noVideosMessage.classList.add('hidden');
             }
 
-            videos.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            const sortedVideos = [...videos].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-            videos.forEach(video => {
+            sortedVideos.forEach(video => {
                 /* Generate a unique ID for each video card based on its Google Drive File ID */
                 const videoCardId = `video-${video.googleDriveFileId}`;
                 const videoCard = document.createElement('div');
@@ -3260,6 +3273,7 @@
                              data-file-id="${video.googleDriveFileId}">
                             <img src="${thumbnailUrl}" 
                                  alt="Video thumbnail for ${video.title || 'Processed Video'}" 
+                                 loading="lazy" decoding="async"
                                  onerror="this.onerror=null;this.src='/images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
                                 <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                             </div>
@@ -3376,32 +3390,74 @@
             }
         }
 
+        function getVideosSignature(videos) {
+            if (!Array.isArray(videos)) return '';
+            return videos
+                .map(v => `${v?.googleDriveFileId || ''}|${v?.timestamp || ''}|${v?.commitSha || ''}`)
+                .join('||');
+        }
+
         async function fetchVideos() {
-            const url = `${GITHUB_PAGES_REPO_URL}${VIDEOS_JSON_PATH}?t=${new Date().getTime()}`;
+            const url = `${GITHUB_PAGES_REPO_URL}${VIDEOS_JSON_PATH}`;
             try {
-                const response = await fetch(url);
+                const headers = {};
+                if (videosJsonETag) {
+                    headers['If-None-Match'] = videosJsonETag;
+                }
+
+                const response = await fetch(url, {
+                    cache: 'no-cache',
+                    headers
+                });
+
+                if (response.status === 304) {
+                    return { videos: lastFetchedVideos, changed: false, signature: lastVideosSignature };
+                }
+
                 if (!response.ok) {
                     if (response.status === 404) {
                         console.warn(`${VIDEOS_JSON_PATH} not found at ${url}. This is normal if no videos have been processed yet.`);
-                        return [];
+                        return { videos: lastFetchedVideos, changed: false, signature: lastVideosSignature };
                     }
                     throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
                 }
+
+                const etagHeader = response.headers.get('etag');
+                if (etagHeader) {
+                    videosJsonETag = etagHeader;
+                }
+
                 const videos = await response.json();
-                return videos;
+                const signature = getVideosSignature(videos);
+                const changed = signature !== lastVideosSignature;
+                return { videos, changed, signature };
             }
             catch (error) {
                 console.error('Error fetching videos.json:', error.message);
-                showError(`Failed to load processed videos. Please check the console for details and ensure your GitHub Pages URL is correct.`);
-                return [];
+                return { videos: lastFetchedVideos, changed: false, signature: lastVideosSignature };
             }
         }
 
         async function pollForNewVideos() {
-            const currentVideos = await fetchVideos();
-            if (JSON.stringify(currentVideos) !== JSON.stringify(lastFetchedVideos)) {
+            if (videosPollInFlight) {
+                return false;
+            }
+
+            videosPollInFlight = true;
+            try {
+                const result = await fetchVideos();
+                if (!result || !Array.isArray(result.videos)) {
+                    return false;
+                }
+
+                const currentVideos = result.videos;
+                if (!result.changed) {
+                    return false;
+                }
+
                 console.log('New videos detected! Updating gallery.');
                 lastFetchedVideos = currentVideos; /* Update before rendering to prevent re-render loop */
+                lastVideosSignature = result.signature || getVideosSignature(currentVideos);
                 
                 /* Before rendering new videos, stop any playing video */
                 if (currentlyPlayingVideoElement) {
@@ -3452,10 +3508,176 @@
                         history.replaceState(null, '', window.location.pathname + window.location.search);
                     }
                 }
+
+                warmThumbnailCache(currentVideos);
+                return true;
+            } finally {
+                videosPollInFlight = false;
             }
         }
 
-        /* Function to poll for live processing status */
+        async function warmThumbnailCache(videos) {
+            if (!('caches' in window) || !Array.isArray(videos) || videos.length === 0) {
+                return;
+            }
+
+            try {
+                const cache = await caches.open('glyphmotion-thumbnails-v1');
+                const candidates = videos.slice(0, 24); // warm only top videos to keep it light
+
+                for (const video of candidates) {
+                    if (!video || !video.googleDriveFileId) continue;
+
+                    const thumbnailUrl = `https://drive.google.com/thumbnail?id=${video.googleDriveFileId}`;
+                    if (warmedThumbnailUrls.has(thumbnailUrl)) continue;
+
+                    warmedThumbnailUrls.add(thumbnailUrl);
+
+                    try {
+                        const cached = await cache.match(thumbnailUrl);
+                        if (cached) continue;
+
+                        const response = await fetch(thumbnailUrl, {
+                            mode: 'no-cors',
+                            cache: 'force-cache'
+                        });
+
+                        if (response && (response.ok || response.type === 'opaque')) {
+                            await cache.put(thumbnailUrl, response.clone());
+                        }
+                    } catch {
+                        // Ignore thumbnail cache warm-up errors; normal img fallback still applies.
+                    }
+                }
+            } catch {
+                // Ignore cache API failures silently.
+            }
+        }
+
+        function scheduleNextVideosPoll() {
+            if (isAggressivePollingActive) {
+                return;
+            }
+            videosPollingTimerRef = setTimeout(async () => {
+                await pollForNewVideos();
+                scheduleNextVideosPoll();
+            }, POLLING_INTERVAL_VIDEOS);
+        }
+
+        function startVideosPollingLoop() {
+            if (videosPollingTimerRef) {
+                clearTimeout(videosPollingTimerRef);
+            }
+            scheduleNextVideosPoll();
+        }
+
+        function stopVideosPollingLoop() {
+            if (videosPollingTimerRef) {
+                clearTimeout(videosPollingTimerRef);
+                videosPollingTimerRef = null;
+            }
+        }
+
+        function startAggressiveVideosPolling() {
+            if (isAggressivePollingActive) return;
+
+            isAggressivePollingActive = true;
+            aggressivePollAttempts = 0;
+            stopVideosPollingLoop();
+
+            if (aggressivePollIntervalRef) {
+                clearInterval(aggressivePollIntervalRef);
+            }
+
+            aggressivePollIntervalRef = setInterval(async () => {
+                aggressivePollAttempts += 1;
+
+                const changed = await pollForNewVideos();
+                if (changed) {
+                    stopAggressiveVideosPolling();
+                    return;
+                }
+
+                if (aggressivePollAttempts >= AGGRESSIVE_POLL_MAX_ATTEMPTS) {
+                    stopAggressiveVideosPolling();
+                }
+            }, AGGRESSIVE_POLL_INTERVAL_VIDEOS);
+        }
+
+        function stopAggressiveVideosPolling() {
+            if (aggressivePollIntervalRef) {
+                clearInterval(aggressivePollIntervalRef);
+                aggressivePollIntervalRef = null;
+            }
+            isAggressivePollingActive = false;
+            aggressivePollAttempts = 0;
+            startVideosPollingLoop();
+        }
+
+        function applyProcessingStatusData(data) {
+            const currentStatus = (data.status || '').trim();
+
+            frameRestrictionEnabled = data.frameRestrictionEnabled;
+            frameRestrictionValue = data.frameRestrictionValue;
+
+            if (frameRestrictionEnabled) {
+                frameRestrictionMessage.textContent = `Video processing is restricted to videos with up to ${frameRestrictionValue} frames. Larger videos will be rejected due to excessive resource usage. Why should you only have fun, let others have fun too.`;
+                frameRestrictionInfo.classList.remove('hidden');
+            } else {
+                frameRestrictionInfo.classList.add('hidden');
+            }
+
+            const isDeleteStatus = currentStatus.includes('Successfully deleted video') || currentStatus.includes('Failed to delete video');
+
+            if (currentStatus) {
+                if (isDeleteStatus && lastDeleteStatusShown === currentStatus) {
+                    liveProcessingStatusDiv.classList.add('hidden');
+                } else {
+                    liveStatusMessage.textContent = currentStatus;
+                    liveProcessingStatusDiv.classList.remove('hidden');
+
+                    if (isDeleteStatus) {
+                        lastDeleteStatusShown = currentStatus;
+                        setTimeout(() => {
+                            if (liveStatusMessage.textContent === currentStatus) {
+                                liveProcessingStatusDiv.classList.add('hidden');
+                            }
+                        }, 3000);
+                    } else {
+                        lastDeleteStatusShown = '';
+                    }
+                }
+
+                if (currentStatus.includes('Object tracking and GitHub Pages update complete!') && !isUploadProgressBarRunning) {
+                    startProgressBar('upload');
+                    isUploadProgressBarRunning = true;
+                    startAggressiveVideosPolling();
+
+                    if (roiProcessingActive && !roiProcessingCompleteHandled) {
+                        roiProcessingCompleteHandled = true;
+                        triggerRoiCompletionAnimation();
+                    }
+                } else if (!currentStatus.includes('Object tracking and GitHub Pages update complete!') && isUploadProgressBarRunning) {
+                    isUploadProgressBarRunning = false;
+                }
+
+                // While processing is active, keep passive polling off to reduce load.
+                if (!isDeleteStatus && !currentStatus.includes('Object tracking and GitHub Pages update complete!')) {
+                    stopVideosPollingLoop();
+                }
+            } else {
+                liveProcessingStatusDiv.classList.add('hidden');
+                lastDeleteStatusShown = '';
+                isUploadProgressBarRunning = false;
+
+                // Resume passive polling once status clears, unless aggressive refresh is still in progress.
+                if (!isAggressivePollingActive) {
+                    startVideosPollingLoop();
+                }
+            }
+        }
+
+        /* Fallback only: fetch status when SSE is unavailable */
         async function pollForProcessingStatus() {
             try {
                 const response = await fetch(LOCAL_STATUS_ENDPOINT, { cache: 'no-store' });
@@ -3463,86 +3685,66 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                const currentStatus = (data.status || '').trim();
-                
-                // Update frame restriction values
-                frameRestrictionEnabled = data.frameRestrictionEnabled;
-                frameRestrictionValue = data.frameRestrictionValue;
-
-                if (frameRestrictionEnabled) {
-                    frameRestrictionMessage.textContent = `Video processing is restricted to videos with up to ${frameRestrictionValue} frames. Larger videos will be rejected due to excessive resource usage. Why should you only have fun, let others have fun too.`;
-                    frameRestrictionInfo.classList.remove('hidden');
-                } else {
-                    frameRestrictionInfo.classList.add('hidden');
-                }
-
-
-                const isDeleteStatus = currentStatus.includes('Successfully deleted video') || currentStatus.includes('Failed to delete video');
-
-                if (currentStatus) {
-                    if (isDeleteStatus && lastDeleteStatusShown === currentStatus) {
-                        liveProcessingStatusDiv.classList.add('hidden');
-                    } else {
-                        liveStatusMessage.textContent = currentStatus;
-                        liveProcessingStatusDiv.classList.remove('hidden');
-
-                        if (isDeleteStatus) {
-                            lastDeleteStatusShown = currentStatus;
-                            setTimeout(() => {
-                                if (liveStatusMessage.textContent === currentStatus) {
-                                    liveProcessingStatusDiv.classList.add('hidden');
-                                }
-                            }, 3000);
-                        } else {
-                            lastDeleteStatusShown = '';
-                        }
-                    }
-
-                    /* Check for the specific success message to start the upload progress bar */
-                    if (currentStatus.includes('Object tracking and GitHub Pages update complete!') && !isUploadProgressBarRunning) {
-                        startProgressBar('upload');
-                        isUploadProgressBarRunning = true; /* Set flag to prevent re-triggering */
-
-                        /* Clear any existing aggressive poll interval to prevent stacking */
-                        if (aggressivePollIntervalRef) {
-                            clearInterval(aggressivePollIntervalRef);
-                            aggressivePollIntervalRef = null;
-                        }
-                        
-                        /* Immediately poll for new videos, then aggressively retry every 3s for up to
-                           3 minutes to handle GitHub Pages CDN propagation delay (can be 1-3 min). */
-                        pollForNewVideos();
-                        let _aggressivePollCount = 0;
-                        aggressivePollIntervalRef = setInterval(async () => {
-                            _aggressivePollCount++;
-                            await pollForNewVideos();
-                            if (_aggressivePollCount >= 60) { /* 60 × 3s = 3 minutes max */
-                                clearInterval(aggressivePollIntervalRef);
-                                aggressivePollIntervalRef = null;
-                            }
-                        }, 3000);
-                        
-                        /* Trigger cinematic ROI fade-out if ROI was used */
-                        if (roiProcessingActive && !roiProcessingCompleteHandled) {
-                            roiProcessingCompleteHandled = true;
-                            triggerRoiCompletionAnimation();
-                        }
-                    } else if (!currentStatus.includes('Object tracking and GitHub Pages update complete!') && isUploadProgressBarRunning) {
-                        /* Reset flag if status changes from the completion message (e.g., a new process starts) */
-                        isUploadProgressBarRunning = false;
-                    }
-
-                } else {
-                    liveProcessingStatusDiv.classList.add('hidden');
-                    lastDeleteStatusShown = '';
-                    isUploadProgressBarRunning = false; /* Reset if status is empty/not present */
-                }
+                applyProcessingStatusData(data);
             } catch (error) {
                 console.error('Error fetching live status:', error.message);
-                liveStatusMessage.textContent = 'Error fetching live status. Is the local server running?';
-                liveProcessingStatusDiv.classList.remove('hidden'); /* Show error status */
-                isUploadProgressBarRunning = false; /* Reset on error */
+                liveStatusMessage.textContent = 'Realtime status connection unavailable. Retrying...';
+                liveProcessingStatusDiv.classList.remove('hidden');
+                isUploadProgressBarRunning = false;
             }
+        }
+
+        function startStatusFallbackPolling() {
+            if (statusFallbackIntervalRef) return;
+            pollForProcessingStatus();
+            checkServerHealth();
+            statusFallbackIntervalRef = setInterval(() => {
+                pollForProcessingStatus();
+                checkServerHealth();
+            }, POLLING_INTERVAL_STATUS_FALLBACK);
+        }
+
+        function stopStatusFallbackPolling() {
+            if (!statusFallbackIntervalRef) return;
+            clearInterval(statusFallbackIntervalRef);
+            statusFallbackIntervalRef = null;
+        }
+
+        function setupStatusEventStream() {
+            if (!window.EventSource) {
+                console.warn('EventSource unsupported in this browser, using fallback polling.');
+                startStatusFallbackPolling();
+                return;
+            }
+
+            if (statusEventSource) {
+                statusEventSource.close();
+            }
+
+            statusEventSource = new EventSource(LOCAL_STATUS_EVENTS_ENDPOINT);
+
+            statusEventSource.onopen = () => {
+                serverStatusText.textContent = 'Online';
+                statusDot.classList.remove('offline', 'checking');
+                statusDot.classList.add('online');
+                stopStatusFallbackPolling();
+            };
+
+            statusEventSource.addEventListener('status', (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    applyProcessingStatusData(data);
+                } catch (e) {
+                    console.error('Invalid SSE status payload:', e.message);
+                }
+            });
+
+            statusEventSource.onerror = () => {
+                serverStatusText.textContent = 'Offline';
+                statusDot.classList.remove('online', 'checking');
+                statusDot.classList.add('offline');
+                startStatusFallbackPolling();
+            };
         }
 
         /* New function to check backend server health */
@@ -4791,13 +4993,16 @@
 
             /* View mode and layout preferences already preloaded at initialization */
 
-            lastFetchedVideos = await fetchVideos();
+            const initialVideosResult = await fetchVideos();
+            if (initialVideosResult && Array.isArray(initialVideosResult.videos)) {
+                lastFetchedVideos = initialVideosResult.videos;
+                lastVideosSignature = initialVideosResult.signature || getVideosSignature(lastFetchedVideos);
+            }
             renderVideos(lastFetchedVideos);
+            warmThumbnailCache(lastFetchedVideos);
             updateVideoGalleryLayout(); /* Set initial video gallery layout */
-            setInterval(pollForNewVideos, POLLING_INTERVAL_VIDEOS);
-            setInterval(pollForProcessingStatus, POLLING_INTERVAL_STATUS); /* Start polling for live status */
-            setInterval(checkServerHealth, POLLING_INTERVAL_SERVER_HEALTH); /* Start polling for server health */
-            checkServerHealth(); /* Initial check on load */
+            startVideosPollingLoop();
+            setupStatusEventStream();
             
             // Add initial status dot class for "checking"
             statusDot.classList.add('checking');
