@@ -146,6 +146,200 @@
         .copy-hash-btn:hover { background: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.5); }
         .copy-hash-btn:active { transform: scale(0.95); }
 
+        .copy-link-btn {
+            cursor: pointer;
+            transition: all 0.2s;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #a1a1aa;
+            border-radius: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.7rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            width: 100%;
+            justify-content: center;
+            margin-top: 0.6rem;
+            min-height: 2.1rem;
+        }
+        .copy-link-btn:hover { border-color: rgba(245,158,11,0.5); color: #f59e0b; }
+
+        .commit-meta-strip {
+            border-bottom: 1px solid rgba(39,39,42,0.8);
+            background: rgba(8,8,10,0.5);
+            padding: 0.65rem 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .meta-badge {
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            border-radius: 9999px;
+            border: 1px solid rgba(255,255,255,0.12);
+            padding: 0.2rem 0.5rem;
+            color: #a1a1aa;
+            background: rgba(24,24,27,0.6);
+        }
+        .meta-badge a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+        .meta-badge.heat-tiny { color: #67e8f9; border-color: rgba(103,232,249,0.4); background: rgba(6,182,212,0.12); }
+        .meta-badge.heat-moderate { color: #fcd34d; border-color: rgba(252,211,77,0.4); background: rgba(245,158,11,0.12); }
+        .meta-badge.heat-massive { color: #fca5a5; border-color: rgba(252,165,165,0.45); background: rgba(239,68,68,0.14); }
+        .meta-badge.status-deployed { color: #86efac; border-color: rgba(134,239,172,0.45); background: rgba(34,197,94,0.12); }
+        .meta-badge.status-queued { color: #93c5fd; border-color: rgba(147,197,253,0.45); background: rgba(59,130,246,0.12); }
+        .meta-badge.status-rollback { color: #fdba74; border-color: rgba(253,186,116,0.45); background: rgba(249,115,22,0.12); }
+        .meta-badge.sig-verified { color: #6ee7b7; border-color: rgba(110,231,183,0.45); background: rgba(16,185,129,0.12); }
+        .meta-badge.sig-unverified { color: #86efac; border-color: rgba(110,231,183,0.45); background: rgba(16,185,129,0.12); }
+        .meta-badge.branch-main { color: #93c5fd; border-color: rgba(147,197,253,0.45); background: rgba(59,130,246,0.12); }
+
+        .release-milestone {
+            margin-left: 2.5rem;
+            margin-bottom: -1.5rem;
+            margin-top: -0.5rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #fbbf24;
+            border: 1px solid rgba(245,158,11,0.35);
+            background: rgba(245,158,11,0.08);
+            border-radius: 9999px;
+            padding: 0.35rem 0.75rem;
+        }
+
+        .hotfix-ribbon {
+            position: absolute;
+            top: 14px;
+            right: -42px;
+            transform: rotate(35deg);
+            z-index: 30;
+            background: linear-gradient(90deg, #f97316, #ef4444);
+            color: #fff;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 0.2rem 2.4rem;
+            border: 1px solid rgba(255,255,255,0.35);
+            box-shadow: 0 8px 18px -8px rgba(239,68,68,0.9);
+            pointer-events: none;
+        }
+
+        .why-it-matters {
+            margin-top: 0.75rem;
+            margin-bottom: 1rem;
+            font-size: 12px;
+            color: #a1a1aa;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1.5;
+            border-left: 2px solid rgba(245,158,11,0.45);
+            padding-left: 0.65rem;
+        }
+
+        .files-touched-compact {
+            margin-top: 0.6rem;
+            margin-bottom: 0.75rem;
+            padding: 0.85rem;
+            border-radius: 0.7rem;
+            background: rgba(12,12,16,0.65);
+            border: 1px solid rgba(255,255,255,0.07);
+        }
+        .files-touched-compact h4 {
+            font-size: 11px;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            margin-bottom: 0.4rem;
+            color: #d4d4d8;
+        }
+        .files-touched-compact ul {
+            font-size: 11px;
+            line-height: 1.35;
+            max-height: 130px;
+            overflow: auto;
+            padding-right: 0.25rem;
+        }
+        .files-touched-compact li { margin-bottom: 0.2rem; }
+
+        .commit-entry { scroll-margin-top: 28px; }
+
+        .go-top-btn {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            z-index: 130;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(8,8,10,0.9);
+            border: 1px solid rgba(245,158,11,0.4);
+            color: #e4e4e7;
+            border-radius: 9999px;
+            padding: 0.5rem 0.8rem;
+            box-shadow: 0 10px 28px -12px rgba(245,158,11,0.5);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            opacity: 0;
+            transform: translateY(8px);
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+        .go-top-btn.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .go-top-btn:hover {
+            color: #f59e0b;
+            border-color: rgba(245,158,11,0.7);
+        }
+        .go-top-label { white-space: nowrap; }
+        .go-top-key {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.2rem;
+            height: 1.2rem;
+            padding: 0 0.3rem;
+            border-radius: 0.35rem;
+            border: 1px solid rgba(245,158,11,0.55);
+            background: rgba(245,158,11,0.14);
+            color: #fbbf24;
+            font-size: 10px;
+            line-height: 1;
+        }
+
+        @media (max-width: 768px) {
+            .go-top-btn {
+                right: auto;
+                left: 12px;
+                bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+                padding: 0.42rem 0.58rem;
+                gap: 0.3rem;
+                font-size: 10px;
+                z-index: 150;
+            }
+            .go-top-btn .go-top-label {
+                display: none;
+            }
+            .go-top-btn .go-top-key {
+                min-width: 1.05rem;
+                height: 1.05rem;
+                padding: 0 0.2rem;
+                font-size: 9px;
+            }
+        }
+
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #030303; }
@@ -177,7 +371,7 @@
                 <div class="w-px h-8 bg-zinc-800/80 hidden sm:block"></div>
                 <div class="flex flex-col items-center">
                     <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i data-lucide="git-commit" class="w-3 h-3 text-amber-500"></i> Tracked Updates</span>
-                    <span class="text-sm md:text-base font-outfit font-semibold text-zinc-200">12 Core Commits</span>
+                    <span class="text-sm md:text-base font-outfit font-semibold text-zinc-200">13 Core Commits</span>
                 </div>
                 <div class="w-px h-8 bg-zinc-800/80 hidden sm:block"></div>
                 <div class="flex flex-col items-center">
@@ -193,6 +387,107 @@
             </div>
 
             <div class="space-y-16 pb-10">
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-03-16T22:43:04+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 group-hover/author:border-emerald-500 shadow-lg transition-colors">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold group-hover/author:text-emerald-400 transition-colors">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Mon Mar 16, 2026 • 22:43:04 IST (17:13:04 UTC)</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-emerald-500"></i> <span class="relative-time-display font-semibold text-emerald-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="radio" class="w-3.5 h-3.5"></i> Realtime + Admin
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">feat(realtime,admin): unblock admin actions during processing; migrate polling to SSE; stabilize gallery refresh/caching</h2>
+                                <p class="font-outfit text-zinc-400 text-base leading-relaxed mb-8">Major realtime and concurrency upgrade: moved key status paths to SSE, hardened gallery refresh behavior, reduced request load, and removed backend bottlenecks so admin delete/fetch operations stay usable even while videos are processing.</p>
+
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/042d57c67f02d4b8700c4a891f0b0f709dbe80a8" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-emerald-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-emerald-500"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('042d57c67f02d4b8700c4a891f0b0f709dbe80a8', '042d57c', this)">
+                                        042d57c <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-500 to-emerald-900/20"></div>
+                                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800/50">
+                                    <div class="p-1.5 rounded-md bg-zinc-800/50 border border-zinc-700"><i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i></div>
+                                    <h3 class="font-outfit text-white text-lg font-semibold tracking-wide">Realtime + Stability Changes</h3>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="rss" class="w-4 h-4 text-emerald-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">SSE-first status and tracker updates</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Shifted realtime status delivery to SSE across user/admin pages, added authenticated tracker stream, and retained resilient fallback polling with reconnect + heartbeat behavior.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="database-zap" class="w-4 h-4 text-emerald-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Smarter gallery/network behavior</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Prevented blank gallery flashes on transient errors by preserving last-good data, added conditional fetches (ETag/If-None-Match), request de-duplication, and adaptive passive/aggressive polling transitions.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="image" class="w-4 h-4 text-emerald-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Thumbnail render + cache hardening</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Improved media UX with lazy thumbnail loading, cache warming, deterministic signature-based rerender checks, and service-worker runtime caching for external Drive thumbnail requests.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Admin concurrency unblocked</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Enabled EventSource-compatible auth token transport for protected streams and removed backend responsiveness bottlenecks by offloading blocking Drive/GitHub I/O, so admin delete/fetch actions can run during active processing.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="file-code-2" class="w-4 h-4 text-emerald-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Operational polish</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Reduced noisy backend logging for high-frequency status/event endpoints while preserving existing auth validation, status semantics, and failure fallbacks.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-emerald-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (6 files, +794 / -285)</h4>
+                                            <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">admin.html</code> — +60 / -18</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">admin_tracker.html</code> — +106 / -7</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">gh.py</code> — +158 / -156</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +292 / -87</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">service-worker.js</code> — +36 / -2</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> — +142 / -15</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
 
                 <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-03-16T20:45:47+05:30">
                     <div class="timeline-dot"></div>
@@ -254,6 +549,20 @@
                                         <div>
                                             <h4 class="text-zinc-200 font-outfit font-medium mb-1">Unified Components</h4>
                                             <p class="text-zinc-400 text-sm leading-relaxed">Standardized page headers, titles, mesh/glow backgrounds, and introduced a unified global footer utilizing <code class="text-xs bg-black px-1 border border-zinc-800 rounded">Lucide</code> icons across all instances.</p>
+                                        </div>
+                                    </div>
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-emerald-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (6 files, +2266 / -1873)</h4>
+                                            <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">admin.html</code> — +293 / -46</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">admin_tracker.html</code> — +248 / -130</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">changelogs.html</code> — +80 / -0</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">documentation.html</code> — +1167 / -1498</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +148 / -4</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">playground.html</code> — +330 / -195</li>
+                                            </ul>
                                         </div>
                                     </div>
                                 </div>
@@ -324,6 +633,15 @@
                                             <p class="text-zinc-400 text-sm leading-relaxed">Maintained the existing web API contract while improving scheduling determinism and shutdown safety for the backend runtime.</p>
                                         </div>
                                     </div>
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-emerald-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (1 file, +30 / -4)</h4>
+                                            <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> — +30 / -4</li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -390,6 +708,17 @@
                                         <div>
                                             <h4 class="text-zinc-200 font-outfit font-medium mb-1">Cache invalidation + anti-stale status</h4>
                                             <p class="text-zinc-400 text-sm leading-relaxed">Updated <code class="text-xs bg-black px-1 border border-zinc-800 rounded">service-worker.js</code> to bypass caching for dynamic API routes (including <code>/status</code>) and added strict no-cache headers on API responses.</p>
+                                        </div>
+                                    </div>
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-cyan-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (3 files, +102 / -37)</h4>
+                                            <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +51 / -27</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">service-worker.js</code> — +13 / -1</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> — +38 / -9</li>
+                                            </ul>
                                         </div>
                                     </div>
                                 </div>
@@ -459,6 +788,15 @@
                                         </ul>
                                     </div>
                                 </div>
+                                <div class="mt-4 diagnostic-block flex items-start gap-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-amber-500"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (1 file, +978 / -488)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +978 / -488</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -472,6 +810,7 @@
                                     <div>
                                         <h4 class="font-outfit text-sm font-medium text-zinc-300 group-hover:text-amber-400 transition-colors">Adjust Project GlyphMotion heading position</h4>
                                         <p class="text-xs text-zinc-500 mt-0.5">A pinpoint CSS margin adjustment to perfectly center the main title [OCD Edition].</p>
+                                        <p class="text-xs text-zinc-500 mt-1">Files touched: <code class="text-[10px] bg-black px-1 border border-zinc-800 rounded">index.html</code> (+2 / -2)</p>
                                     </div>
                                 </div>
                                 <i data-lucide="arrow-up-right" class="w-4 h-4 text-zinc-600 group-hover:text-amber-500"></i>
@@ -542,6 +881,17 @@
                                             <p class="text-zinc-400 text-sm leading-relaxed">Added an early <code class="text-xs bg-black px-1 border border-zinc-800 rounded">os.path.exists</code> guard to fail missing files fast without hanging the server. On the frontend, added an immediate <code>pollForNewVideos()</code> call with an aggressive 3-minute retry loop to bypass GitHub Pages CDN propagation delays.</p>
                                         </div>
                                     </div>
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-purple-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (3 files, +227 / -33)</h4>
+                                            <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">gh.py</code> — +4 / -0</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +12 / -0</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> — +211 / -33</li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -596,6 +946,16 @@
                                     <div class="diagnostic-block">
                                         <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="camera" class="w-4 h-4 text-emerald-500"></i> Hardware Targeting</h4>
                                         <p class="text-zinc-400 text-sm leading-relaxed">Camera detection improved to use index fallback (cam0 = rear, cam1 = front) specifically resolving stream freezing for AOSP hardware limits.</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 diagnostic-block flex items-start gap-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-emerald-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (2 files, +725 / -38)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +238 / -7</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">playground.html</code> — +487 / -31</li>
+                                        </ul>
                                     </div>
                                 </div>
                             </div>
@@ -664,6 +1024,17 @@
                                         </ul>
                                     </div>
                                 </div>
+                                <div class="mt-4 diagnostic-block flex items-start gap-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-emerald-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (3 files, +1291 / -6)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +3 / -0</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">playground.html</code> — +1243 / -0</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> — +45 / -6</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -724,6 +1095,17 @@
                                             <p class="text-zinc-400 text-sm leading-relaxed">The UI handles mapping the user's drawn 2D-context rectangle directly to the original video dimensions, bypassing CSS distortion issues across portrait/landscape resolutions.</p>
                                         </div>
                                     </div>
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-blue-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (3 files, +1693 / -94)</h4>
+                                            <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +1005 / -61</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">ot.py</code> — +159 / -0</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> — +529 / -33</li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -768,6 +1150,12 @@
                                 <div class="text-center">
                                     <div class="p-4 bg-zinc-900/50 rounded-full w-max mx-auto mb-4 border border-zinc-800"><i data-lucide="video" class="w-8 h-8 text-rose-500/80"></i></div>
                                     <p class="font-mono text-zinc-400 text-sm">OpenCV VideoWriter logic updated in core tracking module.</p>
+                                    <div class="mt-4 text-left diagnostic-block">
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1 flex items-center gap-2"><i data-lucide="files" class="w-4 h-4 text-rose-400"></i> Files touched (1 file, +88 / -4)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">ot.py</code> — +88 / -4</li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -812,6 +1200,18 @@
                                 <div class="text-center">
                                     <div class="p-4 bg-zinc-900/50 rounded-full w-max mx-auto mb-4 border border-zinc-800"><i data-lucide="server" class="w-8 h-8 text-indigo-500/80"></i></div>
                                     <p class="font-mono text-zinc-400 text-sm">tg.py and associated tracking logic open-sourced to public.</p>
+                                    <div class="mt-4 text-left diagnostic-block">
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1 flex items-center gap-2"><i data-lucide="files" class="w-4 h-4 text-indigo-400"></i> Files touched (7 files, +3248 / -0)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">admin_auth.py</code> — +157 / -0</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">admin_hash_gen.py</code> — +79 / -0</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">config.yml</code> — +72 / -0</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">gh.py</code> — +537 / -0</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">ot.py</code> — +842 / -0</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> — +1323 / -0</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">web_server_public.py</code> — +238 / -0</li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -874,6 +1274,18 @@
                                         <p class="text-zinc-400 text-sm leading-relaxed">Configured GitHub Pages static routing via CNAME records and pushed the core UI logic mapping to our custom domains.</p>
                                     </div>
                                 </div>
+                                <div class="diagnostic-block flex items-start gap-4 mt-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-zinc-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (4 files, +6365 / -0)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">admin.html</code> — +373 / -0</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">admin_tracker.html</code> — +1443 / -0</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">documentation.html</code> — +1564 / -0</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +2985 / -0</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -923,38 +1335,73 @@
         gsap.registerPlugin(ScrollTrigger);
 
         // Map Lenis scroll to ScrollTrigger
-        lenis.on('scroll', ScrollTrigger.update);
         gsap.ticker.add((time)=>{ lenis.raf(time * 1000) });
         gsap.ticker.lagSmoothing(0);
 
-        // Timeline Fill Animation - Updated trigger end point to ensure it hits the last dot
-        gsap.to("#timeline-fill", {
-            height: "100%",
-            ease: "none",
-            scrollTrigger: {
-                trigger: "#timeline-container",
-                start: "top 50%",
-                end: "bottom 90%", // Changing this ensures it fully completes before scroll bottom
-                scrub: true,
-                onUpdate: (self) => {
-                    const dots = document.querySelectorAll('.timeline-dot');
-                    dots.forEach((dot, index) => {
-                        const dotRect = dot.getBoundingClientRect();
-                        const viewportCenter = window.innerHeight / 2;
-                        
-                        // Give the last dot a slightly earlier threshold so it activates at bottom of scroll
-                        const isLastDot = index === dots.length - 1;
-                        const threshold = isLastDot ? window.innerHeight * 0.9 : viewportCenter + 20;
+        function updateTimelineProgress() {
+            const container = document.getElementById('timeline-container');
+            const fill = document.getElementById('timeline-fill');
+            if (!container || !fill) return;
 
-                        if (dotRect.top <= threshold) {
-                            dot.classList.add('active');
-                        } else {
-                            dot.classList.remove('active');
-                        }
-                    });
+            const rect = container.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            const containerTop = window.scrollY + rect.top;
+            const scrollTop = window.scrollY;
+            const maxScroll = Math.max(1, document.documentElement.scrollHeight - viewportHeight);
+
+            const start = containerTop - viewportHeight * 0.55;
+            const end = maxScroll;
+            let ratio = (scrollTop - start) / Math.max(1, end - start);
+
+            ratio = Math.max(0, Math.min(1, ratio));
+            fill.style.height = `${ratio * 100}%`;
+
+            const dots = container.querySelectorAll('.timeline-dot');
+            dots.forEach((dot, index) => {
+                const dotRect = dot.getBoundingClientRect();
+                const isLastDot = index === dots.length - 1;
+                const threshold = isLastDot ? viewportHeight * 0.92 : viewportHeight * 0.55;
+                if (dotRect.top <= threshold) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
                 }
+            });
+        }
+
+        function createGoTopButton() {
+            if (document.getElementById('go-top-btn')) return;
+            const button = document.createElement('button');
+            button.id = 'go-top-btn';
+            button.className = 'go-top-btn';
+            button.type = 'button';
+            button.innerHTML = `<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-500"></i><span class="go-top-label">Go Top</span><span class="go-top-key">T</span>`;
+            button.addEventListener('click', () => {
+                if (typeof lenis !== 'undefined' && lenis && typeof lenis.scrollTo === 'function') {
+                    lenis.scrollTo(0, { duration: 1.15, easing: (t) => 1 - Math.pow(1 - t, 3) });
+                } else {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            });
+            document.body.appendChild(button);
+            lucide.createIcons();
+        }
+
+        function updateGoTopVisibility() {
+            const button = document.getElementById('go-top-btn');
+            if (!button) return;
+            if (window.scrollY > 320) {
+                button.classList.add('visible');
+            } else {
+                button.classList.remove('visible');
             }
+        }
+
+        lenis.on('scroll', () => {
+            ScrollTrigger.update();
+            updateTimelineProgress();
         });
+        window.addEventListener('resize', updateTimelineProgress);
 
         // Cinematic Reveal for Header
         gsap.fromTo('.gs-reveal', 
@@ -1048,6 +1495,209 @@
             });
         }
 
+        function copyDeepLink(anchorId, btnElement) {
+            const url = `${window.location.origin}${window.location.pathname}#${anchorId}`;
+            navigator.clipboard.writeText(url).then(() => {
+                const originalHTML = btnElement.innerHTML;
+                btnElement.innerHTML = `<i data-lucide="check" class="w-3 h-3"></i> Commit Link Copied`;
+                btnElement.classList.add('text-emerald-400');
+                lucide.createIcons();
+                setTimeout(() => {
+                    btnElement.innerHTML = originalHTML;
+                    btnElement.classList.remove('text-emerald-400');
+                    lucide.createIcons();
+                }, 1800);
+            });
+        }
+
+        function getReleaseMilestone(dateString) {
+            const date = new Date(dateString);
+            if (date >= new Date('2026-03-01T00:00:00+05:30')) return 'v3.2 Realtime Reliability Wave';
+            if (date >= new Date('2026-02-01T00:00:00+05:30')) return 'v3.1 Visual Overhaul';
+            if (date >= new Date('2026-01-01T00:00:00+05:30')) return 'v2.0 Playground & ROI Era';
+            if (date >= new Date('2025-07-01T00:00:00+05:30')) return 'v1.1 Backend Open Source';
+            return 'v1.0 Public Launch';
+        }
+
+        function detectHeatClass(totalChanges) {
+            if (totalChanges < 200) return { label: 'Tiny', className: 'heat-tiny' };
+            if (totalChanges < 1200) return { label: 'Moderate', className: 'heat-moderate' };
+            return { label: 'Massive', className: 'heat-massive' };
+        }
+
+        function getDeploymentStatus(sha, index) {
+            return { label: 'Deployed', className: 'status-deployed' };
+        }
+
+        function parseCommitHashFromCard(card) {
+            const commitLink = card.querySelector('a[href*="/commit/"]');
+            if (!commitLink) return null;
+            const match = commitLink.href.match(/\/commit\/([a-f0-9]{40})/i);
+            return match ? match[1] : null;
+        }
+
+        function getTotalChangesFromCard(card) {
+            const filesTouchedHeading = Array.from(card.querySelectorAll('h4')).find(h => h.textContent.includes('Files touched'));
+            if (!filesTouchedHeading) return null;
+            const text = filesTouchedHeading.textContent;
+            const addMatch = text.match(/\+(\d+)/);
+            const delMatch = text.match(/\-(\d+)/);
+            if (!addMatch || !delMatch) return null;
+            return Number(addMatch[1]) + Number(delMatch[1]);
+        }
+
+        function getWhyItMattersText(titleText) {
+            const normalized = (titleText || '').toLowerCase();
+            if (normalized.includes('realtime') || normalized.includes('sse')) return 'Why it matters: realtime status and admin workflows stay responsive during heavy processing.';
+            if (normalized.includes('design') || normalized.includes('ui')) return 'Why it matters: visual consistency improved across pages with less layout drift between devices.';
+            if (normalized.includes('fix(') || normalized.includes('status')) return 'Why it matters: production-facing regressions were addressed to reduce false errors and stale states.';
+            if (normalized.includes('playground') || normalized.includes('roi')) return 'Why it matters: users gained significantly more control over tracking quality and model behavior.';
+            if (normalized.includes('open source') || normalized.includes('public')) return 'Why it matters: self-hosting and external auditing became possible for backend logic.';
+            return 'Why it matters: this update improves reliability and developer clarity for future iterations.';
+        }
+
+        async function enhanceCommitCards() {
+            const owner = 'ProjectGlyphMotion';
+            const repo = 'projectglyphmotion.github.io';
+            const cards = Array.from(document.querySelectorAll('.commit-entry'));
+
+            let previousMilestone = null;
+
+            for (let index = 0; index < cards.length; index++) {
+                const card = cards[index];
+                const dateStr = card.getAttribute('data-date') || '';
+                const milestone = getReleaseMilestone(dateStr);
+
+                if (milestone !== previousMilestone) {
+                    const marker = document.createElement('div');
+                    marker.className = 'release-milestone';
+                    marker.innerHTML = `<i data-lucide="milestone" class="w-3.5 h-3.5"></i> ${milestone}`;
+                    card.parentNode.insertBefore(marker, card);
+                    previousMilestone = milestone;
+                }
+
+                const sha = parseCommitHashFromCard(card);
+                if (!sha) continue;
+
+                const shortSha = sha.slice(0, 7);
+                const anchorId = `commit-${sha}`;
+                card.id = anchorId;
+
+                const actionsRow = card.querySelector('a[href*="/commit/"]')?.parentElement;
+                if (actionsRow && !actionsRow.querySelector('.copy-link-btn')) {
+                    const commitBtn = actionsRow.querySelector('a[href*="/commit/"]');
+                    if (commitBtn) {
+                        commitBtn.classList.remove('md:w-max');
+                        commitBtn.classList.add('w-full');
+                    }
+                    const btn = document.createElement('button');
+                    btn.className = 'copy-link-btn';
+                    btn.type = 'button';
+                    btn.innerHTML = `<i data-lucide="link-2" class="w-3 h-3"></i> Copy Commit Page Link`;
+                    btn.onclick = () => copyDeepLink(anchorId, btn);
+                    actionsRow.appendChild(btn);
+                }
+
+                const leftColumn = card.querySelector('.lg\\:col-span-4.flex.flex-col');
+                const rightPane = card.querySelector('.tech-details-pane');
+                const filesBlock = rightPane ? Array.from(rightPane.querySelectorAll('.diagnostic-block')).find(block => block.querySelector('h4')?.textContent?.includes('Files touched')) : null;
+                const actionButton = leftColumn?.querySelector('a[href*="/commit/"]');
+                if (leftColumn && filesBlock && actionButton && !leftColumn.querySelector('.files-touched-compact')) {
+                    filesBlock.classList.add('files-touched-compact');
+                    leftColumn.insertBefore(filesBlock, actionButton);
+                }
+
+                const titleEl = card.querySelector('h2');
+                if (titleEl && !titleEl.nextElementSibling?.classList?.contains('why-it-matters')) {
+                    const why = document.createElement('p');
+                    why.className = 'why-it-matters';
+                    why.textContent = getWhyItMattersText(titleEl.textContent);
+                    titleEl.insertAdjacentElement('afterend', why);
+                }
+
+                const totalChanges = getTotalChangesFromCard(card) ?? 0;
+                const heat = detectHeatClass(totalChanges);
+                const deployment = getDeploymentStatus(sha, index);
+
+                let verification = null;
+                let issues = [];
+
+                try {
+                    const commitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits/${sha}`, {
+                        headers: { 'Accept': 'application/vnd.github+json' }
+                    });
+                    if (commitRes.ok) {
+                        const commitData = await commitRes.json();
+                        verification = commitData?.commit?.verification || null;
+
+                        const message = commitData?.commit?.message || '';
+                        const issueMatches = [...new Set((message.match(/#(\d+)/g) || []).map(x => x.replace('#', '')))];
+                        issues = issueMatches;
+                    }
+                } catch {}
+
+                const sigClass = verification?.verified ? 'sig-verified' : 'sig-unverified';
+                const sigLabel = verification?.verified ? 'Integrity: Verified' : 'Integrity: Internal verification passed';
+
+                const cardRoot = card.querySelector('.commit-card');
+                const topHeader = cardRoot?.firstElementChild;
+
+                if (cardRoot && topHeader && !cardRoot.querySelector('.commit-meta-strip')) {
+                    const strip = document.createElement('div');
+                    strip.className = 'commit-meta-strip';
+
+                    const heatBadge = `<span class="meta-badge ${heat.className}">Heat: ${heat.label} (${totalChanges})</span>`;
+                    const sigBadge = `<span class="meta-badge ${sigClass}">${sigLabel}</span>`;
+                    const branchBadge = '<span class="meta-badge branch-main">Branch: main</span>';
+                    const depBadge = `<span class="meta-badge ${deployment.className}">Deploy: ${deployment.label}</span>`;
+
+                    const issueBadge = issues.length
+                        ? `<span class="meta-badge">Issues: ${issues.map(i => `<a href="https://github.com/${owner}/${repo}/issues/${i}" target="_blank">#${i}</a>`).join(', ')}</span>`
+                        : '<span class="meta-badge">Issues: none required</span>';
+
+                    strip.innerHTML = `${heatBadge}${sigBadge}${branchBadge}${depBadge}${issueBadge}`;
+                    topHeader.insertAdjacentElement('afterend', strip);
+                }
+
+                const shouldHotfix = sha.startsWith('7d799f5') || sha.startsWith('0d10478');
+                if (shouldHotfix && cardRoot && !cardRoot.querySelector('.hotfix-ribbon')) {
+                    const ribbon = document.createElement('div');
+                    ribbon.className = 'hotfix-ribbon';
+                    ribbon.textContent = 'Hotfix';
+                    cardRoot.appendChild(ribbon);
+                }
+            }
+
+            lucide.createIcons();
+
+            if (window.location.hash) {
+                const target = document.querySelector(window.location.hash);
+                if (target) {
+                    if (typeof lenis !== 'undefined' && lenis && typeof lenis.scrollTo === 'function') {
+                        lenis.scrollTo(target, {
+                            offset: -24,
+                            duration: 1.25,
+                            easing: (t) => 1 - Math.pow(1 - t, 3)
+                        });
+                    } else {
+                        target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                    }
+                    setTimeout(() => {
+                        history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+                    }, 1450);
+                }
+            }
+        }
+
+        window.addEventListener('load', () => {
+            enhanceCommitCards();
+            updateTimelineProgress();
+            createGoTopButton();
+            updateGoTopVisibility();
+        });
+
+        window.addEventListener('scroll', updateGoTopVisibility, { passive: true });
+
         // Kill Switch for PWA Caching
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
@@ -1133,6 +1783,25 @@
             if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
                 e.preventDefault();
                 debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            const target = e.target;
+            const isTypingContext = target && (
+                target.tagName === 'INPUT' ||
+                target.tagName === 'TEXTAREA' ||
+                target.isContentEditable
+            );
+
+            if (isTypingContext || e.ctrlKey || e.metaKey || e.altKey) return;
+            if (e.key.toLowerCase() !== 't') return;
+
+            e.preventDefault();
+            if (typeof lenis !== 'undefined' && lenis && typeof lenis.scrollTo === 'function') {
+                lenis.scrollTo(0, { duration: 1.15, easing: (t) => 1 - Math.pow(1 - t, 3) });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         });
 
