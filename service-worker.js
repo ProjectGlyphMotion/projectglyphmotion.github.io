@@ -2,8 +2,8 @@
 
 // Increment version on updates to trigger cache invalidation and fresh content fetching.
 // This is critical for ensuring users get the latest version of your PWA.
-const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.12'; // Bumped to force SW update and runtime cache policy refresh.
-const THUMBNAIL_CACHE_NAME = 'glyphmotion-thumbnail-cache-v1';
+const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.15'; // Bumped to force SW update and runtime cache policy refresh.
+const THUMBNAIL_CACHE_NAME = 'glyphmotion-thumbnail-cache-v3';
 const OFFLINE_URL = '/offline.html'; // Path to your custom offline page
 
 // List of URLs to cache when the service worker is installed.
@@ -67,6 +67,10 @@ self.addEventListener('activate', (event) => {
                         console.log('[Service Worker] Deleting old cache:', cacheName);
                         return caches.delete(cacheName);
                     }
+                    if (cacheName.startsWith('glyphmotion-thumbnail-cache-') && cacheName !== THUMBNAIL_CACHE_NAME) {
+                        console.log('[Service Worker] Deleting old thumbnail cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
                     return null;
                 })
             );
@@ -98,6 +102,31 @@ self.addEventListener('fetch', (event) => {
     if (isDriveThumbnailRequest) {
         event.respondWith(
             caches.open(THUMBNAIL_CACHE_NAME).then((thumbCache) => {
+                const hasRetryToken = requestUrl.searchParams.has('rt');
+
+                if (hasRetryToken) {
+                    const canonicalUrl = new URL(event.request.url);
+                    canonicalUrl.searchParams.delete('rt');
+                    const canonicalRequest = new Request(canonicalUrl.toString(), {
+                        method: 'GET',
+                        mode: event.request.mode,
+                        credentials: event.request.credentials,
+                        cache: 'no-store',
+                        redirect: 'follow',
+                        referrer: event.request.referrer,
+                        referrerPolicy: event.request.referrerPolicy
+                    });
+
+                    return fetch(event.request)
+                        .then((networkResponse) => {
+                            if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque' || networkResponse.type === 'opaqueredirect')) {
+                                thumbCache.put(canonicalRequest, networkResponse.clone());
+                            }
+                            return networkResponse;
+                        })
+                        .catch(() => Response.error());
+                }
+
                 return thumbCache.match(event.request).then((cachedResponse) => {
                     if (cachedResponse) {
                         return cachedResponse;
@@ -110,9 +139,7 @@ self.addEventListener('fetch', (event) => {
                             }
                             return networkResponse;
                         })
-                        .catch(() => {
-                            return caches.match('/images/thumbnail_fallback.jpg');
-                        });
+                        .catch(() => Response.error());
                 });
             })
         );

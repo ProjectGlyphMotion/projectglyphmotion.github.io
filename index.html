@@ -2894,7 +2894,8 @@
         // IMPORTANT: This should now be your custom domain for GitHub Pages
         const GITHUB_PAGES_REPO_URL = 'https://projectglyphmotion.studio/';
         const VIDEOS_JSON_PATH = 'videos.json';
-        const POLLING_INTERVAL_VIDEOS = 120000; // Passive poll every 2 minutes
+        const POLLING_INTERVAL_VIDEOS_PROD = 120000; // Passive poll every 2 minutes
+        const POLLING_INTERVAL_VIDEOS_LOCAL = 10000; // Local passive poll every 10 seconds
         const AGGRESSIVE_POLL_INTERVAL_VIDEOS = 2000; // Fast poll after processing completion
         const AGGRESSIVE_POLL_MAX_ATTEMPTS = 90; // 3 minutes max at 2s interval
         const POLLING_INTERVAL_STATUS = 2000; // Poll live status every 2 seconds
@@ -2908,6 +2909,10 @@
             window.location.hostname === '127.0.0.1' ||
             window.location.hostname.startsWith('192.168.') // Local network IPs
         );
+
+        const POLLING_INTERVAL_VIDEOS = IS_LOCAL_DEVELOPMENT
+            ? POLLING_INTERVAL_VIDEOS_LOCAL
+            : POLLING_INTERVAL_VIDEOS_PROD;
 
         // Backend URLs - automatically switch based on environment
         const PRODUCTION_BACKEND_URL = 'https://backend.projectglyphmotion.studio'; // Production (Cloudflare Tunnel)
@@ -2947,6 +2952,9 @@
         let isAggressivePollingActive = false;
         let aggressivePollAttempts = 0;
         const warmedThumbnailUrls = new Set();
+        const CARD_THUMBNAIL_SIZE = 'w480';
+        const MODAL_THUMBNAIL_SIZE = 'w1000';
+        const ENABLE_THUMBNAIL_PREWARM = false;
         let lastVideosSignature = '';
         // Preload saved layout preference
         let isThreeColumnLayout = localStorage.getItem('isThreeColumnLayout') !== null 
@@ -3108,6 +3116,125 @@
             return date.toLocaleString(undefined, options); // 'undefined' uses the user's default locale
         }
 
+        function extractDriveFileIdFromUrl(url) {
+            if (!url || typeof url !== 'string') return '';
+
+            const previewMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+            if (previewMatch && previewMatch[1]) return previewMatch[1];
+
+            const embedMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+            if (embedMatch && embedMatch[1]) return embedMatch[1];
+
+            return '';
+        }
+
+        function resolveDriveFileId(primaryFileId, embedUrl = '', downloadUrl = '') {
+            return (
+                (primaryFileId || '').trim() ||
+                extractDriveFileIdFromUrl(embedUrl) ||
+                extractDriveFileIdFromUrl(downloadUrl) ||
+                ''
+            );
+        }
+
+        function getDriveThumbnailCandidates(fileId, size = CARD_THUMBNAIL_SIZE, retryToken = '') {
+            if (!fileId) return ['/images/thumbnail_fallback.jpg'];
+            const cacheBust = retryToken ? `&rt=${encodeURIComponent(retryToken)}` : '';
+            return [
+                `https://drive.google.com/thumbnail?sz=${size}&id=${fileId}${cacheBust}`,
+                `https://lh3.googleusercontent.com/d/${fileId}=${size}`,
+                `https://drive.google.com/thumbnail?id=${fileId}${cacheBust}`,
+                '/images/thumbnail_fallback.jpg'
+            ];
+        }
+
+        function attachRobustThumbnailFallback(imgElement, fileId, options = {}) {
+            if (!imgElement) return;
+
+            const size = options.size || CARD_THUMBNAIL_SIZE;
+            const enableRetry = options.enableRetry !== false;
+            const retryDelayMs = Number(options.retryDelayMs || 6000);
+            const maxRetryAttempts = Number(options.maxRetryAttempts || 12);
+
+            let retryAttempts = 0;
+            let candidateIndex = 0;
+            let retryTimer = null;
+
+            const clearRetryTimer = () => {
+                if (retryTimer) {
+                    clearTimeout(retryTimer);
+                    retryTimer = null;
+                }
+            };
+
+            const scheduleRetry = () => {
+                if (!enableRetry || !fileId || retryAttempts >= maxRetryAttempts) {
+                    return;
+                }
+
+                retryAttempts += 1;
+                const retryToken = `${Date.now()}-${retryAttempts}`;
+
+                clearRetryTimer();
+                retryTimer = setTimeout(() => {
+                    if (!document.contains(imgElement)) {
+                        clearRetryTimer();
+                        return;
+                    }
+
+                    candidateIndex = 0;
+                    candidates = getDriveThumbnailCandidates(fileId, size, retryToken);
+                    imgElement.src = candidates[candidateIndex];
+                }, retryDelayMs);
+            };
+
+            let candidates = getDriveThumbnailCandidates(fileId, size);
+
+            imgElement.onload = () => {
+                // Only clear the retry timer if we successfully loaded an actual thumbnail,
+                // not the fallback placeholder.
+                if (!imgElement.src.includes('thumbnail_fallback.jpg')) {
+                    clearRetryTimer();
+                }
+            };
+
+            imgElement.onerror = () => {
+                // If an image failed to load, it might be a cached opaque error response
+                // from Google Drive. Purge it from all Service Worker caches so a normal
+                // refresh won't serve the broken error response again.
+                if (window.caches && candidates[candidateIndex]) {
+                    const failedUrl = candidates[candidateIndex];
+                    if (failedUrl.includes('drive.google.com') || failedUrl.includes('googleusercontent.com')) {
+                        // Create a version without the 'rt' token to purge the canonical cache as well
+                        const canonicalUrl = new URL(failedUrl, window.location.origin);
+                        canonicalUrl.searchParams.delete('rt');
+                        const canonicalUrlStr = canonicalUrl.toString();
+
+                        caches.keys().then(cacheNames => {
+                            cacheNames.forEach(cacheName => {
+                                caches.open(cacheName).then(cache => {
+                                    cache.delete(failedUrl);
+                                    if (failedUrl !== canonicalUrlStr) {
+                                        cache.delete(canonicalUrlStr);
+                                    }
+                                });
+                            });
+                        }).catch(err => console.warn('Cache clear error:', err));
+                    }
+                }
+
+                candidateIndex += 1;
+                if (candidateIndex < candidates.length) {
+                    imgElement.src = candidates[candidateIndex];
+                } else {
+                    imgElement.src = '/images/thumbnail_fallback.jpg';
+                    scheduleRetry();
+                }
+            };
+
+            imgElement.src = candidates[candidateIndex];
+        }
+
         /**
      * Stops the currently playing video (if any) and reverts its container to a thumbnail.
      * This function now handles smooth fading and ensures robust element removal/addition.
@@ -3142,14 +3269,15 @@
         const thumbnailPlaceholder = document.createElement('div');
         thumbnailPlaceholder.className = 'video-thumbnail-placeholder absolute top-0 left-0 w-full h-full';
         thumbnailPlaceholder.setAttribute('data-embed-url', originalEmbedUrl);
-        thumbnailPlaceholder.setAttribute('data-file-id', googleDriveFileId);
-        const thumbnailUrl = googleDriveFileId ? `https://drive.google.com/thumbnail?id=${googleDriveFileId}` : `/images/thumbnail_fallback.jpg`;
+        const resolvedFileId = resolveDriveFileId(googleDriveFileId, originalEmbedUrl);
+        thumbnailPlaceholder.setAttribute('data-file-id', resolvedFileId);
         thumbnailPlaceholder.innerHTML = `
-            <img src="${thumbnailUrl}" alt="Video thumbnail" class="w-full h-full object-cover rounded-lg" loading="lazy" decoding="async"
-                 onerror="this.onerror=null;this.src='/images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
+            <img alt="Video thumbnail" class="w-full h-full object-cover rounded-lg" loading="lazy" decoding="async" /> <div class="play-overlay">
                             <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </div>
         `;
+        const thumbImg = thumbnailPlaceholder.querySelector('img');
+        attachRobustThumbnailFallback(thumbImg, resolvedFileId, { size: CARD_THUMBNAIL_SIZE });
         thumbnailPlaceholder.style.opacity = '0'; // Start invisible for fading in
         thumbnailPlaceholder.style.transition = 'opacity 0.3s ease-out'; // Smooth fade-in transition
         videoContainerElement.appendChild(thumbnailPlaceholder);
@@ -3249,16 +3377,13 @@
             const sortedVideos = [...videos].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
             sortedVideos.forEach(video => {
+                const resolvedFileId = resolveDriveFileId(video.googleDriveFileId, video.embedUrl, video.downloadUrl);
                 /* Generate a unique ID for each video card based on its Google Drive File ID */
-                const videoCardId = `video-${video.googleDriveFileId}`;
+                const videoCardId = `video-${resolvedFileId || `${video.timestamp || Date.now()}`}`;
                 const videoCard = document.createElement('div');
                 /* Add a class name for easier selection during highlighting/dimming */
                 videoCard.className = 'video-card glass-effect p-4 rounded-lg shadow-sm border border-white border-opacity-10 flex flex-col';
                 videoCard.id = videoCardId; /* Set the ID for smooth scrolling */
-                
-
-                /* Construct the Google Drive thumbnail URL, using a robust fallback */
-                const thumbnailUrl = video.googleDriveFileId ? `https://drive.google.com/thumbnail?id=${video.googleDriveFileId}` : `/images/thumbnail_fallback.jpg`;
 
                 /* Create the video container with the thumbnail placeholder initially */
                 videoCard.innerHTML = `
@@ -3270,11 +3395,10 @@
                     <div class="video-container mb-4">
                         <div class="video-thumbnail-placeholder" 
                              data-embed-url="${video.embedUrl}" 
-                             data-file-id="${video.googleDriveFileId}">
-                            <img src="${thumbnailUrl}" 
+                             data-file-id="${resolvedFileId}">
+                            <img data-drive-file-id="${resolvedFileId}"
                                  alt="Video thumbnail for ${video.title || 'Processed Video'}" 
-                                 loading="lazy" decoding="async"
-                                 onerror="this.onerror=null;this.src='/images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
+                                 loading="lazy" decoding="async" /> <div class="play-overlay">
                                 <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                             </div>
                         </div>
@@ -3283,19 +3407,22 @@
                         <a href="${video.downloadUrl || video.embedUrl}" target="_blank" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary">
                             Download / View Full
                         </a>
-                        <button class="share-video-btn inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary" data-video-id="${video.googleDriveFileId}">
+                        <button class="share-video-btn inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary" data-video-id="${resolvedFileId}">
                             Share
                         </button>
                         ${isAdminLoggedIn ? `
-                        <button class="info-video-btn inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary" data-file-id="${video.googleDriveFileId}" data-commit-sha="${video.commitSha || ''}" data-video-title="${video.title}" data-embed-url="${video.embedUrl}" data-download-url="${video.downloadUrl}">
+                        <button class="info-video-btn inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-custom-primary" data-file-id="${resolvedFileId}" data-commit-sha="${video.commitSha || ''}" data-video-title="${video.title}" data-embed-url="${video.embedUrl}" data-download-url="${video.downloadUrl}">
                             Info
                         </button>
-                        <button class="delete-video-btn inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-danger" data-file-id="${video.googleDriveFileId}" data-video-title="${video.title}" data-upload-date="${formatTimestamp(video.timestamp)}">
+                        <button class="delete-video-btn inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md btn btn-danger" data-file-id="${resolvedFileId}" data-video-title="${video.title}" data-upload-date="${formatTimestamp(video.timestamp)}">
                             Delete
                         </button>` : ''}
                     </div>
                 `;
                 videoGallery.appendChild(videoCard);
+
+                const cardThumbnailImg = videoCard.querySelector('img[data-drive-file-id]');
+                attachRobustThumbnailFallback(cardThumbnailImg, resolvedFileId, { size: CARD_THUMBNAIL_SIZE });
             });
 
             /* Add event listeners for play buttons (thumbnails) */
@@ -3397,8 +3524,16 @@
                 .join('||');
         }
 
+        function getVideosJsonUrl() {
+            const repoBase = GITHUB_PAGES_REPO_URL.endsWith('/')
+                ? GITHUB_PAGES_REPO_URL.slice(0, -1)
+                : GITHUB_PAGES_REPO_URL;
+            const normalizedPath = VIDEOS_JSON_PATH.startsWith('/') ? VIDEOS_JSON_PATH : `/${VIDEOS_JSON_PATH}`;
+            return `${repoBase}${normalizedPath}`;
+        }
+
         async function fetchVideos() {
-            const url = `${GITHUB_PAGES_REPO_URL}${VIDEOS_JSON_PATH}`;
+            const url = getVideosJsonUrl();
             try {
                 const headers = {};
                 if (videosJsonETag) {
@@ -3517,18 +3652,21 @@
         }
 
         async function warmThumbnailCache(videos) {
-            if (!('caches' in window) || !Array.isArray(videos) || videos.length === 0) {
+            if (!ENABLE_THUMBNAIL_PREWARM || !('caches' in window) || !Array.isArray(videos) || videos.length === 0) {
                 return;
             }
 
             try {
                 const cache = await caches.open('glyphmotion-thumbnails-v1');
-                const candidates = videos.slice(0, 24); // warm only top videos to keep it light
+                const candidates = videos.slice(0, 6); // keep warm-up very small when enabled
 
                 for (const video of candidates) {
-                    if (!video || !video.googleDriveFileId) continue;
+                    if (!video) continue;
 
-                    const thumbnailUrl = `https://drive.google.com/thumbnail?id=${video.googleDriveFileId}`;
+                    const resolvedFileId = resolveDriveFileId(video.googleDriveFileId, video.embedUrl, video.downloadUrl);
+                    if (!resolvedFileId) continue;
+
+                    const thumbnailUrl = `https://drive.google.com/thumbnail?sz=${CARD_THUMBNAIL_SIZE}&id=${resolvedFileId}`;
                     if (warmedThumbnailUrls.has(thumbnailUrl)) continue;
 
                     warmedThumbnailUrls.add(thumbnailUrl);
@@ -3568,6 +3706,14 @@
             if (videosPollingTimerRef) {
                 clearTimeout(videosPollingTimerRef);
             }
+
+            if (IS_LOCAL_DEVELOPMENT) {
+                pollForNewVideos().finally(() => {
+                    scheduleNextVideosPoll();
+                });
+                return;
+            }
+
             scheduleNextVideosPoll();
         }
 
@@ -3614,8 +3760,28 @@
             startVideosPollingLoop();
         }
 
+        window.addEventListener('focus', () => {
+            pollForNewVideos();
+        });
+
+        window.addEventListener('online', () => {
+            videosJsonETag = null;
+            pollForNewVideos();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                pollForNewVideos();
+            }
+        });
+
         function applyProcessingStatusData(data) {
             const currentStatus = (data.status || '').trim();
+            const backendSignaledCompletion = !!data.processingComplete;
+            const legacyCompletionText =
+                currentStatus.includes('Object tracking and GitHub Pages update complete!') ||
+                currentStatus.includes('Object tracking complete! Output saved locally');
+            const hasProcessingCompleted = backendSignaledCompletion || legacyCompletionText;
 
             frameRestrictionEnabled = data.frameRestrictionEnabled;
             frameRestrictionValue = data.frameRestrictionValue;
@@ -3648,21 +3814,27 @@
                     }
                 }
 
-                if (currentStatus.includes('Object tracking and GitHub Pages update complete!') && !isUploadProgressBarRunning) {
+                if (hasProcessingCompleted && !isUploadProgressBarRunning) {
                     startProgressBar('upload');
                     isUploadProgressBarRunning = true;
                     startAggressiveVideosPolling();
+                    pollForNewVideos();
 
                     if (roiProcessingActive && !roiProcessingCompleteHandled) {
                         roiProcessingCompleteHandled = true;
                         triggerRoiCompletionAnimation();
                     }
-                } else if (!currentStatus.includes('Object tracking and GitHub Pages update complete!') && isUploadProgressBarRunning) {
+                } else if (!hasProcessingCompleted && isUploadProgressBarRunning) {
                     isUploadProgressBarRunning = false;
                 }
 
+                if (hasProcessingCompleted && !isAggressivePollingActive) {
+                    startAggressiveVideosPolling();
+                    pollForNewVideos();
+                }
+
                 // While processing is active, keep passive polling off to reduce load.
-                if (!isDeleteStatus && !currentStatus.includes('Object tracking and GitHub Pages update complete!')) {
+                if (!isDeleteStatus && !hasProcessingCompleted) {
                     stopVideosPollingLoop();
                 }
             } else {
@@ -3728,6 +3900,8 @@
                 statusDot.classList.remove('offline', 'checking');
                 statusDot.classList.add('online');
                 stopStatusFallbackPolling();
+                pollForProcessingStatus();
+                pollForNewVideos();
             };
 
             statusEventSource.addEventListener('status', (event) => {
@@ -3949,19 +4123,20 @@
 
             /* Set video in modal (reusing the same thumbnail/iframe logic) */
             /* Use the fallback image if fileId is not available for thumbnail */
-            const thumbnailUrl = fileId ? `https://drive.google.com/thumbnail?id=${fileId}` : `/images/thumbnail_fallback.jpg`; // Use project's fallback image
+            const resolvedFileId = resolveDriveFileId(fileId, embedUrl, downloadUrl);
             const infoModalVideoHtml = `
                 <div class="video-thumbnail-placeholder" 
                         data-embed-url="${embedUrl}" 
-                        data-file-id="${fileId}">
-                    <img src="${thumbnailUrl}" 
-                            alt="Video thumbnail for ${videoTitle}" 
-                            onerror="this.onerror=null;this.src='/images/thumbnail_fallback.jpg';" /> <div class="play-overlay">
+                        data-file-id="${resolvedFileId}">
+                    <img data-drive-file-id="${resolvedFileId}"
+                            alt="Video thumbnail for ${videoTitle}" /> <div class="play-overlay">
                                 <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                             </div>
                 </div>
             `;
             infoModalVideoContainer.innerHTML = infoModalVideoHtml;
+            const modalThumbImg = infoModalVideoContainer.querySelector('img[data-drive-file-id]');
+            attachRobustThumbnailFallback(modalThumbImg, resolvedFileId, { size: MODAL_THUMBNAIL_SIZE });
             /* Attach click listener to the newly created thumbnail in the modal */
             infoModalVideoContainer.querySelector('.video-thumbnail-placeholder').addEventListener('click', handleThumbnailClick);
 

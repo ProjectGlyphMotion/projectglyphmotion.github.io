@@ -281,15 +281,31 @@ def set_processing_status(message: Union[str, None]):
         _status_update_counter += 1
     logger.info(f"Global Status Update: {message}")
 
+def _status_indicates_processing_complete(status_message: str) -> bool:
+    """Returns True when status indicates a processing success path finished."""
+    if not status_message:
+        return False
+
+    normalized = status_message.lower()
+    completion_markers = (
+        "object tracking and github pages update complete",
+        "object tracking complete! output saved locally"
+    )
+    return any(marker in normalized for marker in completion_markers)
+
 def get_status_payload() -> dict:
     """Builds a consistent status payload for REST and SSE consumers."""
     with _status_lock:
         status_message = _current_processing_status
         status_counter = _status_update_counter
 
+    is_processing_complete = _status_indicates_processing_complete(status_message if status_message is not None else "")
+
     return {
         "status": status_message if status_message is not None else "",
         "statusCounter": status_counter,
+        "processingComplete": is_processing_complete,
+        "galleryRefreshSuggested": is_processing_complete,
         "frameRestrictionEnabled": FRAME_RESTRICTION_ENABLED,
         "frameRestrictionValue": FRAME_RESTRICTION_VALUE
     }
