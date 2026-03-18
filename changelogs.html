@@ -371,7 +371,7 @@
                 <div class="w-px h-8 bg-zinc-800/80 hidden sm:block"></div>
                 <div class="flex flex-col items-center">
                     <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i data-lucide="git-commit" class="w-3 h-3 text-amber-500"></i> Tracked Updates</span>
-                    <span class="text-sm md:text-base font-outfit font-semibold text-zinc-200">14 Core Commits</span>
+                    <span class="text-sm md:text-base font-outfit font-semibold text-zinc-200">16 Core Commits</span>
                 </div>
                 <div class="w-px h-8 bg-zinc-800/80 hidden sm:block"></div>
                 <div class="flex flex-col items-center">
@@ -387,6 +387,114 @@
             </div>
 
             <div class="space-y-16 pb-10">
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-03-19T00:08:57+05:30">
+                    <div class="timeline-dot active"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 group-hover/author:border-amber-500 shadow-lg transition-colors">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold group-hover/author:text-amber-400 transition-colors">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Wed Mar 19, 2026 • 00:08:57 IST (18:38:57 UTC)</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-amber-500"></i> <span class="relative-time-display font-semibold text-amber-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i> Crucial Fix
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">fix(sw): resolve stale cache preventing new video cards on normal refresh</h2>
+                                <p class="font-outfit text-zinc-400 text-base leading-relaxed mb-8">Fixed critical PWA caching issue where video cards weren't appearing on normal refresh—only hard refresh worked. Bumped cache version, added network-first strategy for dynamic content, removed kill switches, and implemented auto-reload on SW activation.</p>
+
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/f9a029f4a003ac8a01cff014fbda09e8b87252d7" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-amber-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-amber-500"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('f9a029f4a003ac8a01cff014fbda09e8b87252d7', 'f9a029f', this)">
+                                        f9a029f <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-amber-500 to-amber-900/20"></div>
+                                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800/50">
+                                    <div class="p-1.5 rounded-md bg-zinc-800/50 border border-zinc-700"><i data-lucide="zap" class="w-4 h-4 text-amber-400"></i></div>
+                                    <h3 class="font-outfit text-white text-lg font-semibold tracking-wide">Service Worker Cache & Update Orchestration</h3>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="database" class="w-4 h-4 text-amber-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Cache Version Bump to v1.0.16</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Incremented `CACHE_NAME` to force cache invalidation across all clients, ensuring stale cached pages and video metadata are evicted on first visit.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="network" class="w-4 h-4 text-amber-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Network-First for Dynamic Content</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Added `/videos.json`, `/changelogs.html`, `/about.html`, `/playground.html` to `networkFirstUrls` so service worker always fetches fresh copies from network first, then falls back to cache only when offline.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="refresh-cw" class="w-4 h-4 text-amber-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Auto-Reload on SW Activation</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Implemented `onupdatefound + controllerchange` detection in index.html. When a new service worker activates, the page automatically reloads to ensure users see the latest assets without manual intervention.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="trash-2" class="w-4 h-4 text-amber-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Removed SW Unregister Kill Switches</h4>
+                                            <p class="text-zinc-400 text-sm leading-relaxed">Deleted forced `navigator.serviceWorker.unregister()` code from changelogs.html and about.html that was globally unregistering the SW on every page load, preventing normal PWA updates.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="diagnostic-block flex items-start gap-4">
+                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="file-code-2" class="w-4 h-4 text-amber-400"></i></div>
+                                        <div>
+                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (5 files, +35 / -19)</h4>
+                                            <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">service-worker.js</code> — +12 / -1</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +23 / -0</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">changelogs.html</code> — +0 / -9</li>
+                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">about.html</code> — +0 / -9</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-auto border-t border-zinc-800/60 bg-black/50 px-6 py-4">
+                            <div class="flex items-center gap-2 mb-3 text-xs font-mono text-zinc-500 uppercase tracking-widest">
+                                <i data-lucide="git-merge" class="w-3.5 h-3.5 text-zinc-600"></i> Related Minor Update
+                            </div>
+                            <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/67fd0bbff397c214bbf43b0cc61b5d57ddd40ce2" target="_blank" class="group flex items-center justify-between p-3 rounded-lg border border-zinc-800/50 bg-zinc-900/30 hover:border-amber-500/30 hover:bg-zinc-800/40 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <span class="bg-black px-1.5 py-0.5 rounded text-[10px] font-mono border border-zinc-700 text-amber-500">67fd0bb</span>
+                                    <div>
+                                        <h4 class="font-outfit text-sm font-medium text-zinc-300 group-hover:text-amber-400 transition-colors">fix: server worker force refresh fix</h4>
+                                        <p class="text-xs text-zinc-500 mt-0.5">Hardened service worker update detection with versioned script URLs (`v=1.0.16`), `updateViaCache: 'none'`, and explicit `registration.update()` calls.</p>
+                                        <p class="text-xs text-zinc-500 mt-1">Files touched: <code class="text-[10px] bg-black px-1 border border-zinc-800 rounded">index.html</code> (+8 / -2)</p>
+                                    </div>
+                                </div>
+                                <i data-lucide="arrow-up-right" class="w-4 h-4 text-zinc-600 group-hover:text-amber-500"></i>
+                            </a>
+                        </div>
+                    </div>
+                </article>
 
                 <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-03-17T01:12:14+05:30">
                     <div class="timeline-dot"></div>
