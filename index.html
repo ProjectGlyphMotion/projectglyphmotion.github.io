@@ -2584,6 +2584,16 @@
                 <i class="fas fa-info-circle"></i>
                 <p id="frameRestrictionMessage"></p>
             </div>
+
+            <!-- Google Drive Transcoding Info -->
+            <div class="bg-cyan-500/5 border border-cyan-500/25 rounded-lg p-3 mt-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="flex-shrink-0 w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center">
+                        <i class="fas fa-info text-cyan-400 text-xs"></i>
+                    </div>
+                    <p class="text-xs text-cyan-200/85">Video will be available for streaming once you open/play it on Google Drive (this triggers transcoding). Processing time depends on video size—larger files take longer.</p>
+                </div>
+            </div>
         </section>
 
         <!-- Status Messages -->
@@ -2669,6 +2679,7 @@
             <div class="section-header-centered">
                 <h2 class="text-2xl sm:text-3xl page-title">Processed Videos</h2>
             </div>
+
             <!-- View Toggle Controls -->
             <div class="videos-view-controls">
                 <button id="toggleLayoutButton" class="view-control-btn hidden lg:inline-flex">
@@ -5074,7 +5085,13 @@
                 }
 
                 const responseData = await response.json();
-                showStatus(responseData.message || 'Processing initiated. Waiting for GitHub commit...');
+                
+                // Enhanced success message with Google Drive transcoding guidance
+                let successMessage = responseData.message || 'Processing initiated. Waiting for GitHub commit...';
+                if (isFileUpload) {
+                    successMessage += ' 📹 Tip: For faster streaming, open/preview the video on Google Drive to trigger transcoding.';
+                }
+                showStatus(successMessage);
                 
                 // Clear preview session after successful submission
                 // The server will handle the file from the cached preview
