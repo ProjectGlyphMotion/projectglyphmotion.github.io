@@ -1,0 +1,2343 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <title>About | Project GlyphMotion</title>
+    <meta name="description"
+        content="Meet the architects behind Project GlyphMotion — Shitij Halder & Sayan Sarkar. The origin story, the tech, the chaos, and the everything in between.">
+    <link rel="icon" type="image/x-icon" href="images/project-glyph-motion.ico">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script src="https://unpkg.com/@studio-freight/lenis@1.0.39/dist/lenis.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        retro: ['"Press Start 2P"', 'cursive'],
+                    },
+                    colors: {
+                        black: '#030303',
+                        surface: '#0a0a0c',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #030303;
+            color: #e4e4e7;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* Scroll Progress Bar */
+        #scroll-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 3px;
+            background: linear-gradient(to right, #fcd34d, #f59e0b, #ea580c);
+            z-index: 99999;
+            transform-origin: left center;
+            transform: scaleX(0);
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.8);
+            will-change: transform;
+            transition: none !important;
+        }
+
+        /* Custom Cursor */
+        @media (pointer: fine) {
+            * {
+                cursor: none !important;
+            }
+        }
+
+        #custom-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 24px;
+            height: 24px;
+            border: 1.5px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10001;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1), height 0.3s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.3s, border-color 0.3s;
+            box-shadow: 0 0 0 rgba(245, 158, 11, 0);
+        }
+
+        #custom-cursor::after {
+            content: '';
+            width: 4px;
+            height: 4px;
+            background-color: #f59e0b;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(245, 158, 11, 0.8);
+            transition: transform 0.3s ease;
+        }
+
+        #custom-cursor.hovered {
+            width: 44px;
+            height: 44px;
+            background-color: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.8);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+            backdrop-filter: blur(2px);
+        }
+
+        #custom-cursor.hovered::after {
+            transform: scale(1.5);
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+            * {
+                cursor: auto !important;
+            }
+
+            #custom-cursor {
+                display: none !important;
+            }
+        }
+
+        /* Background */
+        .bg-glow-main {
+            position: fixed;
+            top: -30vh;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150vw;
+            height: 100vh;
+            background: radial-gradient(ellipse at 50% 30%, rgba(245, 158, 11, 0.15) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+            will-change: transform;
+        }
+
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            background-size: 35px 35px;
+            background-position: center top;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0.2));
+            background-size: 100% 4px;
+            opacity: 0.3;
+        }
+
+        /* Glass Cards */
+        .about-card {
+            background: linear-gradient(180deg, rgba(16, 16, 20, 0.85) 0%, rgba(10, 10, 12, 0.98) 100%);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.9);
+            border-radius: 1.25rem;
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .about-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.5), transparent);
+            pointer-events: none;
+        }
+
+        .about-card:hover {
+            transform: translateY(-4px);
+            background: linear-gradient(180deg, rgba(20, 20, 26, 0.9) 0%, rgba(12, 12, 15, 1) 100%);
+            border-color: rgba(245, 158, 11, 0.4);
+            border-top-color: rgba(245, 158, 11, 0.7);
+            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.8), 0 0 25px -5px rgba(245, 158, 11, 0.15);
+        }
+
+        /* Architect avatar */
+        .architect-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid rgba(245, 158, 11, 0.3);
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.15);
+            transition: all 0.4s ease;
+        }
+
+        .about-card:hover .architect-avatar {
+            border-color: rgba(245, 158, 11, 0.7);
+            box-shadow: 0 0 35px rgba(245, 158, 11, 0.3);
+        }
+
+        /* Role badge */
+        .role-badge {
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border-radius: 9999px;
+            padding: 0.25rem 0.75rem;
+        }
+
+        /* Social link pills */
+        .social-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 0.3rem 0.7rem;
+            border-radius: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #a1a1aa;
+            text-decoration: none;
+            transition: all 0.25s ease;
+        }
+
+        .social-pill:hover {
+            border-color: rgba(245, 158, 11, 0.5);
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.08);
+        }
+
+        .origin-story p {
+            line-height: 1.8;
+        }
+
+        @media (min-width: 768px) {
+            .origin-story p {
+                font-size: 0.965rem;
+            }
+        }
+
+        .heartbeat-banner {
+            position: relative;
+            background: linear-gradient(120deg, rgba(245, 158, 11, 0.08), rgba(59, 130, 246, 0.06));
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            border-radius: 1rem;
+            padding: 0.9rem 1rem;
+            overflow: hidden;
+        }
+
+        .heartbeat-banner::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(245, 158, 11, 0.14), transparent 50%);
+            pointer-events: none;
+        }
+
+        .team-rhythm {
+            margin: -0.5rem 0 1.1rem;
+            padding: 0.7rem 0.85rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(59, 130, 246, 0.24);
+            background: linear-gradient(140deg, rgba(59, 130, 246, 0.08), rgba(245, 158, 11, 0.05));
+            color: #d4d4d8;
+            font-size: 12px;
+            line-height: 1.65;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .team-rhythm strong {
+            color: #f4f4f5;
+            font-weight: 600;
+        }
+
+        .quick-guide-grid {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 0.8rem;
+        }
+
+        @media (min-width: 768px) {
+            .quick-guide-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        .audience-list {
+            display: grid;
+            gap: 0.45rem;
+            margin-top: 0.15rem;
+        }
+
+        .audience-item {
+            font-size: 12px;
+            color: #d4d4d8;
+            line-height: 1.55;
+            font-family: 'Outfit', sans-serif;
+            padding-left: 0.75rem;
+            border-left: 2px solid rgba(245, 158, 11, 0.35);
+        }
+
+        .mini-flow {
+            display: grid;
+            gap: 0.5rem;
+            margin-top: 0.2rem;
+        }
+
+        .flow-step {
+            font-size: 12px;
+            color: #d4d4d8;
+            font-family: 'Outfit', sans-serif;
+            line-height: 1.6;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.6rem;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.55rem 0.7rem;
+        }
+
+        .flow-step strong {
+            color: #f59e0b;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.02em;
+        }
+
+        .origin-meaning {
+            margin-top: 0.45rem;
+            color: #a1a1aa;
+            font-size: 13px;
+            line-height: 1.7;
+            font-family: 'Outfit', sans-serif;
+            max-width: 64rem;
+        }
+
+        .pipeline-anatomy {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 0.55rem;
+            margin-top: 0.25rem;
+        }
+
+        @media (min-width: 768px) {
+            .pipeline-anatomy {
+                grid-template-columns: repeat(6, minmax(0, 1fr));
+            }
+        }
+
+        .anatomy-step {
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 0.65rem;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.52rem 0.6rem;
+            font-size: 11px;
+            color: #d4d4d8;
+            text-align: center;
+            line-height: 1.45;
+            font-family: 'Outfit', sans-serif;
+            position: relative;
+        }
+
+        .anatomy-step .num {
+            display: block;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #f59e0b;
+            margin-bottom: 0.2rem;
+        }
+
+        @media (min-width: 768px) {
+            .anatomy-step:not(:last-child)::after {
+                content: "→";
+                position: absolute;
+                top: 50%;
+                right: -0.48rem;
+                transform: translateY(-50%);
+                color: rgba(245, 158, 11, 0.55);
+                font-family: 'JetBrains Mono', monospace;
+            }
+        }
+
+        .integrity-list,
+        .limits-list,
+        .thanks-list {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .integrity-item,
+        .limits-item,
+        .thanks-item {
+            border-left: 2px solid rgba(245, 158, 11, 0.35);
+            padding-left: 0.7rem;
+            font-size: 12px;
+            color: #d4d4d8;
+            line-height: 1.65;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .thanks-chip-row {
+            margin-top: 0.85rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+        }
+
+        .thanks-chip {
+            border: 1px dashed rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.02);
+            color: #71717a;
+            border-radius: 9999px;
+            padding: 0.3rem 0.58rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.03em;
+        }
+
+        /* Interactive Timeline UI (matches changelogs) */
+        .timeline-track {
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: rgba(255, 255, 255, 0.08);
+            z-index: 0;
+            border-radius: 9999px;
+        }
+
+        .timeline-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(to bottom, #f59e0b, #ea580c);
+            box-shadow: 0 0 15px #f59e0b;
+            z-index: 1;
+            border-radius: 9999px;
+            transition: height 0.2s linear;
+        }
+
+        .timeline-dot {
+            position: absolute;
+            left: 8px;
+            top: 6px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #030303;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            z-index: 10;
+            transition: all 0.5s ease;
+            animation: breathe-idle 3s infinite alternate ease-in-out;
+            transform: translateX(-50%);
+        }
+
+        .timeline-entry {
+            padding-left: 1.3rem;
+        }
+
+        .timeline-dot.active {
+            background: #f59e0b;
+            border-color: #ea580c;
+            animation: breathe-active 2s infinite alternate ease-in-out;
+        }
+
+        @keyframes breathe-idle {
+            0% {
+                box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+                transform: translateX(-50%) scale(1);
+            }
+
+            100% {
+                box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+                transform: translateX(-50%) scale(1.05);
+            }
+        }
+
+        @keyframes breathe-active {
+            0% {
+                box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+                transform: translateX(-50%) scale(1.1);
+            }
+
+            100% {
+                box-shadow: 0 0 25px rgba(245, 158, 11, 0.8);
+                transform: translateX(-50%) scale(1.25);
+            }
+        }
+
+        .origin-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 0.7rem;
+            margin-bottom: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .origin-kpi-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 0.8rem;
+            }
+        }
+
+        .origin-kpi {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.8rem;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            background: linear-gradient(180deg, rgba(18, 18, 22, 0.85), rgba(10, 10, 12, 0.95));
+            padding: 0.75rem 0.8rem;
+        }
+
+        .origin-kpi::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            transform: translateX(-120%);
+            background: linear-gradient(100deg, transparent, rgba(245, 158, 11, 0.16), transparent);
+            animation: kpi-sheen 5.8s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes kpi-sheen {
+            0%,
+            30% {
+                transform: translateX(-120%);
+            }
+
+            55%,
+            100% {
+                transform: translateX(120%);
+            }
+        }
+
+        .origin-kpi-label {
+            font-size: 10px;
+            color: #71717a;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .origin-kpi-value {
+            margin-top: 0.18rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            color: #fafafa;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        .phase-shift {
+            margin-top: 0.85rem;
+            padding: 0.5rem 0.65rem;
+            border-radius: 0.55rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.02);
+            font-size: 11px;
+            line-height: 1.5;
+            color: #a1a1aa;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .phase-shift strong {
+            color: #f4f4f5;
+            font-weight: 600;
+        }
+
+        .phase-shift .phase-now {
+            color: #f59e0b;
+        }
+
+        .audio-wave-divider {
+            position: relative;
+            height: 14px;
+            margin: -0.35rem 0 -0.15rem 0.95rem;
+            opacity: 0.75;
+            pointer-events: none;
+        }
+
+        .audio-wave-divider::before {
+            content: "";
+            position: absolute;
+            inset: 50% 0 auto 0;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0), rgba(245, 158, 11, 0.45), rgba(245, 158, 11, 0));
+            transform: translateY(-50%);
+        }
+
+        .audio-wave-divider::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(circle at 6px 7px, rgba(245, 158, 11, 0.35) 0 2px, transparent 2.2px);
+            background-size: 18px 14px;
+            animation: wave-slide 8s linear infinite;
+            filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.35));
+        }
+
+        @keyframes wave-slide {
+            0% {
+                background-position: 0 0;
+            }
+
+            100% {
+                background-position: 144px 0;
+            }
+        }
+
+        .narrative-list {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .narrative-item {
+            padding: 0.65rem 0.75rem;
+            border-radius: 0.65rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.02);
+            font-size: 12px;
+            color: #d4d4d8;
+            font-family: 'Outfit', sans-serif;
+            line-height: 1.6;
+        }
+
+        .credits-grid {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 0.65rem;
+        }
+
+        @media (min-width: 768px) {
+            .credits-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        .credit-pill {
+            padding: 0.65rem 0.75rem;
+            border-radius: 0.65rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: linear-gradient(180deg, rgba(22, 22, 28, 0.86), rgba(10, 10, 12, 0.92));
+            font-size: 12px;
+            color: #d4d4d8;
+            line-height: 1.55;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .lessons-list {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .lesson-row {
+            font-size: 12px;
+            color: #d4d4d8;
+            border-left: 2px solid rgba(245, 158, 11, 0.35);
+            padding-left: 0.65rem;
+            line-height: 1.6;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .open-source-heart {
+            font-size: 14px;
+            line-height: 1.8;
+            color: #d4d4d8;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .founder-quote {
+            margin-top: 0.9rem;
+            border-left: 2px solid rgba(245, 158, 11, 0.55);
+            background: rgba(245, 158, 11, 0.06);
+            padding: 0.8rem 0.95rem;
+            border-radius: 0.6rem;
+            color: #f4f4f5;
+            font-style: italic;
+            line-height: 1.7;
+            font-size: 13px;
+        }
+
+        .future-letter {
+            border: 1px solid rgba(59, 130, 246, 0.28);
+            background: linear-gradient(180deg, rgba(9, 12, 20, 0.82), rgba(10, 10, 12, 0.95));
+            border-radius: 0.9rem;
+            padding: 1rem;
+        }
+
+        .future-letter .stamp {
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 10px;
+            color: #93c5fd;
+            margin-bottom: 0.5rem;
+        }
+
+        .duo-strip {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        @media (min-width: 768px) {
+            .duo-strip {
+                flex-direction: row;
+                align-items: center;
+            }
+        }
+
+        .duo-heading {
+            color: #f4f4f5;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        .duo-sub {
+            margin-top: 0.15rem;
+            color: #a1a1aa;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1.5;
+        }
+
+        .duo-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-top: 0.6rem;
+        }
+
+        .duo-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.28rem 0.6rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+            color: #d4d4d8;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .live-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.3rem 0.55rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(34, 197, 94, 0.32);
+            background: rgba(34, 197, 94, 0.1);
+            color: #86efac;
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-top: 0.1rem;
+        }
+
+        .snapshot-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-top: 0.4rem;
+        }
+
+        .stack-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.3rem 0.58rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+            color: #d4d4d8;
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .support-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.55rem;
+            margin-top: 0.45rem;
+        }
+
+        .support-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.36rem 0.7rem;
+            border-radius: 0.58rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.03);
+            color: #d4d4d8;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .support-cta:hover {
+            border-color: rgba(245, 158, 11, 0.45);
+            background: rgba(245, 158, 11, 0.08);
+            color: #fbbf24;
+        }
+
+        button.support-cta {
+            cursor: pointer;
+        }
+
+        .share-status {
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            color: #71717a;
+            min-height: 1.1em;
+        }
+
+        .cost-strip {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 0.55rem;
+        }
+
+        @media (min-width: 768px) {
+            .cost-strip {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        .cost-chip {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.75rem;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.6rem 0.75rem;
+        }
+
+        .cost-chip .k {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #71717a;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .cost-chip .v {
+            margin-top: 0.2rem;
+            color: #f4f4f5;
+            font-size: 13px;
+            line-height: 1.55;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+        }
+
+        .decision-list,
+        .question-list,
+        .contrib-list {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .decision-item,
+        .question-item,
+        .contrib-item {
+            border-left: 2px solid rgba(245, 158, 11, 0.35);
+            padding-left: 0.7rem;
+            font-size: 12px;
+            line-height: 1.65;
+            color: #d4d4d8;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .question-item strong,
+        .decision-item strong,
+        .contrib-item strong {
+            color: #f4f4f5;
+        }
+
+        .contrib-cta {
+            margin-top: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #fbbf24;
+            text-decoration: none;
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            background: rgba(245, 158, 11, 0.08);
+            border-radius: 0.6rem;
+            padding: 0.4rem 0.65rem;
+            transition: all 0.2s ease;
+        }
+
+        .contrib-cta:hover {
+            color: #fde68a;
+            border-color: rgba(245, 158, 11, 0.55);
+            background: rgba(245, 158, 11, 0.12);
+        }
+
+        .pulse-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+            animation: live-pulse 1.8s ease-out infinite;
+        }
+
+        @keyframes live-pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+            }
+
+            75% {
+                box-shadow: 0 0 0 11px rgba(34, 197, 94, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+            }
+        }
+
+        /* Device tag */
+        .device-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 0.2rem 0.55rem;
+            border-radius: 0.4rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #71717a;
+            letter-spacing: 0.02em;
+        }
+
+        /* Skill tag */
+        .skill-tag {
+            display: inline-block;
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.35rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #71717a;
+            letter-spacing: 0.02em;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #030303;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 4px;
+            border: 2px solid #030303;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f59e0b;
+        }
+
+        /* Chapter quote styling */
+        .chapter-quote {
+            border-left: 2px solid rgba(245, 158, 11, 0.4);
+            padding-left: 1rem;
+            font-style: italic;
+            color: #a1a1aa;
+        }
+
+        .outage-memory {
+            position: relative;
+            border: 1px solid rgba(244, 63, 94, 0.35);
+            background: linear-gradient(180deg, rgba(20, 9, 12, 0.7), rgba(10, 10, 12, 0.85));
+            border-radius: 0.9rem;
+            padding: 0.9rem;
+        }
+    </style>
+</head>
+
+<body class="relative min-h-screen">
+
+    <div id="scroll-progress"></div>
+    <div id="custom-cursor"></div>
+
+    <div class="bg-glow-main"></div>
+    <div class="bg-mesh"></div>
+    <div class="scanlines"></div>
+
+    <main class="relative z-10 max-w-[100rem] mx-auto px-4 md:px-8 pt-12 md:pt-20 pb-12">
+
+        <!-- Header -->
+        <header class="flex flex-col items-center justify-center text-center mb-16 relative z-10 gs-reveal">
+            <h2
+                class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-4 flex items-center gap-3">
+                <span class="w-8 h-px bg-zinc-700"></span> About <span class="w-8 h-px bg-zinc-700"></span>
+            </h2>
+            <h1
+                class="font-retro text-3xl sm:text-4xl md:text-5xl lg:text-[46px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)]">
+                Project<br class="md:hidden" /><span class="md:ml-6">GlyphMotion</span>
+            </h1>
+        </header>
+
+        <!-- =========================================================== -->
+        <!--                   THE ARCHITECTS                            -->
+        <!-- =========================================================== -->
+        <section class="mb-16 gs-reveal">
+            <div class="flex items-center gap-3 mb-8">
+                <div
+                    class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+                    <i data-lucide="users" class="w-5 h-5 text-amber-400"></i>
+                </div>
+                <h2 class="font-outfit text-2xl md:text-3xl font-bold text-white tracking-tight">The Architects</h2>
+            </div>
+
+            <p class="team-rhythm">
+                <strong>Team Rhythm:</strong> Shitij leads the architecture and web platform (the main target) and built
+                ~90% of the core processing pipeline. Sayan ports pipeline upgrades to standalone script + GUI and
+                currently leads ongoing maintenance for both script and GUI.
+            </p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+
+                <!-- Shitij Halder -->
+                <div class="about-card p-6 md:p-8 hover-target gs-card">
+                    <div class="flex items-start gap-5 mb-6">
+                        <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder"
+                            class="architect-avatar">
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-outfit text-xl font-bold text-white mb-1">Shitij Halder</h3>
+                            <p class="text-zinc-400 text-sm font-outfit mb-2">Creative Web Developer & Full Stack
+                                Engineer</p>
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                <span class="role-badge bg-amber-500/15 border border-amber-500/30 text-amber-400">Lead
+                                    Architect</span>
+                                <span class="role-badge bg-blue-500/15 border border-blue-500/30 text-blue-400">Web
+                                    Platform</span>
+                            </div>
+                            <p class="text-zinc-500 text-xs font-mono flex items-center gap-1.5">
+                                <i data-lucide="map-pin" class="w-3 h-3"></i> DIT University, Dehradun · Originally from
+                                Siliguri, West Bengal
+                            </p>
+                        </div>
+                    </div>
+
+                    <p class="text-zinc-400 text-sm leading-relaxed mb-5 font-outfit">
+                        The mind behind the entire web platform, backend pipeline, and the visual identity of
+                        GlyphMotion. Built 90% of the processing pipeline, designed the cloud architecture with Google
+                        Drive integration, and engineered the asynchronous video processing backend from scratch. Makes
+                        web design feel more like cinema than code.
+                    </p>
+
+                    <div class="mb-5">
+                        <h4 class="text-zinc-500 text-[10px] font-mono uppercase tracking-widest mb-2">Open Source &
+                            Projects</h4>
+                        <div class="flex flex-wrap gap-1.5">
+                            <span class="device-tag">GlyphMotion Web</span>
+                            <span class="device-tag">ShutterBug</span>
+                            <span class="device-tag">SKY Healthcare</span>
+                            <span class="device-tag">Realme Narzo 30 (salaa)</span>
+                            <span class="device-tag">Redmi 6 (cereus)</span>
+                            <span class="device-tag">git-cherry-picking</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-5">
+                        <h4 class="text-zinc-500 text-[10px] font-mono uppercase tracking-widest mb-2">Skills</h4>
+                        <div class="flex flex-wrap gap-1.5">
+                            <span
+                                class="skill-tag bg-emerald-500/10 border-emerald-500/20 text-emerald-400">HTML/CSS/JS</span>
+                            <span class="skill-tag bg-blue-500/10 border-blue-500/20 text-blue-400">Python</span>
+                            <span class="skill-tag bg-purple-500/10 border-purple-500/20 text-purple-400">Full
+                                Stack</span>
+                            <span class="skill-tag bg-cyan-500/10 border-cyan-500/20 text-cyan-400">AOSP</span>
+                            <span class="skill-tag bg-rose-500/10 border-rose-500/20 text-rose-400">AI/ML</span>
+                            <span class="skill-tag bg-amber-500/10 border-amber-500/20 text-amber-400">C</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 pt-4 border-t border-zinc-800/50">
+                        <a href="https://github.com/SHITIJHALDER" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub</a>
+                        <a href="https://shitijhalder.in/" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                            Portfolio</a>
+                        <a href="https://www.instagram.com/shitijnotop/" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="instagram" class="w-3.5 h-3.5"></i>
+                            Instagram</a>
+                        <a href="https://t.me/shitijnotop" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="send" class="w-3.5 h-3.5"></i> Telegram</a>
+                        <a href="https://x.com/shitijdevxs" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="twitter" class="w-3.5 h-3.5"></i> X</a>
+                        <a href="https://www.linkedin.com/in/shitij-halder-4ba566218/" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="linkedin" class="w-3.5 h-3.5"></i>
+                            LinkedIn</a>
+                    </div>
+                </div>
+
+                <!-- Sayan Sarkar -->
+                <div class="about-card p-6 md:p-8 hover-target gs-card">
+                    <div class="flex items-start gap-5 mb-6">
+                        <img src="https://avatars.githubusercontent.com/u/89209532?v=4" alt="Sayan Sarkar"
+                            class="architect-avatar">
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-outfit text-xl font-bold text-white mb-1">Sayan Sarkar</h3>
+                            <p class="text-zinc-400 text-sm font-outfit mb-2">Psychology Student · Android Developer &
+                                Open Source Contributor</p>
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                <span
+                                    class="role-badge bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">Co-Architect</span>
+                                <span
+                                    class="role-badge bg-purple-500/15 border border-purple-500/30 text-purple-400">Script
+                                    & GUI</span>
+                            </div>
+                            <p class="text-zinc-500 text-xs font-mono flex items-center gap-1.5">
+                                <i data-lucide="map-pin" class="w-3 h-3"></i> Singur Government General Degree College ·
+                                Originally from Kolkata, West Bengal
+                            </p>
+                        </div>
+                    </div>
+
+                    <p class="text-zinc-400 text-sm leading-relaxed mb-5 font-outfit">
+                        The one who found the spark and lit the fuse. Built the initial YOLOv8 parsing script with CLI
+                        arguments, maintained the standalone script and GUI version, and handles 80% of the
+                        standalone/GUI maintenance. A psychology student who debugs code the same way he reads human
+                        behavior — with alarming precision.
+                    </p>
+
+                    <div class="mb-5">
+                        <h4 class="text-zinc-500 text-[10px] font-mono uppercase tracking-widest mb-2">Open Source &
+                            Projects</h4>
+                        <div class="flex flex-wrap gap-1.5">
+                            <span class="device-tag">GlyphMotion Script</span>
+                            <span class="device-tag">GlyphMotion GUI</span>
+                            <span class="device-tag">SpotDeck</span>
+                            <span class="device-tag">TG Media Bot</span>
+                            <span class="device-tag">Redmi 6A (cactus)</span>
+                            <span class="device-tag">Redmi Note 11 (spes)</span>
+                            <span class="device-tag">Redmi 13 5G (breeze)</span>
+                            <span class="device-tag">Nothing Phone 3a (asteroids)</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-5">
+                        <h4 class="text-zinc-500 text-[10px] font-mono uppercase tracking-widest mb-2">Skills</h4>
+                        <div class="flex flex-wrap gap-1.5">
+                            <span
+                                class="skill-tag bg-emerald-500/10 border-emerald-500/20 text-emerald-400">Python</span>
+                            <span class="skill-tag bg-blue-500/10 border-blue-500/20 text-blue-400">AOSP/Linux</span>
+                            <span class="skill-tag bg-purple-500/10 border-purple-500/20 text-purple-400">Shell</span>
+                            <span class="skill-tag bg-cyan-500/10 border-cyan-500/20 text-cyan-400">C</span>
+                            <span class="skill-tag bg-rose-500/10 border-rose-500/20 text-rose-400">Photography</span>
+                            <span class="skill-tag bg-amber-500/10 border-amber-500/20 text-amber-400">Kernel Dev</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 pt-4 border-t border-zinc-800/50">
+                        <a href="https://github.com/sayann70" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub</a>
+                        <a href="https://www.ofcsayan.in/" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                            Portfolio</a>
+                        <a href="https://www.instagram.com/ofcsayan/" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="instagram" class="w-3.5 h-3.5"></i>
+                            Instagram</a>
+                        <a href="https://t.me/sayann70" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="send" class="w-3.5 h-3.5"></i> Telegram</a>
+                        <a href="https://twitter.com/ofcsayan" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="twitter" class="w-3.5 h-3.5"></i> X</a>
+                        <a href="https://www.linkedin.com/in/sayann70" target="_blank" rel="noopener"
+                            class="social-pill hover-target"><i data-lucide="linkedin" class="w-3.5 h-3.5"></i>
+                            LinkedIn</a>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <section class="mb-10 gs-reveal">
+            <div class="heartbeat-banner">
+                <p class="text-zinc-300 text-sm md:text-[15px] font-outfit leading-relaxed relative z-10">
+                    Project GlyphMotion is not just code — it is your years of obsession, sleep debt, debugging scars,
+                    and the emotional volatility of shipping something that actually matters. This page now reflects
+                    that heartbeat.
+                </p>
+            </div>
+        </section>
+
+        <section class="mb-10 gs-reveal">
+            <div class="quick-guide-grid">
+                <article class="about-card p-5 md:p-6 gs-card">
+                    <h3 class="text-white font-outfit text-lg font-semibold mb-3">Who should use GlyphMotion?</h3>
+                    <div class="audience-list">
+                        <div class="audience-item"><strong class="text-zinc-100">Creators:</strong> make visual-first
+                            videos with tracked overlays while keeping original media quality and sound.</div>
+                        <div class="audience-item"><strong class="text-zinc-100">Students:</strong> learn practical
+                            computer-vision workflows by exploring a real pipeline built under real constraints.</div>
+                        <div class="audience-item"><strong class="text-zinc-100">Researchers:</strong> prototype
+                            detection + tracking ideas quickly with a reproducible stack across web, CLI, and GUI.</div>
+                    </div>
+                </article>
+
+                <article class="about-card p-5 md:p-6 gs-card">
+                    <h3 class="text-white font-outfit text-lg font-semibold mb-3">How to start in 2 minutes</h3>
+                    <div class="mini-flow">
+                        <div class="flow-step"><strong>01 · Upload</strong><br>Choose your input clip and send it to the
+                            pipeline.</div>
+                        <div class="flow-step"><strong>02 · Process</strong><br>GlyphMotion runs detection/tracking and
+                            applies the configured workflow.</div>
+                        <div class="flow-step"><strong>03 · Export</strong><br>Download the processed output with final
+                            visuals and preserved audio.</div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="mb-10 gs-reveal">
+            <div class="about-card p-5 md:p-6 gs-card">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="workflow" class="w-4 h-4 text-cyan-400"></i>
+                    <h3 class="text-white font-outfit text-base md:text-lg font-semibold">Pipeline Anatomy (6 steps)</h3>
+                </div>
+                <div class="pipeline-anatomy">
+                    <div class="anatomy-step"><span class="num">01</span>Input</div>
+                    <div class="anatomy-step"><span class="num">02</span>Decode</div>
+                    <div class="anatomy-step"><span class="num">03</span>Detect</div>
+                    <div class="anatomy-step"><span class="num">04</span>Annotate</div>
+                    <div class="anatomy-step"><span class="num">05</span>Encode</div>
+                    <div class="anatomy-step"><span class="num">06</span>Mux</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =========================================================== -->
+        <!--                    THE ORIGIN TEA ☕                         -->
+        <!-- =========================================================== -->
+        <section class="mb-10 gs-reveal origin-story">
+            <div class="flex items-start gap-3 mb-8">
+                <div
+                    class="mt-1 shrink-0 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 shadow-[0_0_20px_rgba(244,63,94,0.15)]">
+                    <i data-lucide="flame" class="w-5 h-5 text-rose-400"></i>
+                </div>
+                <div>
+                    <h2 class="font-outfit text-2xl md:text-3xl font-bold text-white tracking-tight">The Origin Tea ☕
+                    </h2>
+                    <p class="text-zinc-500 text-xs font-mono mt-0.5">// How two Class 12th students built a computer
+                        vision pipeline out of spite</p>
+                    <p class="origin-meaning">
+                        This page means one simple thing: when resources are low but intent is high, two people can
+                        still build production-grade systems by sharing knowledge, dividing roles well, and refusing to
+                        quit.
+                    </p>
+                </div>
+            </div>
+
+            <div class="about-card p-6 md:p-10" id="timeline-container">
+                <div class="origin-kpi-grid">
+                    <div class="origin-kpi hover-target">
+                        <div class="origin-kpi-label">Timeline Chapters</div>
+                        <div class="origin-kpi-value">8+ major phases</div>
+                    </div>
+                    <div class="origin-kpi hover-target">
+                        <div class="origin-kpi-label">Core Builds</div>
+                        <div class="origin-kpi-value">Web • CLI • GUI</div>
+                    </div>
+                    <div class="origin-kpi hover-target">
+                        <div class="origin-kpi-label">Fuel Source</div>
+                        <div class="origin-kpi-value">WiFi + caffeine + rage</div>
+                    </div>
+                </div>
+                <div class="relative pl-10 md:pl-12 space-y-10">
+                    <div class="timeline-track">
+                        <div class="timeline-fill" id="timeline-fill"></div>
+                    </div>
+
+                    <!-- Chapter 1: The Reel That Started It All -->
+                    <div class="relative gs-card timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <div
+                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-rose-500/30 bg-rose-500/10 text-rose-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                <i data-lucide="play-circle" class="w-3.5 h-3.5"></i> Chapter 01 — The Spark
+                            </div>
+                            <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">The Reel That Started
+                                It All</h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                One fine day, Sayan was doom-scrolling Instagram reels at full goblin mode — as any
+                                civilized engineer does — and stumbled on a reel showcasing something called <span
+                                    class="text-amber-400 font-semibold">YOLO (You Only Look Once)</span>. Some guy had
+                                written about 30-40 lines of code that could take a video, run object detection, and
+                                spit out a processed version. It was basic, hardcoded, zero CLI arguments, just raw
+                                script-path-dependency-chaos vibes. But it worked. And Sayan got instantly
+                                <em>hooked</em>.
+                            </p>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                The catch? The guy asked viewers to comment "Link" to get the code. Let that sink in —
+                                you're showcasing an <strong class="text-zinc-300">open-source project</strong>, freely
+                                available to the entire planet, and you're gatekeeping it behind Instagram comments for
+                                engagement farming. Elite cringe. Hall-of-fame gatekeeping.
+                            </p>
+                            <div class="chapter-quote text-sm mb-3">
+                                Sayan actually commented "Link." The creator never replied. Our man got ghosted harder
+                                than a left-swipe on Bumble.
+                            </div>
+                            <p class="text-zinc-400 text-sm leading-relaxed font-outfit">
+                                Sayan told Shitij the whole saga. They were both furious. Two broke students, one shared
+                                frustration, and a mutual verdict: <span class="text-amber-400 font-semibold">"Fine,
+                                    we'll build our own from scratch."</span>
+                            </p>
+                            <div class="phase-shift"><strong>Then:</strong> Gatekept reel + hardcoded snippet.
+                                <strong class="phase-now">Now:</strong> A public, documented, multi-platform pipeline
+                                anyone can study and run.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chapter 2: The Setup -->
+                    <div class="relative gs-card timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <div
+                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i> Chapter 02 — The Setup
+                            </div>
+                            <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">Post-Boards,
+                                Pre-Purpose</h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                Context: Both of them had just finished their CBSE Class 12th board exams. That
+                                post-boards limbo where you've got no school, no college admissions yet, and an alarming
+                                amount of free time. They were already building random side quests — but now they had
+                                a real boss fight.
+                            </p>
+                            <div class="flex flex-wrap gap-2 mt-3">
+                                <span class="device-tag"><i data-lucide="cpu" class="w-3 h-3 text-amber-400"></i> GTX
+                                    1650 — Shitij's Laptop</span>
+                                <span class="device-tag"><i data-lucide="cpu" class="w-3 h-3 text-emerald-400"></i> RTX
+                                    3050 4GB — Sayan's Laptop</span>
+                                <span class="device-tag"><i data-lucide="memory-stick"
+                                        class="w-3 h-3 text-cyan-400"></i> 16GB RAM — Both</span>
+                            </div>
+                            <p class="text-zinc-400 text-sm leading-relaxed mt-3 font-outfit">
+                                Neither of them had GPUs remotely close to "adequate" for real-time neural inference.
+                                But inadequate hardware has never stopped determined developers. It just makes the
+                                journey more... <em>cinematic and slightly unhinged</em>.
+                            </p>
+                            <div class="phase-shift"><strong>Then:</strong> Post-board confusion and random side
+                                quests. <strong class="phase-now">Now:</strong> A focused mission with real product
+                                direction.</div>
+                        </div>
+                    </div>
+
+                    <!-- Chapter 3: First Blood -->
+                    <div class="relative gs-card timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <div
+                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                <i data-lucide="terminal" class="w-3.5 h-3.5"></i> Chapter 03 — First Blood
+                            </div>
+                            <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">Sayan Writes the First
+                                Script</h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                Sayan got to work first. He parsed the <span class="text-emerald-400">YOLOv8
+                                    model</span>, got basic object detection running, and — crucially — added proper
+                                <code
+                                    class="bg-zinc-800 px-1.5 py-0.5 rounded text-[12px] text-emerald-400">argparse</code>
+                                support with command-line arguments. No more editing file paths in the source code like
+                                a caveman. The script could accept input via CLI flags, which meant normal humans could
+                                run it without summoning dark terminal rituals.
+                            </p>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                He passed it to Shitij. Two immediate problems surfaced:
+                            </p>
+                            <div class="space-y-3 mb-3">
+                                <div
+                                    class="flex items-start gap-3 p-3 rounded-lg bg-rose-500/5 border border-rose-500/15">
+                                    <div class="p-1.5 rounded bg-black border border-zinc-800 mt-0.5"><i
+                                            data-lucide="clock" class="w-3.5 h-3.5 text-rose-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium text-sm">Problem #1: Processing
+                                            Time</h4>
+                                        <p class="text-zinc-400 text-xs mt-0.5">With a GTX 1650 and a 3050 4GB,
+                                            inference was painfully slow. Every frame through YOLOv8 felt like an
+                                            eternity. But they pushed forward anyway.</p>
+                                    </div>
+                                </div>
+                                <div
+                                    class="flex items-start gap-3 p-3 rounded-lg bg-rose-500/5 border border-rose-500/15">
+                                    <div class="p-1.5 rounded bg-black border border-zinc-800 mt-0.5"><i
+                                            data-lucide="volume-x" class="w-3.5 h-3.5 text-rose-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium text-sm">Problem #2: No Audio
+                                        </h4>
+                                        <p class="text-zinc-400 text-xs mt-0.5">YOLO — and computer vision models in
+                                            general — don't care about audio. The output video was completely silent.
+                                            Not exactly production-ready.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="phase-shift"><strong>Then:</strong> Slow detection and silent output.
+                                <strong class="phase-now">Now:</strong> Proper CLI + engineered media pipeline with
+                                full output fidelity.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="audio-wave-divider" aria-hidden="true"></div>
+
+                    <!-- Chapter 4: The Audio Fix -->
+                    <div class="relative gs-card timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <div
+                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-purple-500/30 bg-purple-500/10 text-purple-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                <i data-lucide="music" class="w-3.5 h-3.5"></i> Chapter 04 — Audio
+                            </div>
+                            <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">FFmpeg Enters the Chat
+                            </h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                They needed the original audio preserved in the output. Enter <span
+                                    class="text-purple-400 font-semibold">FFmpeg</span> — the Swiss army knife of
+                                multimedia processing. They engineered a pipeline that would extract the original audio
+                                from the source video, process frames through YOLOv8 for visual annotations, encode them
+                                back into a video using libx264 with CRF-based compression, then multiplex the original
+                                audio stream back in.
+                            </p>
+                            <div class="chapter-quote text-sm">
+                                And just like that — they had their first fully working script. A video goes in, a
+                                tracked-and-annotated video with original audio comes out. <span
+                                    class="text-emerald-400">Voilà.</span>
+                            </div>
+                            <div class="phase-shift"><strong>Then:</strong> Frames-only output with missing soul.
+                                <strong class="phase-now">Now:</strong> FFmpeg-powered muxing with original audio
+                                restored.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chapter 5: The Web Platform -->
+                    <div class="relative gs-card timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <div
+                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                <i data-lucide="globe" class="w-3.5 h-3.5"></i> Chapter 05 — Going Remote
+                            </div>
+                            <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">Shitij Builds the Web
+                                Platform</h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                The script worked locally. But they wanted to use it remotely — because why not? Shitij,
+                                being deep into web development, decided to build an entire web platform around the
+                                pipeline. Upload a video through the browser, the backend processes it using the exact
+                                same pipeline, and the result gets served back.
+                            </p>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                Over the next few months, Shitij built out the full stack: the frontend interface, the
+                                Flask-based backend with async processing, Google Drive integration for storage,
+                                automatic GitHub Pages deployment via PyGithub, Telegram bot integration, real-time SSE
+                                status updates, PWA support, admin dashboards — the whole nine yards. 90% of the web
+                                platform was Shitij's work, with Sayan providing continuous support (emotional and
+                                technical — because building this was, in his own words, "diabolical but fire").
+                            </p>
+                            <div class="phase-shift"><strong>Then:</strong> Local-only script.
+                                <strong class="phase-now">Now:</strong> Async web platform with automation,
+                                deployments, and real-time status.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="audio-wave-divider" aria-hidden="true"></div>
+
+                    <!-- Chapter 5.5: The Zero-Budget Infrastructure -->
+                    <div class="relative gs-card timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <div
+                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                <i data-lucide="wallet" class="w-3.5 h-3.5"></i> Chapter 06 — Zero Budget
+                            </div>
+                            <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">$0 Infrastructure. 100%
+                                Uptime.</h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                Here's the thing nobody talks about: <span class="text-yellow-400 font-semibold">they
+                                    had zero money.</span> No budget for domains. No budget for servers. No budget for
+                                cloud hosting. Two students running a computer vision project with nothing but their
+                                laptops, their WiFi, and whatever caffeine they could get their hands on.
+                            </p>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                But they had one ace — their <span class="text-emerald-400 font-semibold">GitHub
+                                    Education Pack</span>. Through the GitHub Student Developer Pack, they scored a free
+                                domain via <code
+                                    class="bg-zinc-800 px-1.5 py-0.5 rounded text-[12px] text-emerald-400">name.com</code>.
+                                That gave the project an actual web presence.
+                            </p>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                But GitHub Pages — while giving them 100% frontend uptime for free — doesn't support
+                                <em>any</em> backend. No server-side processing, no APIs, nothing. Just static files.
+                                For a project that needs to process videos through a neural network? That's a
+                                dealbreaker. Or so it seemed.
+                            </p>
+
+                            <div class="p-4 rounded-lg bg-[#070709] border border-zinc-800/80 mb-4">
+                                <h4
+                                    class="text-zinc-200 font-outfit font-semibold text-sm mb-2 flex items-center gap-2">
+                                    <i data-lucide="cloud" class="w-4 h-4 text-blue-400"></i> The Cloudflare Tunnel Hack
+                                </h4>
+                                <p class="text-zinc-400 text-xs leading-relaxed mb-2">
+                                    Shitij rigorously searched for a way to make the backend work. The solution? <span
+                                        class="text-blue-400 font-semibold">Cloudflare Tunnels</span> — which can expose
+                                    any local network to the internet without port forwarding, without a static IP,
+                                    without paying a dime.
+                                </p>
+                                <p class="text-zinc-400 text-xs leading-relaxed mb-2">
+                                    The architecture: GitHub Pages hosts the frontend 24/7 with 100% uptime. Video
+                                    metadata is fetched by polling a <code
+                                        class="bg-zinc-800 px-1 py-0.5 rounded text-[11px] text-blue-400">videos.json</code>
+                                    file in the GlyphMotion GitHub repository — no backend needed for that. When they
+                                    needed to process a video or test something, they'd simply spin up the Cloudflare
+                                    tunnel from their laptop, and the backend would be live on the internet. Turn it off
+                                    when done.
+                                </p>
+                                <p class="text-zinc-400 text-xs leading-relaxed">
+                                    Integrating GitHub Pages with Cloudflare was the biggest challenge — but once
+                                    cracked, it gave them something nobody else has: <span
+                                        class="text-amber-400 font-semibold">a GitHub Pages site with an on-demand
+                                        backend</span>. When Shitij showed this setup to someone in the industry, their
+                                    reaction was genuine shock.
+                                </p>
+                            </div>
+
+                            <div class="chapter-quote text-sm">
+                                100% open source. Zero extra cost beyond their laptops, WiFi, and coffee. Every single
+                                tool in the stack — free. The entire project exists because two students refused to let
+                                budget be an excuse.
+                            </div>
+                            <div class="phase-shift"><strong>Then:</strong> No money, no server, no obvious path.
+                                <strong class="phase-now">Now:</strong> Clever on-demand architecture with $0 infra
+                                burn.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chapter 6.5: The Outage Night -->
+                    <div class="relative gs-card timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <div
+                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-red-500/30 bg-red-500/10 text-red-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                <i data-lucide="heart-crack" class="w-3.5 h-3.5"></i> Chapter 06.5 — The Crash
+                            </div>
+                            <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">The Night Everything
+                                Felt Broken</h3>
+                            <div class="outage-memory mb-4">
+                                <p class="text-zinc-300 text-sm leading-relaxed font-outfit mb-2">
+                                    Right after the first stable release landed, the internet suddenly felt like it had
+                                    flatlined. During the Cloudflare outage window, traffic dropped off a cliff and the
+                                    project looked dead from the outside.
+                                </p>
+                                <p class="text-zinc-400 text-sm leading-relaxed font-outfit">
+                                    At 2AM, far from home in Malda, that hit hard enough to bring tears. Real tears.
+                                    Confusion, panic, grief — then a bad spiral where chunks of documentation and
+                                    uncommitted work got deleted. For 2-3 days, both of them were emotionally cooked.
+                                    Later they learned it was the outage, not the end. They rebuilt, recovered, and got
+                                    back to shipping.
+                                </p>
+                            </div>
+                            <div class="chapter-quote text-sm">
+                                Some projects are built with money. This one was built with stubbornness, friendship,
+                                and the kind of resilience you only discover after your worst midnight moment.
+                            </div>
+                            <div class="phase-shift"><strong>Then:</strong> Panic, grief, and accidental deletions.
+                                <strong class="phase-now">Now:</strong> Stronger recovery mindset, tougher version,
+                                tighter bond.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="audio-wave-divider" aria-hidden="true"></div>
+
+                    <!-- Chapter 7: The GUI & Standalone -->
+                    <div class="relative gs-card timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <div
+                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                <i data-lucide="monitor" class="w-3.5 h-3.5"></i> Chapter 07 — The Split
+                            </div>
+                            <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">Three Forks, One
+                                Pipeline</h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                Now there were three versions of the same core pipeline that needed to coexist:
+                            </p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                                <div class="p-3 rounded-lg bg-[#070709] border border-zinc-800/80">
+                                    <div class="flex items-center gap-2 mb-2"><i data-lucide="globe"
+                                            class="w-4 h-4 text-blue-400"></i>
+                                        <h4 class="text-zinc-200 font-outfit font-medium text-sm">Web Platform</h4>
+                                    </div>
+                                    <p class="text-zinc-500 text-xs leading-relaxed">The full cloud solution with
+                                        upload, processing, and automated deployment. Primarily maintained by Shitij.
+                                    </p>
+                                </div>
+                                <div class="p-3 rounded-lg bg-[#070709] border border-zinc-800/80">
+                                    <div class="flex items-center gap-2 mb-2"><i data-lucide="terminal"
+                                            class="w-4 h-4 text-emerald-400"></i>
+                                        <h4 class="text-zinc-200 font-outfit font-medium text-sm">Standalone CLI</h4>
+                                    </div>
+                                    <p class="text-zinc-500 text-xs leading-relaxed">The raw command-line script. No web
+                                        server needed. Pipeline changes ported from the web version. Maintained 80% by
+                                        Sayan.</p>
+                                </div>
+                                <div class="p-3 rounded-lg bg-[#070709] border border-zinc-800/80">
+                                    <div class="flex items-center gap-2 mb-2"><i data-lucide="monitor"
+                                            class="w-4 h-4 text-purple-400"></i>
+                                        <h4 class="text-zinc-200 font-outfit font-medium text-sm">Desktop GUI</h4>
+                                    </div>
+                                    <p class="text-zinc-500 text-xs leading-relaxed">Sayan's cross-platform desktop app
+                                        for Linux & Windows. Visual interface without needing a terminal.</p>
+                                </div>
+                            </div>
+                            <p class="text-zinc-400 text-sm leading-relaxed font-outfit">
+                                Since the web platform's processing pipeline was always the most complete, changes
+                                flowed downstream: web → standalone → GUI. Sayan handled the majority of the standalone
+                                and GUI maintenance, while Shitij kept the web platform evolving.
+                            </p>
+                            <div class="phase-shift"><strong>Then:</strong> One script doing everything badly.
+                                <strong class="phase-now">Now:</strong> Three focused builds sharing one evolving core.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chapter 7: The Android Arc -->
+                    <div class="relative gs-card timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <div
+                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-orange-500/30 bg-orange-500/10 text-orange-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                <i data-lucide="smartphone" class="w-3.5 h-3.5"></i> Chapter 08 — The Backstory
+                            </div>
+                            <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">Before GlyphMotion: The
+                                Android Years</h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                Long before GlyphMotion existed, both of them were deep in the Android custom ROM scene.
+                                They started on devices that shared the same board — <span class="text-orange-400">Redmi
+                                    6 (cereus)</span> for Shitij and <span class="text-orange-400">Redmi 6A
+                                    (cactus)</span> for Sayan — building and maintaining custom ROMs with proper
+                                authorship and kernel optimizations.
+                            </p>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                Later, Shitij maintained ROMs for the <span class="text-zinc-300">Realme Narzo 30
+                                    (salaa)</span> — a device so cursed it should come with a therapy coupon. Sayan
+                                moved to the <span class="text-zinc-300">Redmi Note 11 (spes)</span>, which he
+                                <em>still</em> maintains to this day, and later picked up the <span
+                                    class="text-zinc-300">Redmi 13 5G (breeze)</span> and even the <span
+                                    class="text-zinc-300">Nothing Phone 3a (asteroids)</span>.
+                            </p>
+                            <p class="text-zinc-400 text-sm leading-relaxed font-outfit">
+                                Beyond ROMs, they've contributed to various open-source projects — SpotDeck (a Spotify
+                                Car Thing replacement), Telegram media bots, kernel trees, vendor blobs — the whole
+                                Android development ecosystem. This background in low-level system work and open-source
+                                collaboration is exactly what made GlyphMotion possible.
+                            </p>
+                            <div class="phase-shift"><strong>Then:</strong> ROM/device trenches and kernel chaos.
+                                <strong class="phase-now">Now:</strong> That same low-level discipline powering
+                                computer-vision engineering.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="audio-wave-divider" aria-hidden="true"></div>
+
+                    <!-- Epilogue -->
+                    <div class="relative gs-card timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <div
+                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                <i data-lucide="flag" class="w-3.5 h-3.5"></i> Present Day
+                            </div>
+                            <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">From a 30-Line Script
+                                Reel to a Full Pipeline</h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                What started as frustration over a gatekept Instagram reel turned into a full-scale,
+                                multi-platform computer vision pipeline with asynchronous processing, CUDA acceleration,
+                                cloud integration, a production web app, a standalone CLI, and a desktop GUI.
+                            </p>
+                            <p class="text-zinc-400 text-sm leading-relaxed font-outfit">
+                                Two students. Two mid-tier laptops. One shared goal. Zero handouts. Everything you see
+                                on this site — from the pipeline architecture to the documentation to the changelogs —
+                                was built from the ground up. Not because someone asked them to, but because some guy on
+                                Instagram wouldn't share a link.
+                            </p>
+                            <div class="phase-shift"><strong>Then:</strong> Anger at gatekeeping.
+                                <strong class="phase-now">Now:</strong> A fully shipped story proving open knowledge
+                                can beat budget.
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-12 gs-reveal">
+            <div class="flex items-center gap-3 mb-8">
+                <div
+                    class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+                    <i data-lucide="lightbulb" class="w-5 h-5 text-emerald-400"></i>
+                </div>
+                <div>
+                    <h2 class="font-outfit text-2xl md:text-3xl font-bold text-white tracking-tight">Builder Notes &
+                        Gratitude</h2>
+                    <p class="text-zinc-500 text-xs font-mono mt-0.5">// What this journey taught us, and who helped us
+                        stand back up</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <article class="about-card p-6 md:p-7 gs-card">
+                    <h3 class="text-white font-outfit text-xl font-semibold mb-4">If You're Building With Zero Budget</h3>
+                    <div class="narrative-list">
+                        <div class="narrative-item">Use free tiers like puzzle pieces, not as a full solution. Combine
+                            static hosting, on-demand backend, and storage automation.</div>
+                        <div class="narrative-item">Optimize for resilience, not aesthetics first: backups, commit
+                            discipline, and reproducible scripts save your sanity.</div>
+                        <div class="narrative-item">Trade money with effort: documentation, scripts, and repeatable
+                            workflows become your compounding asset.</div>
+                        <div class="narrative-item">Ask shamelessly, search deeply, experiment fast. Most paywalled
+                            answers are often reconstructible with patience and grit.</div>
+                        <div class="narrative-item">Build in public when possible — your future collaborators are
+                            watching your consistency, not your budget.</div>
+                    </div>
+                </article>
+
+                <article class="about-card p-6 md:p-7 gs-card">
+                    <h3 class="text-white font-outfit text-xl font-semibold mb-4">Credits We Owe</h3>
+                    <div class="credits-grid">
+                        <div class="credit-pill"><strong class="text-zinc-100">FFmpeg Project</strong><br>To Fabrice
+                            Bellard and the global FFmpeg contributors — your work made our audio/video pipeline real.</div>
+                        <div class="credit-pill"><strong class="text-zinc-100">YOLO Lineage</strong><br>To Joseph
+                            Redmon, Ali Farhadi, and the broader YOLO research lineage; and to the Ultralytics team for
+                            practical modern implementations.</div>
+                        <div class="credit-pill"><strong class="text-zinc-100">Open Source Foundations</strong><br>
+                            Python core devs, Flask/Pallets, Linux maintainers, OpenCV contributors, and the entire tool
+                            ecosystem we stood on.</div>
+                        <div class="credit-pill"><strong class="text-zinc-100">Infrastructure Allies</strong><br>
+                            GitHub, GitHub Education Pack, Cloudflare tooling, and every free-tier service that gave two
+                            students a fighting chance.</div>
+                        <div class="credit-pill"><strong class="text-zinc-100">Communities & Strangers</strong><br>
+                            Stack Overflow answers, random forum comments, issue threads, docs writers, and tutorial
+                            creators we may never personally meet.</div>
+                        <div class="credit-pill"><strong class="text-zinc-100">Each Other</strong><br>When one of us
+                            crashed, the other carried the build. This project exists because friendship stayed online
+                            when the internet felt offline.</div>
+                    </div>
+                </article>
+            </div>
+
+            <article class="about-card p-6 md:p-8 mt-6 gs-card">
+                <h3 class="text-white font-outfit text-xl font-semibold mb-3">Why Open Source?</h3>
+                <p class="open-source-heart">
+                    Because we know what it feels like to be locked out when you're hungry to learn. Open source is not
+                    just code sharing — it's dignity sharing. It's telling the next broke, stubborn student that they
+                    don't need permission to build something meaningful. If this pipeline helps even one person skip the
+                    gatekeeping we faced, every sleepless night was worth it.
+                </p>
+                <div class="founder-quote">
+                    “Everything in this world is free—if you know how to question, search, and work through chaos.
+                    Even starting from zero, the impossible today is what people will pay billions for tomorrow.” —
+                    Shitij Halder
+                </div>
+                <div class="founder-quote">
+                    “Never let money minded capitalism hit your Open-source-project” — Sayan Sarkar
+                </div>
+            </article>
+
+            <article class="about-card p-5 md:p-6 mt-6 gs-card">
+                <h3 class="text-white font-outfit text-lg font-semibold mb-3">Cost vs Capability</h3>
+                <div class="cost-strip">
+                    <div class="cost-chip">
+                        <div class="k">Infra Cost</div>
+                        <div class="v">$0 baseline stack with student-tier leverage</div>
+                    </div>
+                    <div class="cost-chip">
+                        <div class="k">Processing Model</div>
+                        <div class="v">Asynchronous pipeline with queue-based stages</div>
+                    </div>
+                    <div class="cost-chip">
+                        <div class="k">Deployment Reach</div>
+                        <div class="v">Web + Standalone CLI + Desktop GUI</div>
+                    </div>
+                </div>
+            </article>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <article class="about-card p-6 md:p-7 gs-card">
+                    <h3 class="text-white font-outfit text-xl font-semibold mb-4">Architectural Decisions</h3>
+                    <div class="decision-list">
+                        <div class="decision-item"><strong>Decision 01:</strong> Web platform stays the canonical
+                            source of pipeline evolution. <strong>Why:</strong> one main branch prevents feature
+                            drift and keeps downstream ports consistent.</div>
+                        <div class="decision-item"><strong>Decision 02:</strong> Separate stages for decode,
+                            inference, and encode with FFmpeg muxing. <strong>Why:</strong> better throughput,
+                            cleaner recovery points, and preserved audio integrity.</div>
+                        <div class="decision-item"><strong>Decision 03:</strong> Hybrid static+on-demand backend
+                            infrastructure. <strong>Why:</strong> near-zero operating cost while still enabling full
+                            pipeline execution when needed.</div>
+                    </div>
+                </article>
+
+                <article class="about-card p-6 md:p-7 gs-card">
+                    <h3 class="text-white font-outfit text-xl font-semibold mb-4">Open Questions (Still Solving)</h3>
+                    <div class="question-list">
+                        <div class="question-item"><strong>Optimization frontier:</strong> how far can we reduce
+                            latency and memory pressure without compromising tracking stability?</div>
+                        <div class="question-item"><strong>Quality frontier:</strong> current output quality is
+                            around ~83% VMAF in our observed runs; the long-term target is <strong>86-89+</strong>,
+                            especially for near-4K preservation.</div>
+                        <div class="question-item"><strong>Hard challenge:</strong> can we improve perceptual
+                            quality and VMAF together while keeping inference practical on mid-tier hardware?</div>
+                    </div>
+                </article>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <article class="about-card p-6 md:p-7 gs-card">
+                    <h3 class="text-white font-outfit text-xl font-semibold mb-4">Hard Limits We Accept (for now)</h3>
+                    <div class="limits-list">
+                        <div class="limits-item"><strong>GPU tier reality:</strong> optimization targets are designed
+                            around mid-tier hardware, so some premium-grade throughput remains out of reach for now.</div>
+                        <div class="limits-item"><strong>Inference-speed tradeoff:</strong> aggressive quality settings
+                            can increase processing time, especially on longer and higher-resolution inputs.</div>
+                        <div class="limits-item"><strong>Compression tension:</strong> pushing near-4K quality while
+                            keeping practical output sizes is still an active balancing problem.</div>
+                    </div>
+                </article>
+
+                <article class="about-card p-6 md:p-7 gs-card">
+                    <h3 class="text-white font-outfit text-xl font-semibold mb-4">What We Won't Compromise On</h3>
+                    <div class="integrity-list">
+                        <div class="integrity-item"><strong>Open-source transparency:</strong> knowledge should be
+                            shareable, inspectable, and extendable.</div>
+                        <div class="integrity-item"><strong>Reproducibility:</strong> behavior should be explainable
+                            and repeatable across runs and environments.</div>
+                        <div class="integrity-item"><strong>Audio preservation:</strong> output should not lose the
+                            original media soul.</div>
+                        <div class="integrity-item"><strong>Maintainability:</strong> architecture decisions should
+                            favor long-term evolution over short-term hacks.</div>
+                    </div>
+                </article>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <article class="about-card p-6 md:p-7 gs-card">
+                    <h3 class="text-white font-outfit text-xl font-semibold mb-4">Lessons We Paid For</h3>
+                    <div class="lessons-list">
+                        <div class="lesson-row">Always commit before panic.</div>
+                        <div class="lesson-row">If there is no backup, there is no mercy.</div>
+                        <div class="lesson-row">Free infra is powerful, but only if your architecture is smarter than
+                            your outages.</div>
+                        <div class="lesson-row">A prototype proves possibility; discipline proves longevity.</div>
+                        <div class="lesson-row">When motivation dies, routine must take over.</div>
+                    </div>
+                </article>
+
+                <article class="future-letter gs-card">
+                    <div class="stamp">Letter to Future Us · 18 March 2026</div>
+                    <h3 class="text-white font-outfit text-xl font-semibold mb-3">If you're reading this later...</h3>
+                    <p class="text-zinc-300 text-sm leading-relaxed font-outfit mb-3">
+                        Remember the nights when everything felt broken, the days when the page looked empty, and the
+                        moments we questioned whether this was even worth continuing.
+                    </p>
+                    <p class="text-zinc-300 text-sm leading-relaxed font-outfit">
+                        We built anyway. We learned anyway. We came back anyway. If future success ever makes us forget
+                        the grind, read this page again and stay humble, hungry, and kind to the next builder.
+                    </p>
+                </article>
+            </div>
+
+            <article class="about-card p-6 md:p-7 mt-6 gs-card">
+                <h3 class="text-white font-outfit text-xl font-semibold mb-4">Contributors Welcome</h3>
+                <div class="contrib-list">
+                    <div class="contrib-item"><strong>Docs:</strong> tighten setup guides, architecture diagrams, and
+                        troubleshooting for first-time users.</div>
+                    <div class="contrib-item"><strong>Tests:</strong> add reproducible validation for pipeline stages,
+                        regressions, and output consistency.</div>
+                    <div class="contrib-item"><strong>Perf:</strong> profile bottlenecks, improve queue/encode
+                        behavior, and push quality-efficiency trade-offs smarter.</div>
+                    <div class="contrib-item"><strong>UI:</strong> polish usability and onboarding while preserving the
+                        current design language.</div>
+                </div>
+                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/issues/new" target="_blank"
+                    rel="noopener" class="contrib-cta hover-target"><i data-lucide="users" class="w-3.5 h-3.5"></i>
+                    Want to contribute? Open an issue</a>
+            </article>
+
+            <article class="about-card p-6 md:p-7 mt-6 gs-card">
+                <h3 class="text-white font-outfit text-xl font-semibold mb-4">Thanks Wall (Founding External Contributors)</h3>
+                <div class="thanks-list">
+                    <div class="thanks-item"><strong>Reserved slots:</strong> this wall will list the first external
+                        contributors who meaningfully improve docs, tests, performance, or UI.</div>
+                    <div class="thanks-item"><strong>How to get listed:</strong> open an issue, take ownership, submit
+                        a quality PR, and help us move the quality/performance frontier forward.</div>
+                </div>
+                <div class="thanks-chip-row" aria-label="Contributor slots">
+                    <span class="thanks-chip">Slot 01 · Open</span>
+                    <span class="thanks-chip">Slot 02 · Open</span>
+                    <span class="thanks-chip">Slot 03 · Open</span>
+                    <span class="thanks-chip">Slot 04 · Open</span>
+                    <span class="thanks-chip">Slot 05 · Open</span>
+                </div>
+            </article>
+        </section>
+
+        <section class="mb-8 gs-reveal">
+            <div class="about-card p-5 md:p-6 gs-card duo-strip">
+                <div>
+                    <h3 class="duo-heading">Two Builders. One Shared Obsession.</h3>
+                    <p class="duo-sub">A story people can relate to: two friends, limited resources, and relentless
+                        execution over excuses.</p>
+                    <div class="duo-pills">
+                        <span class="duo-pill"><i data-lucide="user" class="w-3.5 h-3.5 text-amber-400"></i> Shitij ·
+                            Architecture + Platform</span>
+                        <span class="duo-pill"><i data-lucide="user" class="w-3.5 h-3.5 text-emerald-400"></i> Sayan ·
+                            Script + GUI + Maintenance</span>
+                    </div>
+                </div>
+                <div class="live-status">
+                    <span class="pulse-dot"></span>
+                    <span>Still Building...</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-8 gs-reveal">
+            <div class="about-card p-5 md:p-6 gs-card">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="layers" class="w-4 h-4 text-cyan-400"></i>
+                    <h3 class="text-white font-outfit text-base md:text-lg font-semibold">Build Stack Snapshot</h3>
+                </div>
+                <div class="snapshot-row">
+                    <span class="stack-chip">YOLOv8</span>
+                    <span class="stack-chip">FFmpeg</span>
+                    <span class="stack-chip">Flask</span>
+                    <span class="stack-chip">SSE</span>
+                    <span class="stack-chip">GDrive</span>
+                    <span class="stack-chip">Cloudflare Tunnel</span>
+                </div>
+
+                <div class="flex items-center gap-2 mt-5 mb-2">
+                    <i data-lucide="heart-handshake" class="w-4 h-4 text-rose-400"></i>
+                    <h3 class="text-white font-outfit text-base md:text-lg font-semibold">Support this project</h3>
+                </div>
+                <div class="support-row">
+                    <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io" target="_blank"
+                        rel="noopener" class="support-cta hover-target"><i data-lucide="star" class="w-3.5 h-3.5"></i>
+                        GitHub Star</a>
+                    <button id="share-project-btn" type="button" class="support-cta hover-target"><i
+                            data-lucide="share-2" class="w-3.5 h-3.5"></i> Share</button>
+                    <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/issues/new" target="_blank"
+                        rel="noopener" class="support-cta hover-target"><i data-lucide="message-square"
+                            class="w-3.5 h-3.5"></i> Feedback Form</a>
+                    <a href="https://github.com/ProjectGlyphMotion/Script" target="_blank" rel="noopener"
+                        class="support-cta hover-target"><i data-lucide="terminal-square" class="w-3.5 h-3.5"></i>
+                        Script Repo</a>
+                    <a href="https://github.com/ProjectGlyphMotion/GUI" target="_blank" rel="noopener"
+                        class="support-cta hover-target"><i data-lucide="monitor" class="w-3.5 h-3.5"></i> GUI
+                        Repo</a>
+                </div>
+                <p id="share-status" class="share-status mt-2"></p>
+            </div>
+        </section>
+
+        <section class="mb-8 gs-reveal">
+            <article class="about-card p-5 md:p-6 gs-card">
+                <div class="flex items-center gap-2 mb-3">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+                    <h3 class="text-white font-outfit text-base md:text-lg font-semibold">Privacy & Data Retention</h3>
+                </div>
+                <div class="decision-list">
+                    <div class="decision-item"><strong>Admin-side deletion policy:</strong> when a video is deleted from our admin portal, both the stored video data and the actual video file are permanently deleted from Google Drive to save space.</div>
+                    <div class="decision-item"><strong>Local processing cleanup:</strong> videos on our laptops are manually deleted once processing is done. We take full responsibility for this manual cleanup cycle.</div>
+                    <div class="decision-item"><strong>How to request deletion:</strong> share the video link (you can copy it using the copy button). That link is enough for us to trace and delete the related data.</div>
+                    <div class="decision-item"><strong>Location analytics scope:</strong> location tracking is limited to country and state only, used only to understand where GlyphMotion is being used most. This data is never published. Raw/core tracking data is manually cleaned at regular intervals; only aggregate stats are retained.</div>
+                </div>
+
+                <div class="flex items-center gap-2 mt-5 mb-2">
+                    <i data-lucide="compass" class="w-4 h-4 text-cyan-400"></i>
+                    <h3 class="text-white font-outfit text-base md:text-lg font-semibold">Explore Public Pages</h3>
+                </div>
+                <div class="support-row">
+                    <a href="index.html" class="support-cta hover-target"><i data-lucide="home" class="w-3.5 h-3.5"></i> Home</a>
+                    <a href="playground.html" class="support-cta hover-target"><i data-lucide="flask-conical" class="w-3.5 h-3.5"></i> AI Playground</a>
+                    <a href="documentation.html" class="support-cta hover-target"><i data-lucide="book-open" class="w-3.5 h-3.5"></i> Documentation</a>
+                    <a href="changelogs.html" class="support-cta hover-target"><i data-lucide="scroll-text" class="w-3.5 h-3.5"></i> Changelogs</a>
+                    <a href="about.html" class="support-cta hover-target"><i data-lucide="info" class="w-3.5 h-3.5"></i> About</a>
+                </div>
+            </article>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 pb-8 pt-4 px-4">
+        <div
+            class="max-w-max mx-auto px-4 sm:px-6 py-3 rounded-xl sm:rounded-full bg-surface/80 backdrop-blur-md border border-zinc-800/60 shadow-[0_0_20px_rgba(0,0,0,0.5)] flex flex-col sm:flex-row items-center justify-center gap-3 transition-all hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)] hover-target">
+            <div class="flex items-center gap-2">
+                <i data-lucide="terminal-square" class="w-4 h-4 text-amber-500"></i>
+                <p class="text-zinc-400 text-[11px] sm:text-sm font-mono tracking-wide">
+                    Maintained by <span class="text-zinc-200 font-semibold">Project GlyphMotion</span>
+                </p>
+            </div>
+            <span class="hidden sm:block w-px h-4 bg-zinc-700"></span>
+            <div class="flex items-center text-center gap-1.5">
+                <p class="text-zinc-500 text-[9px] sm:text-xs font-mono tracking-wide leading-tight">
+                    MIT License &copy; 2026<br class="sm:hidden" /> Shitij Halder & Sayan Sarkar
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+
+        // --- 1. LENIS SMOOTH SCROLL ---
+        const lenis = new Lenis({
+            duration: 1.2, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            direction: 'vertical', gestureDirection: 'vertical',
+            smooth: true, mouseMultiplier: 1, touchMultiplier: 2, infinite: false,
+        });
+
+        function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
+        requestAnimationFrame(raf);
+
+        // --- 2. GSAP SCROLLTRIGGER ---
+        gsap.registerPlugin(ScrollTrigger);
+        gsap.ticker.add((time) => { lenis.raf(time * 1000) });
+        gsap.ticker.lagSmoothing(0);
+
+        // --- 2.5 SUPPORT ROW ACTIONS ---
+        const shareButton = document.getElementById('share-project-btn');
+        const shareStatus = document.getElementById('share-status');
+
+        if (shareButton) {
+            shareButton.addEventListener('click', async () => {
+                const shareData = {
+                    title: 'Project GlyphMotion',
+                    text: 'Check out Project GlyphMotion — an open-source video tracking pipeline built on a $0 budget.',
+                    url: window.location.href,
+                };
+
+                try {
+                    if (navigator.share) {
+                        await navigator.share(shareData);
+                        if (shareStatus) shareStatus.textContent = 'Shared successfully.';
+                        return;
+                    }
+
+                    await navigator.clipboard.writeText(shareData.url);
+                    if (shareStatus) shareStatus.textContent = 'Link copied to clipboard.';
+                } catch (err) {
+                    if (shareStatus) shareStatus.textContent = 'Could not share right now. Please copy the URL manually.';
+                }
+            });
+        }
+
+        // --- 3. SCROLL PROGRESS BAR (always reaches 100% at bottom) ---
+        function getScrollMetrics(preferTarget = false) {
+            const root = document.documentElement;
+            const body = document.body;
+
+            const viewportHeight = window.innerHeight;
+            const docHeight = Math.max(root.scrollHeight, body.scrollHeight, root.offsetHeight, body.offsetHeight);
+
+            const nativeScroll = Math.max(window.scrollY || 0, root.scrollTop || 0, body.scrollTop || 0);
+            const lenisAnimated = Number.isFinite(lenis?.animatedScroll) ? lenis.animatedScroll : 0;
+            const lenisActual = Number.isFinite(lenis?.actualScroll) ? lenis.actualScroll : 0;
+            const lenisTarget = Number.isFinite(lenis?.targetScroll) ? lenis.targetScroll : 0;
+            const lenisPreferred = preferTarget
+                ? Math.max(lenisTarget, lenisActual, lenisAnimated)
+                : Math.max(lenisActual, lenisAnimated);
+            const scrollTop = Math.max(nativeScroll, lenisPreferred);
+
+            const maxScroll = Math.max(1, docHeight - viewportHeight);
+            const reachedBottom = (scrollTop + viewportHeight) >= (docHeight - 1);
+
+            return { scrollTop, maxScroll, docHeight, viewportHeight, reachedBottom };
+        }
+
+        function updateScrollProgress(preferTarget = true) {
+            const { scrollTop, maxScroll, reachedBottom } = getScrollMetrics(preferTarget);
+            let p = scrollTop / maxScroll;
+            if (reachedBottom || p > 0.997) p = 1;
+            document.getElementById('scroll-progress').style.transform = `scaleX(${Math.max(0, Math.min(p, 1))})`;
+        }
+
+        let progressRaf = null;
+        function scheduleProgressUpdate() {
+            if (progressRaf !== null) return;
+            progressRaf = requestAnimationFrame(() => {
+                progressRaf = null;
+                updateScrollProgress(true);
+            });
+        }
+
+        // --- 4. CUSTOM CURSOR ---
+        const cursor = document.getElementById('custom-cursor');
+        let cursorX = 0, cursorY = 0, targetX = 0, targetY = 0;
+
+        function getAppliedZoom() {
+            const raw = parseFloat(getComputedStyle(document.documentElement).zoom || '1');
+            return Number.isFinite(raw) && raw > 0 ? raw : 1;
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            const zoom = getAppliedZoom();
+            targetX = e.clientX / zoom;
+            targetY = e.clientY / zoom;
+        });
+
+        function animateCursor() {
+            cursorX += (targetX - cursorX) * 0.15;
+            cursorY += (targetY - cursorY) * 0.15;
+            cursor.style.left = cursorX + 'px';
+            cursor.style.top = cursorY + 'px';
+            requestAnimationFrame(animateCursor);
+        }
+        animateCursor();
+
+        document.querySelectorAll('.hover-target, a, button').forEach(el => {
+            el.addEventListener('mouseenter', () => cursor.classList.add('hovered'));
+            el.addEventListener('mouseleave', () => cursor.classList.remove('hovered'));
+        });
+
+        // --- 5. GSAP REVEAL ANIMATIONS ---
+        gsap.fromTo('.gs-reveal', { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: 0.05, stagger: 0.08 });
+
+        gsap.utils.toArray('.gs-card').forEach(card => {
+            gsap.fromTo(card, { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out", scrollTrigger: { trigger: card, start: "top 95%", toggleActions: "play none none reverse" } });
+        });
+
+        gsap.to('.bg-glow-main', {
+            yPercent: 10,
+            ease: 'none',
+            scrollTrigger: {
+                trigger: document.body,
+                start: 'top top',
+                end: 'bottom bottom',
+                scrub: 0.8,
+            }
+        });
+
+        gsap.fromTo('.origin-kpi',
+            { opacity: 0, y: 16, scale: 0.98 },
+            {
+                opacity: 1,
+                y: 0,
+                scale: 1,
+                duration: 0.55,
+                stagger: 0.09,
+                ease: 'power3.out',
+                scrollTrigger: {
+                    trigger: '#timeline-container',
+                    start: 'top 86%',
+                    toggleActions: 'play none none reverse'
+                }
+            }
+        );
+
+        // --- 6. CINEMATIC TIMELINE FILL (changelogs-style) ---
+        function updateTimelineProgress() {
+            const container = document.getElementById('timeline-container');
+            const fill = document.getElementById('timeline-fill');
+            if (!container || !fill) return;
+
+            const rect = container.getBoundingClientRect();
+            const { scrollTop, reachedBottom, viewportHeight } = getScrollMetrics();
+            const containerTop = scrollTop + rect.top;
+
+            const start = containerTop - viewportHeight * 0.55;
+            const end = containerTop + rect.height - viewportHeight * 0.25;
+            let ratio = (scrollTop - start) / Math.max(1, end - start);
+
+            if (reachedBottom || ratio > 0.997) ratio = 1;
+
+            ratio = Math.max(0, Math.min(1, ratio));
+            fill.style.height = `${ratio * 100}%`;
+
+            const dots = container.querySelectorAll('.timeline-dot');
+            dots.forEach((dot, index) => {
+                const dotRect = dot.getBoundingClientRect();
+                const isLastDot = index === dots.length - 1;
+                const threshold = isLastDot ? viewportHeight * 0.92 : viewportHeight * 0.55;
+                if (dotRect.top <= threshold) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            });
+        }
+
+        lenis.on('scroll', () => {
+            ScrollTrigger.update();
+            updateScrollProgress(true);
+            updateTimelineProgress();
+        });
+        window.addEventListener('scroll', scheduleProgressUpdate, { passive: true });
+        window.addEventListener('wheel', scheduleProgressUpdate, { passive: true });
+        window.addEventListener('touchmove', scheduleProgressUpdate, { passive: true });
+        window.addEventListener('keydown', scheduleProgressUpdate);
+        window.addEventListener('resize', updateTimelineProgress);
+        window.addEventListener('resize', () => updateScrollProgress(true));
+        updateScrollProgress(true);
+        updateTimelineProgress();
+
+        // UNIVERSAL SCALING FIX
+        (function () {
+            const REFERENCE_WIDTH = 1920;
+            const MIN_ZOOM = 0.6;
+            const MAX_ZOOM = 1.0;
+
+            function applyScaling() {
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                if (viewportWidth <= 1024) {
+                    document.documentElement.style.zoom = '1';
+                    document.documentElement.style.setProperty('--real-vh', viewportHeight + 'px');
+                    return;
+                }
+
+                let zoomLevel = viewportWidth / REFERENCE_WIDTH;
+                zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel));
+
+                document.documentElement.style.zoom = zoomLevel;
+
+                const realVh = viewportHeight / zoomLevel;
+                document.documentElement.style.setProperty('--real-vh', realVh + 'px');
+            }
+
+            applyScaling();
+
+            let resizeTimeout;
+            window.addEventListener('resize', function () {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(applyScaling, 100);
+            });
+        })();
+
+        // Kill Switch for PWA Caching on subpages
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                for (let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
+
+        // OPTIONAL DEBUG PANEL (Press Ctrl+Shift+D to toggle)
+        const debugDiv = document.createElement('div');
+        debugDiv.id = 'viewport-debug';
+        debugDiv.style.cssText = `
+            position: fixed;
+            bottom: 18px;
+            right: 18px;
+            background: linear-gradient(135deg, #1A1821 80%, #C5A065 100%);
+            color: #C5A065;
+            padding: 16px 22px 14px 22px;
+            border-radius: 1.5rem;
+            font-family: 'Manrope', 'Italiana', 'Dancing Script', monospace;
+            font-size: 13px;
+            z-index: 99999;
+            display: none;
+            line-height: 1.7;
+            border: 1.5px solid #C5A065;
+            box-shadow: 0 8px 32px -8px rgba(197,160,101,0.18), 0 2px 8px rgba(26,24,33,0.12);
+            backdrop-filter: blur(4px);
+            transition: box-shadow 0.3s, background 0.3s;
+            letter-spacing: 0.02em;
+            min-width: 260px;
+            max-width: 340px;
+            text-shadow: 0 1px 2px #18181844;
+        `;
+        document.body.appendChild(debugDiv);
+
+        function updateDebugPanel() {
+            debugDiv.innerHTML = `
+                <strong>Viewport:</strong> ${window.innerWidth} x ${window.innerHeight} <br>
+                <strong>Zoom:</strong> ${document.documentElement.style.zoom || 1} <br>
+                <strong>DPR:</strong> ${window.devicePixelRatio}
+            `;
+        }
+
+        window.addEventListener('resize', updateDebugPanel);
+        updateDebugPanel();
+
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
+            }
+        });
+    </script>
+</body>
+
+</html>
