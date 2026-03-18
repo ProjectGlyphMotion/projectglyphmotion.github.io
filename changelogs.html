@@ -1780,15 +1780,6 @@
 
         window.addEventListener('scroll', updateGoTopVisibility, { passive: true });
 
-        // Kill Switch for PWA Caching
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for(let registration of registrations) {
-                    registration.unregister();
-                }
-            });
-        }
-    
         // UNIVERSAL SCALING FIX
         (function () {
             const REFERENCE_WIDTH = 1920;

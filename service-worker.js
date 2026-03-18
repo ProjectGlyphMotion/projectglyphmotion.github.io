@@ -2,7 +2,7 @@
 
 // Increment version on updates to trigger cache invalidation and fresh content fetching.
 // This is critical for ensuring users get the latest version of your PWA.
-const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.15'; // Bumped to force SW update and runtime cache policy refresh.
+const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.16'; // Bumped to force SW update and runtime cache policy refresh.
 const THUMBNAIL_CACHE_NAME = 'glyphmotion-thumbnail-cache-v3';
 const OFFLINE_URL = '/offline.html'; // Path to your custom offline page
 
@@ -34,6 +34,10 @@ const networkFirstUrls = [
     '/admin.html',
     '/admin_tracker.html',
     '/documentation.html',
+    '/videos.json',
+    '/changelogs.html',
+    '/about.html',
+    '/playground.html',
     '/offline.html', // While offline.html is for offline, it should still be network-first when online to get updates
     '/manifest.json',
 ];
@@ -80,6 +84,13 @@ self.addEventListener('activate', (event) => {
             console.error('[Service Worker] Activation failed:', error);
         })
     );
+});
+
+// Allow clients to request immediate activation of a waiting service worker.
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });
 
 // Fetch event: intercepts network requests and applies caching strategies.

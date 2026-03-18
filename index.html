@@ -5354,6 +5354,15 @@
         // PWA: Register Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
+                let refreshingForSwUpdate = false;
+
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (refreshingForSwUpdate) return;
+                    refreshingForSwUpdate = true;
+                    console.log('[PWA] New service worker activated. Reloading page...');
+                    window.location.reload();
+                });
+
                 // --- CRITICAL FIX FOR CUSTOM DOMAINS ---
                 // When using a custom domain (e.g., projectglyphmotion.studio),
                 // the service worker and manifest should be referenced from the root (/)
@@ -5364,6 +5373,20 @@
                 navigator.serviceWorker.register(serviceWorkerScriptPath, { scope: serviceWorkerScope })
                     .then(registration => {
                         console.log('ServiceWorker registration successful with scope: ', registration.scope);
+
+                        registration.onupdatefound = () => {
+                            const installingWorker = registration.installing;
+                            if (!installingWorker) return;
+
+                            installingWorker.addEventListener('statechange', () => {
+                                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('[PWA] New service worker installed. Activating now...');
+                                    if (registration.waiting) {
+                                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                                    }
+                                }
+                            });
+                        };
                     })
                     .catch(err => {
                         console.log('ServiceWorker registration failed: ', err); // This error should now resolve
