@@ -5367,12 +5367,18 @@
                 // When using a custom domain (e.g., projectglyphmotion.studio),
                 // the service worker and manifest should be referenced from the root (/)
                 // of your domain, NOT with the GitHub project path.
-                const serviceWorkerScriptPath = '/service-worker.js'; // This points to the root of your custom domain
+                const serviceWorkerScriptPath = '/service-worker.js?v=1.0.16'; // Versioned URL helps force stale clients to pick new SW script.
                 const serviceWorkerScope = '/'; // The scope should be the root of your custom domain
 
-                navigator.serviceWorker.register(serviceWorkerScriptPath, { scope: serviceWorkerScope })
+                navigator.serviceWorker.register(serviceWorkerScriptPath, {
+                    scope: serviceWorkerScope,
+                    updateViaCache: 'none'
+                })
                     .then(registration => {
                         console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                        registration.update().catch((updateErr) => {
+                            console.log('[PWA] Explicit SW update check failed:', updateErr);
+                        });
 
                         registration.onupdatefound = () => {
                             const installingWorker = registration.installing;
