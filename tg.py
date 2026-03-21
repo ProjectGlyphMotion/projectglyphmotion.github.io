@@ -1,4 +1,5 @@
 import logging
+import sys
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 import os
@@ -297,11 +298,19 @@ def set_processing_status(message: Union[str, None]):
     """Sets the global processing status message."""
     global _current_processing_status, _status_update_counter
     with _status_lock:
-        if _current_processing_status == message:
-            return
         _current_processing_status = message
         _status_update_counter += 1
-    logger.info(f"Global Status Update: {message}")
+    
+    if message:
+        # For recurring high-frequency updates, draw in-place
+        if message.startswith("Processing:") or message.startswith("Downloading:") or message.startswith("Merging"):
+            sys.stdout.write(f"\r\033[K\033[1;36mProgress:\033[0m {message}")
+            sys.stdout.flush()
+        else:
+            # Clear any existing in-place progress line, then log cleanly
+            sys.stdout.write("\r\033[K")
+            sys.stdout.flush()
+            logger.info(f"Global Status Update: {message}")
 
 def _status_indicates_processing_complete(status_message: str) -> bool:
     """Returns True when status indicates a processing success path finished."""
@@ -705,18 +714,15 @@ async def _stream_output_and_update_message(
     last_update_time = time.time()
     last_progress_text = ""
     current_line_buffer = ""
-    last_adaptive_mode = ""
-    last_adaptive_emit_time = 0.0
-    adaptive_emit_interval_seconds = 2.0
 
     wget_progress_regex = re.compile(r"^\s*\d+[KMGT]?\s+[\.\s]+\s*\d+%.*")
     tqdm_regex = re.compile(r"Processing Frames \(.*\): (.*)")
     ffmpeg_regex = re.compile(r"frame=\s*\d+\s+fps=[\d\.]+\s+q=[\d\.\-]+.*")
     # New regex for yt-dlp progress
     yt_dlp_progress_regex = re.compile(r"\[download\]\s+.*% of.*\s+at\s+.*B/s.*")
-    yt_dlp_post_process_regex = re.compile(r"\[Merger\] Merging formats into \"(.*)\"")
-    # Adaptive pipeline telemetry regex
-    adaptive_regex = re.compile(r"\[ADAPTIVE\] Mode:(\w+) \| Motion:([\d.]+) \| HFDR:(\w+) \| FPS:([\d.]+) \| Alpha:([\d.]+) \| Detections:(\d+)")
+    yt_dlp_post_process_regex = re.compile(r'\[Merger\] Merging formats into \"(.*)\"')
+    # Regex to detect [ADAPTIVE] telemetry lines (suppressed to DEBUG)
+    adaptive_line_regex = re.compile(r"\[ADAPTIVE\]")
 
 
     while True:
@@ -748,25 +754,10 @@ async def _stream_output_and_update_message(
                         ffmpeg_match = ffmpeg_regex.search(progress_info)
                         if ffmpeg_match:
                             new_progress_text = f"Merging Audio: {ffmpeg_match.group(0).strip()}"
-                    elif progress_type == 'general':
-                        # Parse adaptive pipeline telemetry
-                        adaptive_match = adaptive_regex.search(progress_info)
-                        if adaptive_match:
-                            mode = adaptive_match.group(1)
-                            hfdr = adaptive_match.group(3)
-                            fps = adaptive_match.group(4)
-                            detections = adaptive_match.group(6)
-                            mode_label = "Temporal" if mode == 'A' else "ROI+Temporal"
-                            now = time.time()
-                            should_emit_adaptive = (mode != last_adaptive_mode) or ((now - last_adaptive_emit_time) >= adaptive_emit_interval_seconds)
-                            if should_emit_adaptive:
-                                new_progress_text = f"🧠 Mode {mode} ({mode_label}) | HFDR:{hfdr} | FPS:{fps} | Detections:{detections}"
-                                last_adaptive_mode = mode
-                                last_adaptive_emit_time = now
                     
                     if new_progress_text and new_progress_text != last_progress_text and (time.time() - last_update_time > 1):
+                        set_processing_status(new_progress_text)
                         try:
-                            set_processing_status(new_progress_text)
                             if progress_message_obj:
                                 await progress_message_obj.edit_text(new_progress_text)
                             last_progress_text = new_progress_text
@@ -776,33 +767,11 @@ async def _stream_output_and_update_message(
                 current_line_buffer = ""
             elif char == '\n':
                 full_line = current_line_buffer.strip()
-                is_adaptive_line = progress_type == 'general' and adaptive_regex.search(full_line)
-                if full_line:
-                    if is_adaptive_line:
-                        adaptive_match = adaptive_regex.search(full_line)
-                        if adaptive_match:
-                            mode = adaptive_match.group(1)
-                            hfdr = adaptive_match.group(3)
-                            fps = adaptive_match.group(4)
-                            detections = adaptive_match.group(6)
-                            mode_label = "Temporal" if mode == 'A' else "ROI+Temporal"
-                            now = time.time()
-                            should_emit_adaptive = (mode != last_adaptive_mode) or ((now - last_adaptive_emit_time) >= adaptive_emit_interval_seconds)
-                            if should_emit_adaptive:
-                                adaptive_text = f"🧠 Mode {mode} ({mode_label}) | HFDR:{hfdr} | FPS:{fps} | Detections:{detections}"
-                                set_processing_status(adaptive_text)
-                                if progress_message_obj:
-                                    try:
-                                        await progress_message_obj.edit_text(adaptive_text)
-                                    except Exception as e:
-                                        logger.warning(f"Could not edit adaptive progress message: {e}")
-                                last_progress_text = adaptive_text
-                                last_update_time = now
-                                last_adaptive_mode = mode
-                                last_adaptive_emit_time = now
-                        logger.debug(f"[{stream_name} adaptive telemetry] {full_line}")
-                    else:
-                        logger.info(f"[{stream_name} full line] {full_line}")
+                # Suppress [ADAPTIVE] telemetry to DEBUG to avoid terminal spam
+                if adaptive_line_regex.search(full_line):
+                    logger.debug(f"[{stream_name} full line] {full_line}")
+                else:
+                    logger.info(f"[{stream_name} full line] {full_line}")
                 if "ERROR" in full_line:
                     if progress_message_obj and context: # Only send new Telegram message if context is available
                         try:
@@ -832,32 +801,16 @@ async def _stream_output_and_update_message(
                 ffmpeg_match = ffmpeg_regex.search(progress_info)
                 if ffmpeg_match:
                     new_progress_text = f"Merging Audio: {ffmpeg_match.group(0).strip()}"
-            elif progress_type == 'general':
-                # Parse adaptive pipeline telemetry (partial line)
-                adaptive_match = adaptive_regex.search(progress_info)
-                if adaptive_match:
-                    mode = adaptive_match.group(1)
-                    hfdr = adaptive_match.group(3)
-                    fps = adaptive_match.group(4)
-                    detections = adaptive_match.group(6)
-                    mode_label = "Temporal" if mode == 'A' else "ROI+Temporal"
-                    now = time.time()
-                    should_emit_adaptive = (mode != last_adaptive_mode) or ((now - last_adaptive_emit_time) >= adaptive_emit_interval_seconds)
-                    if should_emit_adaptive:
-                        new_progress_text = f"🧠 Mode {mode} ({mode_label}) | HFDR:{hfdr} | FPS:{fps} | Detections:{detections}"
-                        last_adaptive_mode = mode
-                        last_adaptive_emit_time = now
 
             if new_progress_text and new_progress_text != last_progress_text:
+                set_processing_status(new_progress_text)
                 try:
-                    set_processing_status(new_progress_text)
                     if progress_message_obj:
                         await progress_message_obj.edit_text(new_progress_text)
                     last_progress_text = new_progress_text
                     last_update_time = time.time()
                 except Exception as e:
                     logger.warning(f"Could not edit progress message (partial {progress_type} progress): {e}")
-
 
 # MODIFIED: Use yt-dlp for video downloads instead of wget for robustness
 async def download_video_async(url: str, output_dir: str, progress_message_obj=None, context=None) -> tuple[bool, str]:
@@ -1555,7 +1508,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Expires', '0')
             self._set_cors_headers()
             self.end_headers()
-            logger.info("Handled HEAD request for /status.")
+            logger.debug("Handled HEAD request for /status.")
         else:
             # Fallback for other HEAD requests, might return 404 or just headers
             super().do_HEAD() # Call the base class method
@@ -1576,7 +1529,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         self._set_cors_headers()
         self.end_headers()
 
-        logger.info("SSE status stream connected")
+        logger.debug("SSE status stream connected")
 
         last_seen_counter = -1
         last_heartbeat = time.time()
@@ -1597,7 +1550,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
                 time.sleep(0.5)
         except (BrokenPipeError, ConnectionResetError):
-            logger.info("SSE status stream disconnected")
+            logger.debug("SSE status stream disconnected")
         except Exception as e:
             logger.warning(f"SSE stream error: {e}")
 
@@ -1610,7 +1563,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         self._set_cors_headers()
         self.end_headers()
 
-        logger.info(f"SSE admin tracker stream connected for admin: {admin_username}")
+        logger.debug(f"SSE admin tracker stream connected for admin: {admin_username}")
 
         last_signature = None
         last_heartbeat = time.time()
@@ -1634,7 +1587,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
                 time.sleep(0.75)
         except (BrokenPipeError, ConnectionResetError):
-            logger.info(f"SSE admin tracker stream disconnected for admin: {admin_username}")
+            logger.debug(f"SSE admin tracker stream disconnected for admin: {admin_username}")
         except Exception as e:
             logger.warning(f"SSE admin tracker stream error for {admin_username}: {e}")
 
@@ -1658,7 +1611,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         admin_username = initial_payload.get('username', 'unknown')
-        logger.info(f"SSE admin auth stream connected for admin: {admin_username}")
+        logger.debug(f"SSE admin auth stream connected for admin: {admin_username}")
 
         last_heartbeat = time.time()
 
@@ -1677,7 +1630,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
                 time.sleep(1.0)
         except (BrokenPipeError, ConnectionResetError):
-            logger.info(f"SSE admin auth stream disconnected for admin: {admin_username}")
+            logger.debug(f"SSE admin auth stream disconnected for admin: {admin_username}")
         except Exception as e:
             logger.warning(f"SSE admin auth stream error for {admin_username}: {e}")
 
