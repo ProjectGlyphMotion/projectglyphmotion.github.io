@@ -1276,12 +1276,12 @@
                 <div class="w-px h-8 bg-zinc-800/80 hidden sm:block"></div>
                 <div class="flex flex-col items-center">
                     <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i data-lucide="git-commit" class="w-3 h-3 text-amber-500"></i> Tracked Updates</span>
-                    <span class="text-sm md:text-base font-outfit font-semibold text-zinc-200">17 Core Commits</span>
+                    <span class="text-sm md:text-base font-outfit font-semibold text-zinc-200">18 Core Commits</span>
                 </div>
                 <div class="w-px h-8 bg-zinc-800/80 hidden sm:block"></div>
                 <div class="flex flex-col items-center">
                     <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i data-lucide="clock" class="w-3 h-3 text-amber-500"></i> Last Updated</span>
-                    <span id="stat-latest" class="text-sm md:text-base font-outfit font-semibold text-zinc-200">Calculating...</span>
+                    <span id="stat-latest" data-latest-date="2026-03-21T10:24:19+05:30" class="text-sm md:text-base font-outfit font-semibold text-zinc-200">Calculating...</span>
                 </div>
             </div>
         </header>
@@ -1747,6 +1747,24 @@
 
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="mt-auto border-t border-zinc-800/60 bg-black/50 px-6 py-4">
+                            <div class="flex items-center gap-2 mb-3 text-xs font-mono text-zinc-500 uppercase tracking-widest">
+                                <i data-lucide="git-merge" class="w-3.5 h-3.5 text-zinc-600"></i> Related Minor Update
+                                <span class="text-[10px] px-2 py-0.5 rounded-full border border-rose-500/40 bg-rose-500/10 text-rose-300">Critical Fix</span>
+                            </div>
+                            <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/be33d0beaff1f4a5d34140f44d0d177e4d2ba8c0" target="_blank" class="group flex items-center justify-between p-3 rounded-lg border border-zinc-800/50 bg-zinc-900/30 hover:border-purple-500/30 hover:bg-zinc-800/40 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <span class="bg-black px-1.5 py-0.5 rounded text-[10px] font-mono border border-zinc-700 text-purple-400">be33d0b</span>
+                                    <div>
+                                        <h4 class="font-outfit text-sm font-medium text-zinc-300 group-hover:text-purple-400 transition-colors">main: core: hotfix: fix logging noise and stabilize progress reporting pipeline</h4>
+                                        <p class="text-xs text-zinc-500 mt-0.5">Stabilizes progress reporting by restoring stream parsing behavior, suppressing adaptive telemetry log spam, and ensuring status propagation updates are reflected consistently across terminal + SSE surfaces.</p>
+                                        <p class="text-xs text-zinc-500 mt-1">Files touched: <code class="text-[10px] bg-black px-1 border border-zinc-800 rounded">tg.py</code> (+29 / -76)</p>
+                                    </div>
+                                </div>
+                                <i data-lucide="arrow-up-right" class="w-4 h-4 text-zinc-600 group-hover:text-purple-500"></i>
+                            </a>
                         </div>
                     </div>
                 </article>
@@ -3173,7 +3191,8 @@
             });
 
             const genesisDateStr = commits[commits.length - 1].getAttribute('data-date');
-            const latestDateStr = commits[0].getAttribute('data-date');
+            const latestOverrideDateStr = document.getElementById('stat-latest')?.getAttribute('data-latest-date');
+            const latestDateStr = latestOverrideDateStr || commits[0].getAttribute('data-date');
 
             if (genesisDateStr && latestDateStr) {
                 const genesisDate = new Date(genesisDateStr);
