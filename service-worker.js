@@ -2,7 +2,7 @@
 
 // Increment version on updates to trigger cache invalidation and fresh content fetching.
 // This is critical for ensuring users get the latest version of your PWA.
-const CACHE_NAME = 'glyphmotion-pwa-cache-v1.0.16'; // Bumped to force SW update and runtime cache policy refresh.
+const CACHE_NAME = 'glyphmotion-pwa-cache-v4.0.0'; // Bumped to force SW update and runtime cache policy refresh. (Changed to 4.0.0 to reflect major update with new features and optimizations, and to ensure all users get the latest content without stale caches. Future updates should increment this version accordingly.)
 const THUMBNAIL_CACHE_NAME = 'glyphmotion-thumbnail-cache-v3';
 const OFFLINE_URL = '/offline.html'; // Path to your custom offline page
 
@@ -37,6 +37,7 @@ const networkFirstUrls = [
     '/videos.json',
     '/changelogs.html',
     '/about.html',
+    '/benchmark.html',
     '/playground.html',
     '/offline.html', // While offline.html is for offline, it should still be network-first when online to get updates
     '/manifest.json',

@@ -23,6 +23,7 @@ from urllib.parse import urlparse, parse_qs
 
 # Import the gh.py script
 from gh import update_github_pages_with_video, delete_video_from_drive_and_github, get_commit_details
+from production_benchmark import run_production_benchmark, BENCHMARKING_ENABLED
 
 # Import admin_auth.py for authentication and session management
 from admin_auth import authenticate_admin, get_session_expiry_time, update_admin_credential_in_file, verify_password, ADMIN_CREDENTIALS, SESSION_TIMEOUT_ENABLED, SESSION_DURATION_DAYS
@@ -92,6 +93,25 @@ _token_invalidation_lock = threading.Lock()
 # Stores preview sessions: {session_id: {'video_path': str, 'created_at': float, 'used': bool}}
 _preview_sessions = {}
 _preview_sessions_lock = threading.Lock()
+
+_benchmark_lock = threading.Lock()
+_benchmark_in_progress = False
+_benchmarking_enabled_runtime = BENCHMARKING_ENABLED
+_benchmarking_enabled_lock = threading.Lock()
+
+
+def is_benchmarking_enabled() -> bool:
+    """Returns current runtime benchmark enable state."""
+    with _benchmarking_enabled_lock:
+        return bool(_benchmarking_enabled_runtime)
+
+
+def set_benchmarking_enabled(enabled: bool) -> bool:
+    """Sets runtime benchmark enable state and returns updated value."""
+    global _benchmarking_enabled_runtime
+    with _benchmarking_enabled_lock:
+        _benchmarking_enabled_runtime = bool(enabled)
+        return _benchmarking_enabled_runtime
 
 
 def run_async_loop(loop: asyncio.AbstractEventLoop):
@@ -277,6 +297,8 @@ def set_processing_status(message: Union[str, None]):
     """Sets the global processing status message."""
     global _current_processing_status, _status_update_counter
     with _status_lock:
+        if _current_processing_status == message:
+            return
         _current_processing_status = message
         _status_update_counter += 1
     logger.info(f"Global Status Update: {message}")
@@ -307,7 +329,9 @@ def get_status_payload() -> dict:
         "processingComplete": is_processing_complete,
         "galleryRefreshSuggested": is_processing_complete,
         "frameRestrictionEnabled": FRAME_RESTRICTION_ENABLED,
-        "frameRestrictionValue": FRAME_RESTRICTION_VALUE
+        "frameRestrictionValue": FRAME_RESTRICTION_VALUE,
+        "benchmarkingEnabled": is_benchmarking_enabled(),
+        "benchmarkInProgress": _benchmark_in_progress
     }
 
 def reset_status_after_delay(delay_seconds: int = 5):
@@ -681,6 +705,9 @@ async def _stream_output_and_update_message(
     last_update_time = time.time()
     last_progress_text = ""
     current_line_buffer = ""
+    last_adaptive_mode = ""
+    last_adaptive_emit_time = 0.0
+    adaptive_emit_interval_seconds = 2.0
 
     wget_progress_regex = re.compile(r"^\s*\d+[KMGT]?\s+[\.\s]+\s*\d+%.*")
     tqdm_regex = re.compile(r"Processing Frames \(.*\): (.*)")
@@ -688,6 +715,8 @@ async def _stream_output_and_update_message(
     # New regex for yt-dlp progress
     yt_dlp_progress_regex = re.compile(r"\[download\]\s+.*% of.*\s+at\s+.*B/s.*")
     yt_dlp_post_process_regex = re.compile(r"\[Merger\] Merging formats into \"(.*)\"")
+    # Adaptive pipeline telemetry regex
+    adaptive_regex = re.compile(r"\[ADAPTIVE\] Mode:(\w+) \| Motion:([\d.]+) \| HFDR:(\w+) \| FPS:([\d.]+) \| Alpha:([\d.]+) \| Detections:(\d+)")
 
 
     while True:
@@ -718,10 +747,26 @@ async def _stream_output_and_update_message(
                     elif progress_type == 'ffmpeg':
                         ffmpeg_match = ffmpeg_regex.search(progress_info)
                         if ffmpeg_match:
-                            new_progress_text = f"Merging Audio: {ffmpeg_match.group(0).strip()}" # Fixed: use group(0) for full match
+                            new_progress_text = f"Merging Audio: {ffmpeg_match.group(0).strip()}"
+                    elif progress_type == 'general':
+                        # Parse adaptive pipeline telemetry
+                        adaptive_match = adaptive_regex.search(progress_info)
+                        if adaptive_match:
+                            mode = adaptive_match.group(1)
+                            hfdr = adaptive_match.group(3)
+                            fps = adaptive_match.group(4)
+                            detections = adaptive_match.group(6)
+                            mode_label = "Temporal" if mode == 'A' else "ROI+Temporal"
+                            now = time.time()
+                            should_emit_adaptive = (mode != last_adaptive_mode) or ((now - last_adaptive_emit_time) >= adaptive_emit_interval_seconds)
+                            if should_emit_adaptive:
+                                new_progress_text = f"🧠 Mode {mode} ({mode_label}) | HFDR:{hfdr} | FPS:{fps} | Detections:{detections}"
+                                last_adaptive_mode = mode
+                                last_adaptive_emit_time = now
                     
                     if new_progress_text and new_progress_text != last_progress_text and (time.time() - last_update_time > 1):
                         try:
+                            set_processing_status(new_progress_text)
                             if progress_message_obj:
                                 await progress_message_obj.edit_text(new_progress_text)
                             last_progress_text = new_progress_text
@@ -731,7 +776,33 @@ async def _stream_output_and_update_message(
                 current_line_buffer = ""
             elif char == '\n':
                 full_line = current_line_buffer.strip()
-                logger.info(f"[{stream_name} full line] {full_line}")
+                is_adaptive_line = progress_type == 'general' and adaptive_regex.search(full_line)
+                if full_line:
+                    if is_adaptive_line:
+                        adaptive_match = adaptive_regex.search(full_line)
+                        if adaptive_match:
+                            mode = adaptive_match.group(1)
+                            hfdr = adaptive_match.group(3)
+                            fps = adaptive_match.group(4)
+                            detections = adaptive_match.group(6)
+                            mode_label = "Temporal" if mode == 'A' else "ROI+Temporal"
+                            now = time.time()
+                            should_emit_adaptive = (mode != last_adaptive_mode) or ((now - last_adaptive_emit_time) >= adaptive_emit_interval_seconds)
+                            if should_emit_adaptive:
+                                adaptive_text = f"🧠 Mode {mode} ({mode_label}) | HFDR:{hfdr} | FPS:{fps} | Detections:{detections}"
+                                set_processing_status(adaptive_text)
+                                if progress_message_obj:
+                                    try:
+                                        await progress_message_obj.edit_text(adaptive_text)
+                                    except Exception as e:
+                                        logger.warning(f"Could not edit adaptive progress message: {e}")
+                                last_progress_text = adaptive_text
+                                last_update_time = now
+                                last_adaptive_mode = mode
+                                last_adaptive_emit_time = now
+                        logger.debug(f"[{stream_name} adaptive telemetry] {full_line}")
+                    else:
+                        logger.info(f"[{stream_name} full line] {full_line}")
                 if "ERROR" in full_line:
                     if progress_message_obj and context: # Only send new Telegram message if context is available
                         try:
@@ -760,10 +831,26 @@ async def _stream_output_and_update_message(
             elif progress_type == 'ffmpeg':
                 ffmpeg_match = ffmpeg_regex.search(progress_info)
                 if ffmpeg_match:
-                    new_progress_text = f"Merging Audio: {ffmpeg_match.group(0).strip()}" # Fixed: use group(0) for full match
+                    new_progress_text = f"Merging Audio: {ffmpeg_match.group(0).strip()}"
+            elif progress_type == 'general':
+                # Parse adaptive pipeline telemetry (partial line)
+                adaptive_match = adaptive_regex.search(progress_info)
+                if adaptive_match:
+                    mode = adaptive_match.group(1)
+                    hfdr = adaptive_match.group(3)
+                    fps = adaptive_match.group(4)
+                    detections = adaptive_match.group(6)
+                    mode_label = "Temporal" if mode == 'A' else "ROI+Temporal"
+                    now = time.time()
+                    should_emit_adaptive = (mode != last_adaptive_mode) or ((now - last_adaptive_emit_time) >= adaptive_emit_interval_seconds)
+                    if should_emit_adaptive:
+                        new_progress_text = f"🧠 Mode {mode} ({mode_label}) | HFDR:{hfdr} | FPS:{fps} | Detections:{detections}"
+                        last_adaptive_mode = mode
+                        last_adaptive_emit_time = now
 
             if new_progress_text and new_progress_text != last_progress_text:
                 try:
+                    set_processing_status(new_progress_text)
                     if progress_message_obj:
                         await progress_message_obj.edit_text(new_progress_text)
                     last_progress_text = new_progress_text
@@ -921,6 +1008,8 @@ async def run_tracking_script_and_stream_output(
             "-u",
             "ot.py",
             "--model", "yolov8m.pt",
+            "--preset", "ultrafast",
+            "--crf", "24",
             # Pass the full .mp4 path — ot.py already does: if not endswith('.mp4'): strip+add .mp4
             # DO NOT strip .mp4 here: titles like 'R.D._Burman' have dots that os.path.splitext
             # mistakes for an extension, silently dropping the last segment from the output filename.
@@ -1202,8 +1291,8 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
             await progress_message_obj.edit_text("Object tracking complete! Uploading to Google Drive and updating GitHub Pages...")
             set_processing_status("Object tracking complete! Uploading to Google Drive and updating GitHub Pages...") # Update global status
         
-        # update_github_pages_with_video now returns the commit SHA upon success
-        gh_update_success, commit_sha = await update_github_pages_with_video( # Modified to capture commit_sha
+        # update_github_pages_with_video returns success, commit SHA, and latest Drive download URL
+        gh_update_success, commit_sha, drive_download_url = await update_github_pages_with_video(
             processed_video_path=local_output_path,
             original_video_title=video_title_for_gh,
             description=video_description_for_gh
@@ -1213,6 +1302,35 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
                 await progress_message_obj.edit_text("🎉 Object tracking and GitHub Pages update complete!")
             set_processing_status("🎉 Object tracking and GitHub Pages update complete!") # Update global status
             logger.info("GitHub Pages update successful.")
+
+            if is_benchmarking_enabled():
+                telemetry_path = f"{local_output_path}.telemetry.json"
+                with _benchmark_lock:
+                    global _benchmark_in_progress
+                    _benchmark_in_progress = True
+                benchmark_status_message = "📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete."
+                set_processing_status(benchmark_status_message)
+                if progress_message_obj:
+                    await progress_message_obj.edit_text(benchmark_status_message)
+
+                try:
+                    stats_path = f"{local_output_path}.stats.json"
+                    await run_production_benchmark(
+                        original_video_path=local_input_path,
+                        processed_video_path=local_output_path,
+                        video_title=video_title_for_gh,
+                        google_drive_url=drive_download_url or "",
+                        commit_sha=commit_sha,
+                        telemetry_path=telemetry_path if os.path.exists(telemetry_path) else None,
+                        stats_path=stats_path if os.path.exists(stats_path) else None,
+                    )
+                    set_processing_status("✅ Benchmark complete. Benchmark dashboard data updated.")
+                except Exception as benchmark_error:
+                    logger.error(f"Production benchmark failed: {benchmark_error}", exc_info=True)
+                    set_processing_status("⚠️ Benchmark failed. Core upload succeeded, check backend logs.")
+                finally:
+                    with _benchmark_lock:
+                        _benchmark_in_progress = False
             
             # --- Add tracking entry after successful GitHub update ---
             if commit_sha: # Only add if commit_sha is available
@@ -1221,7 +1339,8 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
                     "videoTitle": video_title_for_gh,
                     "commitSha": commit_sha,
                     "ipAddress": client_ip,
-                    "googleDriveFileId": None, # Placeholder for file_id, to be filled from videos.json if needed
+                    "googleDriveFileId": None,
+                    "driveDownloadUrl": drive_download_url or "",
                     "geolocation": { # Nested geolocation details
                         "country": geolocation_info.get('country', 'N/A'),
                         "countryCode": geolocation_info.get('countryCode', 'N/A'),
@@ -1355,7 +1474,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         request_path = urlparse(self.path).path
 
         # Filter out high-frequency health/status/event endpoints to reduce log verbosity
-        if request_path in ('/status', '/events/status', '/events/admin_tracker_data') and (self.command == 'GET' or self.command == 'HEAD'):
+        if request_path in ('/status', '/events/status', '/events/admin_tracker_data', '/events/admin_auth') and (self.command == 'GET' or self.command == 'HEAD'):
             return
 
         # Log other requests with a simplified format
@@ -1519,6 +1638,49 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             logger.warning(f"SSE admin tracker stream error for {admin_username}: {e}")
 
+    def _stream_admin_auth_events(self):
+        """Streams realtime auth validation events for admin clients."""
+        self.send_response(200)
+        self.send_header('Content-type', 'text/event-stream')
+        self.send_header('Cache-Control', 'no-cache, no-transform')
+        self.send_header('Connection', 'keep-alive')
+        self._set_cors_headers()
+        self.end_headers()
+
+        token = self._get_auth_token()
+        if not token:
+            self._send_sse_event("authRevoked", {"reason": "missing_token"})
+            return
+
+        initial_payload = self._decode_jwt(token)
+        if not initial_payload or initial_payload.get('username') not in ADMIN_CREDENTIALS:
+            self._send_sse_event("authRevoked", {"reason": "invalid_or_expired_token"})
+            return
+
+        admin_username = initial_payload.get('username', 'unknown')
+        logger.info(f"SSE admin auth stream connected for admin: {admin_username}")
+
+        last_heartbeat = time.time()
+
+        try:
+            while True:
+                active_payload = self._decode_jwt(token)
+                if not active_payload or active_payload.get('username') not in ADMIN_CREDENTIALS:
+                    self._send_sse_event("authRevoked", {"reason": "session_invalidated"})
+                    logger.info(f"SSE admin auth revoked for admin: {admin_username}")
+                    break
+
+                now = time.time()
+                if now - last_heartbeat >= 15:
+                    self._send_sse_event("authHeartbeat", {"ts": int(now)})
+                    last_heartbeat = now
+
+                time.sleep(1.0)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.info(f"SSE admin auth stream disconnected for admin: {admin_username}")
+        except Exception as e:
+            logger.warning(f"SSE admin auth stream error for {admin_username}: {e}")
+
     def _get_auth_token(self):
         """Extracts JWT from Authorization header or SSE query string token."""
         auth_header = self.headers.get('Authorization')
@@ -1627,6 +1789,14 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
         if self.path == '/process_web_video':
             try:
+                with _benchmark_lock:
+                    if _benchmark_in_progress:
+                        self.send_api_response(429, {
+                            "message": "📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete.",
+                            "benchmarkInProgress": True
+                        })
+                        return
+
                 # Get client IP and geolocation data immediately
                 client_ip = get_client_ip(self)
                 geolocation_info = get_geolocation_data(client_ip)
@@ -2061,6 +2231,35 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 logger.error(f"Error handling video deletion: {e}", exc_info=True)
                 self.send_api_response(500, {"message": f"Server error during deletion: {e}"})
+        elif self.path == '/benchmark_settings':
+            admin_payload = self._authenticate_request()
+            if not admin_payload:
+                return
+
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+                data = json.loads(post_body.decode('utf-8') or '{}')
+
+                if 'enabled' not in data:
+                    self.send_api_response(400, {"message": "'enabled' boolean is required."})
+                    return
+
+                requested_state = bool(data.get('enabled'))
+                updated_state = set_benchmarking_enabled(requested_state)
+                logger.info(
+                    f"Benchmarking runtime flag updated by admin '{admin_payload.get('username')}' -> {updated_state}"
+                )
+                self.send_api_response(200, {
+                    "message": f"Benchmarking {'enabled' if updated_state else 'disabled'}.",
+                    "benchmarkingEnabled": updated_state,
+                    "benchmarkInProgress": _benchmark_in_progress
+                })
+            except json.JSONDecodeError:
+                self.send_api_response(400, {"message": "Invalid JSON payload."})
+            except Exception as e:
+                logger.error(f"Error updating benchmark settings: {e}", exc_info=True)
+                self.send_api_response(500, {"message": f"Server error updating benchmark settings: {e}"})
         elif self.path == '/get_github_commit_info': # New endpoint for GitHub commit info (protected)
             admin_payload = self._authenticate_request()
             if not admin_payload: return # _authenticate_request already sent response
@@ -2250,6 +2449,8 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.send_api_response(200, get_status_payload())
         elif request_path == '/events/status':
             self._stream_status_events()
+        elif request_path == '/events/admin_auth':
+            self._stream_admin_auth_events()
         elif request_path == '/events/admin_tracker_data':
             admin_payload = self._authenticate_sse_request()
             if not admin_payload:
@@ -2263,6 +2464,96 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             with _tracking_data_lock:
                 self.send_api_response(200, {"trackingData": _tracking_data})
             logger.info(f"Served /admin_tracker_data to admin: {admin_payload.get('username')}")
+        elif request_path == '/benchmark_data':
+            admin_payload = self._authenticate_request()
+            if not admin_payload:
+                return
+
+            benchmark_payload = {
+                "generatedAt": None,
+                "recordCount": 0,
+                "records": [],
+                "aggregates": {}
+            }
+
+            try:
+                if os.path.exists('benchmark_data.json'):
+                    with open('benchmark_data.json', 'r', encoding='utf-8') as benchmark_file:
+                        loaded = json.load(benchmark_file)
+                    if isinstance(loaded, dict):
+                        benchmark_payload = {
+                            "generatedAt": loaded.get("generatedAt"),
+                            "recordCount": int(loaded.get("recordCount", len(loaded.get("records", [])) if isinstance(loaded.get("records"), list) else 0)),
+                            "records": loaded.get("records", []) if isinstance(loaded.get("records"), list) else [],
+                            "aggregates": loaded.get("aggregates", {}) if isinstance(loaded.get("aggregates"), dict) else {}
+                        }
+                    elif isinstance(loaded, list):
+                        benchmark_payload["records"] = loaded
+                        benchmark_payload["recordCount"] = len(loaded)
+                benchmark_payload["benchmarkInProgress"] = _benchmark_in_progress
+                benchmark_payload["benchmarkingEnabled"] = is_benchmarking_enabled()
+                self.send_api_response(200, benchmark_payload)
+            except Exception as benchmark_read_error:
+                logger.error(f"Failed serving benchmark data: {benchmark_read_error}", exc_info=True)
+                self.send_api_response(500, {
+                    "message": "Failed to load benchmark data.",
+                    "benchmarkInProgress": _benchmark_in_progress,
+                    "benchmarkingEnabled": is_benchmarking_enabled()
+                })
+        elif request_path == '/benchmark_settings':
+            admin_payload = self._authenticate_request()
+            if not admin_payload:
+                return
+
+            self.send_api_response(200, {
+                "benchmarkingEnabled": is_benchmarking_enabled(),
+                "benchmarkInProgress": _benchmark_in_progress
+            })
+        elif request_path == '/benchmark_data.csv':
+            admin_payload = self._authenticate_request()
+            if not admin_payload:
+                return
+
+            csv_path = 'benchmark_data.csv'
+            if not os.path.exists(csv_path):
+                self.send_api_response(404, {"message": "Benchmark CSV not found."})
+                return
+
+            try:
+                with open(csv_path, 'rb') as csv_file:
+                    csv_bytes = csv_file.read()
+
+                self.send_response(200)
+                self.send_header('Content-type', 'text/csv; charset=utf-8')
+                self.send_header('Content-Disposition', 'attachment; filename="benchmark_data.csv"')
+                self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+                self.send_header('Pragma', 'no-cache')
+                self.send_header('Expires', '0')
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(csv_bytes)
+                logger.info(f"Served protected /benchmark_data.csv to admin: {admin_payload.get('username')}")
+            except Exception as csv_error:
+                logger.error(f"Failed serving benchmark CSV: {csv_error}", exc_info=True)
+                self.send_api_response(500, {"message": "Failed to load benchmark CSV."})
+        elif request_path == '/benchmark_data.json':
+            admin_payload = self._authenticate_request()
+            if not admin_payload:
+                return
+
+            json_path = 'benchmark_data.json'
+            if not os.path.exists(json_path):
+                self.send_api_response(404, {"message": "Benchmark JSON not found."})
+                return
+
+            try:
+                with open(json_path, 'r', encoding='utf-8') as benchmark_json_file:
+                    benchmark_json_payload = json.load(benchmark_json_file)
+                self.send_api_response(200, benchmark_json_payload)
+                logger.info(f"Served protected /benchmark_data.json to admin: {admin_payload.get('username')}")
+            except Exception as benchmark_json_error:
+                logger.error(f"Failed serving benchmark JSON: {benchmark_json_error}", exc_info=True)
+                self.send_api_response(500, {"message": "Failed to load benchmark JSON."})
         elif request_path == '/get_ad_settings': # New endpoint for getting ad settings
             # This endpoint is public, no authentication needed
             self.send_api_response(200, {

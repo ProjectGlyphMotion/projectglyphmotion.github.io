@@ -944,6 +944,7 @@
         const NGROK_PUBLIC_URL = 'https://backend.projectglyphmotion.studio';
         const LOCAL_TRACKER_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_data';
         const LOCAL_TRACKER_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_tracker_data';
+        const LOCAL_ADMIN_AUTH_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_auth';
         const LOCAL_LOGOUT_ALL_ADMINS_ENDPOINT = NGROK_PUBLIC_URL + '/logout_all_admins'; 
         const GITHUB_PAGES_REPO_URL = 'https://projectglyphmotion.studio/';
 
@@ -958,6 +959,8 @@
         let trackerEventSource = null;
         let trackerReconnectTimer = null;
         let trackerFallbackInterval = null;
+        let authEventSource = null;
+        let authReconnectTimer = null;
 
 
         // Master Admin Usernames (Frontend reference for UI logic - backend validates definitively)
@@ -992,6 +995,7 @@
 
         function clearAdminSession() {
             disconnectTrackerEvents();
+            disconnectAuthEvents();
             stopTrackerFallbackPolling();
             localStorage.removeItem('adminToken');
             localStorage.removeItem('adminUsername');
@@ -1127,6 +1131,11 @@
             return `${LOCAL_TRACKER_EVENTS_ENDPOINT}?token=${encodeURIComponent(token)}`;
         }
 
+        function buildAuthEventsUrl() {
+            const token = localStorage.getItem('adminToken');
+            return `${LOCAL_ADMIN_AUTH_EVENTS_ENDPOINT}?token=${encodeURIComponent(token)}`;
+        }
+
         function stopTrackerFallbackPolling() {
             if (trackerFallbackInterval) {
                 clearInterval(trackerFallbackInterval);
@@ -1202,6 +1211,67 @@
                 disconnectTrackerEvents();
                 startTrackerFallbackPolling();
                 scheduleTrackerReconnect();
+            };
+        }
+
+        function disconnectAuthEvents() {
+            if (authEventSource) {
+                authEventSource.close();
+                authEventSource = null;
+            }
+            if (authReconnectTimer) {
+                clearTimeout(authReconnectTimer);
+                authReconnectTimer = null;
+            }
+        }
+
+        function scheduleAuthReconnect() {
+            if (authReconnectTimer) return;
+
+            authReconnectTimer = setTimeout(() => {
+                authReconnectTimer = null;
+                connectAuthEvents();
+            }, SSE_RECONNECT_DELAY_MS);
+        }
+
+        function forceLogoutFromRealtime(reasonMessage) {
+            showCentralMessage(reasonMessage || 'Your admin session has been invalidated. Please log in again.', true);
+            clearAdminSession();
+            setTimeout(() => { window.location.href = 'admin.html'; }, 1200);
+        }
+
+        function connectAuthEvents() {
+            const token = localStorage.getItem('adminToken');
+            if (!token || !isAdminLoggedIn) return;
+
+            disconnectAuthEvents();
+
+            try {
+                authEventSource = new EventSource(buildAuthEventsUrl());
+            } catch (error) {
+                console.error('Failed to initialize auth EventSource:', error);
+                scheduleAuthReconnect();
+                return;
+            }
+
+            authEventSource.addEventListener('authRevoked', () => {
+                forceLogoutFromRealtime('Master admin invalidated all sessions. Logging out now...');
+            });
+
+            authEventSource.onerror = async () => {
+                disconnectAuthEvents();
+                if (!localStorage.getItem('adminToken')) return;
+
+                try {
+                    await authenticatedFetch(LOCAL_TRACKER_DATA_ENDPOINT, { method: 'GET' });
+                    scheduleAuthReconnect();
+                } catch (error) {
+                    const msg = String(error?.message || '').toLowerCase();
+                    if (msg.includes('authentication') || msg.includes('not authenticated')) {
+                        return;
+                    }
+                    scheduleAuthReconnect();
+                }
             };
         }
 
@@ -1440,6 +1510,7 @@
 
             fetchTrackingData();
             connectTrackerEvents();
+            connectAuthEvents();
 
             mainContentCard.classList.add('animate-in');
             footerElements.forEach(el => el.classList.add('animate-in'));
@@ -1447,6 +1518,7 @@
 
         window.addEventListener('beforeunload', () => {
             disconnectTrackerEvents();
+            disconnectAuthEvents();
             stopTrackerFallbackPolling();
         });
 
@@ -1475,11 +1547,14 @@
         // PWA: Register Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                // Correct path for GitHub Project Pages with custom domain
-                const serviceWorkerScriptPath = '/projectglyphmotion.github.io/service-worker.js';
-                const serviceWorkerScope = '/projectglyphmotion.github.io/'; // Scope should match your project's base path
+                // Correct path/scope for custom domain
+                const serviceWorkerScriptPath = '/service-worker.js';
+                const serviceWorkerScope = '/';
 
-                navigator.serviceWorker.register(serviceWorkerScriptPath, { scope: serviceWorkerScope })
+                navigator.serviceWorker.register(serviceWorkerScriptPath, {
+                    scope: serviceWorkerScope,
+                    updateViaCache: 'none'
+                })
                     .then(registration => {
                         console.log('ServiceWorker registration successful with scope: ', registration.scope);
                     })

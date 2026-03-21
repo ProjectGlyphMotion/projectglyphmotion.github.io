@@ -1,0 +1,1847 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Production Benchmark | Project GlyphMotion</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="description"
+        content="Production benchmark dashboard — adaptive HFDR pipeline quality and performance metrics." />
+    <link rel="icon" type="image/x-icon" href="images/project-glyph-motion.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/@studio-freight/lenis@1.0.39/dist/lenis.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'], outfit: ['Outfit', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'], retro: ['"Press Start 2P"', 'cursive'] }, colors: { black: '#030303', surface: '#0a0a0c' } } }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #030303;
+            color: #e4e4e7;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        .section-marker {
+            scroll-margin-top: 100px;
+        }
+
+        .bg-glow-main {
+            position: fixed;
+            top: -30vh;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150vw;
+            height: 100vh;
+            background: radial-gradient(ellipse at 50% 30%, rgba(245, 158, 11, 0.15)0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+            will-change: transform;
+        }
+
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            background-size: 35px 35px;
+            background-position: center top;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03)1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.03)1px, transparent 1px);
+            mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0)50%, rgba(0, 0, 0, 0.2)50%, rgba(0, 0, 0, 0.2));
+            background-size: 100% 4px;
+            opacity: 0.3;
+        }
+
+        .doc-card {
+            background: linear-gradient(180deg, rgba(16, 16, 20, 0.85)0%, rgba(10, 10, 12, 0.98)100%);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.9);
+            border-radius: 1.25rem;
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 10;
+        }
+
+        .doc-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(245, 158, 11, 0.4);
+            border-top-color: rgba(245, 158, 11, 0.7);
+            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.8), 0 0 25px -5px rgba(245, 158, 11, 0.15);
+        }
+
+        .stat-card {
+            background: rgba(10, 10, 12, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            border-color: rgba(245, 158, 11, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f59e0b, #ea580c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+
+        .stat-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #71717a;
+            margin-top: 0.25rem;
+        }
+
+        .chart-container {
+            background: rgba(10, 10, 12, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        .chart-box {
+            background: rgba(0, 0, 0, 0.30);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: .85rem;
+            padding: .75rem;
+            height: 300px;
+            position: relative;
+        }
+
+        .diagnostic-block {
+            background: rgba(14, 14, 18, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            transition: all 0.3s ease;
+        }
+
+        .diagnostic-block:hover {
+            border-color: rgba(245, 158, 11, 0.2);
+            background: rgba(18, 18, 24, 0.9);
+        }
+
+        .control-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            padding: .45rem .75rem;
+            border-radius: .65rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.03);
+            color: #d4d4d8;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            transition: all .2s ease;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .control-pill:hover {
+            border-color: rgba(245, 158, 11, 0.45);
+            background: rgba(245, 158, 11, 0.08);
+            color: #fbbf24;
+        }
+
+        .status-widget {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            padding: .45rem .72rem;
+            border-radius: .65rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(0, 0, 0, 0.35);
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.8rem;
+        }
+
+        .data-table th {
+            position: sticky;
+            top: 0;
+            background: #2a1c05;
+            color: #f59e0b;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            padding: .75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+            z-index: 1;
+        }
+
+        .data-table td {
+            padding: .65rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            color: #a1a1aa;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            background: #0f0f12;
+        }
+
+        .data-table tr:hover td {
+            background: #18120b;
+            color: #e4e4e7;
+        }
+
+        .table-shell {
+            background: #0f0f12;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            overflow: hidden;
+            overscroll-behavior: contain;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 30px -24px rgba(0, 0, 0, 0.85);
+            scrollbar-gutter: stable;
+            background-clip: padding-box;
+            position: relative;
+        }
+
+        .table-shell::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: #0f0f12;
+            pointer-events: none;
+            z-index: 8;
+        }
+
+        .rich-table-card {
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background:
+                radial-gradient(120% 100% at 0% 0%, rgba(245, 158, 11, 0.09) 0%, rgba(245, 158, 11, 0) 42%),
+                linear-gradient(180deg, rgba(16, 16, 20, 0.93) 0%, rgba(9, 9, 12, 0.98) 100%);
+            overflow: hidden;
+            box-shadow:
+                0 20px 38px -26px rgba(0, 0, 0, 0.92),
+                0 0 0 1px rgba(245, 158, 11, 0.06),
+                inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        }
+
+        .rich-table-card::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 1.25rem;
+            border: 1px solid transparent;
+            background:
+                radial-gradient(120% 80% at 5% 0%, rgba(245, 158, 11, 0.2), transparent 48%),
+                radial-gradient(120% 80% at 95% 0%, rgba(234, 88, 12, 0.16), transparent 52%);
+            pointer-events: none;
+            opacity: 0.9;
+        }
+
+        .rich-table-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 30%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
+            pointer-events: none;
+        }
+
+        .table-headline {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+        }
+
+        .table-headline span:last-child {
+            position: relative;
+        }
+
+        .table-headline span:last-child::after {
+            content: '';
+            display: block;
+            width: 70%;
+            height: 1px;
+            margin-top: 0.35rem;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.55), rgba(245, 158, 11, 0));
+        }
+
+        .table-header-icon {
+            width: 2.2rem;
+            height: 2.2rem;
+            border-radius: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            background: rgba(245, 158, 11, 0.1);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 8px 18px -12px rgba(245, 158, 11, 0.75);
+            flex-shrink: 0;
+        }
+
+        .table-subtitle {
+            color: #a1a1aa;
+            font-size: 0.78rem;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: 0.01em;
+            margin-top: 0.2rem;
+        }
+
+        .table-filter-input {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .table-filter-input:focus {
+            outline: none;
+            border-color: rgba(245, 158, 11, 0.5);
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+        }
+
+        .table-kpis {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.55rem;
+            padding-top: 0.2rem;
+        }
+
+        .table-kpi {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.62rem;
+            border-radius: 0.6rem;
+            border: 1px solid #3a3a41;
+            background: #121218;
+            color: #d4d4d8;
+            font-size: 10px;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            font-family: 'JetBrains Mono', monospace;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .table-kpi .val {
+            color: #fbbf24;
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+        .metric-name {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .metric-alias {
+            font-size: 10px;
+            color: #71717a;
+            letter-spacing: 0.02em;
+        }
+
+        .data-table th:first-child,
+        .data-table td:first-child {
+            position: sticky;
+            left: 0;
+        }
+
+        .data-table th:first-child {
+            z-index: 3;
+            background: #362206;
+        }
+
+        .data-table td:first-child {
+            z-index: 2;
+            background: #0f0f12;
+        }
+
+        .data-table th:first-child,
+        .data-table td:first-child,
+        .records-table th:first-child,
+        .records-table td:first-child {
+            box-shadow: 1px 0 0 rgba(255, 255, 255, 0.07), -1px 0 0 #0f0f12;
+        }
+
+        .records-table th:first-child,
+        .records-table td:first-child {
+            position: sticky;
+            left: 0;
+        }
+
+        .records-table th:first-child {
+            z-index: 4;
+            background: #362206;
+            box-shadow: 1px 0 0 rgba(255, 255, 255, 0.08);
+        }
+
+        .records-table td:first-child {
+            z-index: 3;
+            background: #0f0f12;
+            box-shadow: 1px 0 0 rgba(255, 255, 255, 0.06);
+        }
+
+        .records-table tr:nth-child(even) td {
+            background: #111116;
+        }
+
+        .records-table tr:nth-child(even) td:first-child {
+            background: #121218;
+        }
+
+        .records-table tr:hover td {
+            background: #1b140d;
+        }
+
+        .records-table tr:hover td:first-child {
+            background: #1b140d;
+        }
+
+        .records-table td {
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .aggregate-table {
+            table-layout: fixed;
+        }
+
+        .aggregate-table th:first-child,
+        .aggregate-table td:first-child {
+            width: 32%;
+            min-width: 220px;
+            max-width: 360px;
+        }
+
+        .aggregate-table th:not(:first-child),
+        .aggregate-table td:not(:first-child) {
+            width: 13.6%;
+            min-width: 120px;
+        }
+
+        .records-table th:first-child,
+        .records-table td:first-child {
+            min-width: 180px;
+            max-width: 220px;
+        }
+
+        @media (max-width: 768px) {
+            main {
+                padding-left: 0.75rem !important;
+                padding-right: 0.75rem !important;
+                padding-top: 2.25rem !important;
+                padding-bottom: 5rem !important;
+            }
+
+            header.mb-16 {
+                margin-bottom: 2rem !important;
+            }
+
+            .doc-card {
+                border-radius: 0.95rem;
+            }
+
+            .doc-card:hover {
+                transform: none;
+            }
+
+            #summaryCards {
+                gap: 0.6rem !important;
+                margin-bottom: 2rem !important;
+            }
+
+            .stat-card {
+                padding: 0.9rem;
+                border-radius: 0.8rem;
+            }
+
+            .stat-value {
+                font-size: 1.7rem;
+                line-height: 1;
+            }
+
+            #chartsSection,
+            #aggregateSection,
+            #recordsSection,
+            #videoSection {
+                margin-bottom: 2.1rem !important;
+            }
+
+            #chartsSection .doc-card,
+            #videoSection .doc-card {
+                padding: 1rem !important;
+            }
+
+            #aggregateSection .doc-card,
+            #recordsSection .doc-card {
+                padding: 0.9rem !important;
+            }
+
+            .chart-box {
+                height: 230px;
+                padding: 0.55rem;
+            }
+
+            .data-table {
+                font-size: 0.72rem;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 0.55rem 0.65rem;
+            }
+
+            .data-table th {
+                font-size: 0.58rem;
+                letter-spacing: 0.03em;
+            }
+
+            .table-shell {
+                max-height: 21rem !important;
+                border-radius: 0.75rem;
+            }
+
+            .records-table td {
+                max-width: 180px;
+            }
+
+            .aggregate-table th:first-child,
+            .aggregate-table td:first-child {
+                width: 140px;
+                min-width: 140px;
+                max-width: 140px;
+            }
+
+            .aggregate-table th:not(:first-child),
+            .aggregate-table td:not(:first-child) {
+                min-width: 108px;
+            }
+
+            .records-table td:first-child,
+            .records-table th:first-child {
+                position: sticky;
+                left: 0;
+                min-width: 118px;
+                width: 118px;
+                max-width: 118px;
+            }
+
+            .records-table td:first-child {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                box-shadow: 1px 0 0 rgba(255, 255, 255, 0.06);
+            }
+
+            .records-table th:first-child {
+                z-index: 4;
+                box-shadow: 1px 0 0 rgba(255, 255, 255, 0.08);
+            }
+
+            .table-kpi {
+                font-size: 9px;
+                padding: 0.3rem 0.5rem;
+            }
+
+            .table-header-icon {
+                width: 1.8rem;
+                height: 1.8rem;
+                border-radius: 0.65rem;
+            }
+
+            .table-subtitle {
+                font-size: 0.7rem;
+            }
+
+            .metric-alias {
+                display: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .font-retro {
+                font-size: 1.25rem !important;
+                line-height: 1.3 !important;
+            }
+
+            .table-kpis {
+                gap: 0.35rem;
+            }
+
+            .table-kpi {
+                font-size: 8px;
+                padding: 0.26rem 0.44rem;
+            }
+
+            .records-table td {
+                max-width: 150px;
+            }
+
+            .records-table td:first-child,
+            .records-table th:first-child {
+                min-width: 104px;
+                width: 104px;
+                max-width: 104px;
+            }
+
+            .aggregate-table th:first-child,
+            .aggregate-table td:first-child {
+                width: 112px;
+                min-width: 112px;
+                max-width: 112px;
+            }
+
+            .aggregate-table th:not(:first-child),
+            .aggregate-table td:not(:first-child) {
+                min-width: 96px;
+            }
+        }
+
+        .verdict-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .verdict-good {
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+
+        .verdict-warn {
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+
+        .verdict-bad {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .verdict-best {
+            background: rgba(139, 92, 246, 0.15);
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            color: #a78bfa;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #030303;
+        }
+
+        ::-webkit-scrollbar-corner {
+            background: #0f0f12;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 4px;
+            border: 2px solid #030303;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f59e0b;
+        }
+
+        #aggregateTableShell::-webkit-scrollbar-track,
+        #recordsTableShell::-webkit-scrollbar-track {
+            background: linear-gradient(180deg, #0f1015 0%, #101218 100%);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 999px;
+        }
+
+        #aggregateTableShell::-webkit-scrollbar-thumb,
+        #recordsTableShell::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #4a4a53 0%, #353540 100%);
+            border: 2px solid #11131a;
+            border-radius: 999px;
+            min-height: 36px;
+        }
+
+        #aggregateTableShell::-webkit-scrollbar-thumb:hover,
+        #recordsTableShell::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
+        }
+
+        #aggregateTableShell,
+        #recordsTableShell {
+            scrollbar-width: thin;
+            scrollbar-color: #4a4a53 #101218;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%;
+            overflow: hidden;
+            border-radius: 0.75rem;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transition: opacity .3s ease-out;
+        }
+
+        .video-thumbnail-placeholder {
+            position: absolute;
+            inset: 0;
+            cursor: pointer;
+        }
+
+        .video-thumbnail-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: .75rem;
+        }
+
+        .play-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, .35);
+        }
+
+        .play-icon {
+            width: 56px;
+            height: 56px;
+            color: #fff;
+            opacity: .95;
+        }
+
+        .video-shimmer-loader {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(90deg, #111827 25%, #1f2937 50%, #111827 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.6s infinite linear;
+            color: #f59e0b;
+            font-size: .8rem;
+        }
+
+        @keyframes shimmer {
+            from {
+                background-position: 200% 0;
+            }
+
+            to {
+                background-position: -200% 0;
+            }
+        }
+
+        /* Modal cinematic open animation */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0);
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            pointer-events: none;
+            transition: background 0.4s ease;
+        }
+
+        .modal-backdrop.active {
+            background: rgba(0, 0, 0, 0.8);
+            pointer-events: auto;
+            opacity: 1 !important;
+        }
+
+        .modal-panel {
+            transform: scale(0.85) translateY(30px);
+            opacity: 0;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+        }
+
+        .modal-backdrop.active .modal-panel {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+
+        #refreshProgressBar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 3px;
+            background: linear-gradient(to right, #fcd34d, #f59e0b, #ea580c);
+            z-index: 99999;
+            transform-origin: left center;
+            transform: scaleX(0);
+            opacity: 0;
+            transition: opacity .2s ease;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.8);
+        }
+
+        #toastHost {
+            position: fixed;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            pointer-events: none;
+        }
+
+        .custom-toast {
+            min-width: 280px;
+            max-width: 420px;
+            padding: 0.75rem 0.9rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(24, 24, 27, 0.92);
+            color: #e4e4e7;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            letter-spacing: 0.02em;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(8px);
+            opacity: 0;
+            transform: translateY(-8px);
+            transition: opacity 0.22s ease, transform 0.22s ease;
+        }
+
+        .custom-toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .custom-toast.success {
+            border-color: rgba(16, 185, 129, 0.55);
+            color: #6ee7b7;
+        }
+
+        .custom-toast.error {
+            border-color: rgba(248, 113, 113, 0.55);
+            color: #fda4af;
+        }
+    </style>
+</head>
+
+<body class="relative min-h-screen">
+    <div id="refreshProgressBar"></div>
+    <div id="toastHost" aria-live="polite" aria-atomic="true"></div>
+    <div class="bg-glow-main"></div>
+    <div class="bg-mesh"></div>
+    <div class="scanlines"></div>
+
+    <main class="relative z-10 w-full max-w-full px-4 md:px-8 lg:px-12 xl:px-16 pt-12 md:pt-20 pb-32">
+        <!-- HEADER -->
+        <header class="flex flex-col items-center justify-center text-center mb-16 relative z-10">
+            <h2
+                class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-4 flex items-center gap-3">
+                <span class="w-8 h-px bg-zinc-700"></span> Production Benchmark <span
+                    class="w-8 h-px bg-zinc-700"></span>
+            </h2>
+            <h1
+                class="font-retro text-2xl sm:text-3xl md:text-4xl lg:text-[40px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-6">
+                PROJECT GLYPHMOTION
+            </h1>
+            <p class="font-outfit text-zinc-400 max-w-3xl mx-auto text-base md:text-lg leading-relaxed mb-8">
+                Adaptive HFDR production pipeline benchmarks — real-time quality metrics, pipeline performance, and
+                detection analytics across all processed videos.
+            </p>
+            <div class="flex flex-wrap items-center justify-center gap-3 text-xs font-mono text-zinc-500">
+                <a href="index.html"
+                    class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all"><i
+                        data-lucide="home" class="w-3 h-3 text-amber-500"></i> Home</a>
+                <button id="refreshDashboardBtn"
+                    class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all cursor-pointer"><i
+                        data-lucide="refresh-cw" class="w-3 h-3 text-amber-500"></i> Refresh</button>
+                <button id="exportBackendCsvBtn"
+                    class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all cursor-pointer"><i
+                        data-lucide="download" class="w-3 h-3 text-amber-500"></i> Export CSV</button>
+                <button id="benchmarkToggleBtn"
+                    class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all cursor-pointer"><i
+                        data-lucide="toggle-right" class="w-3 h-3 text-amber-500"></i> Benchmark: <span id="benchmarkToggleText">LOADING...</span></button>
+                <div id="serverStatusWidget" class="status-widget">
+                    <div class="relative flex h-2.5 w-2.5">
+                        <span id="serverStatusPing"
+                            class="animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-75"></span>
+                        <span id="serverStatusDot"
+                            class="relative inline-flex rounded-full h-2.5 w-2.5 bg-zinc-500"></span>
+                    </div>
+                    <span id="serverStatusText" class="text-zinc-300">LOADING...</span>
+                </div>
+            </div>
+        </header>
+
+        <section id="noBenchmarkDataBanner" class="hidden mb-10 section-marker">
+            <div class="doc-card p-6 md:p-8 border border-amber-500/30 bg-amber-500/5">
+                <div class="flex items-start gap-3">
+                    <i data-lucide="flask-conical" class="w-6 h-6 text-amber-400 mt-0.5"></i>
+                    <div>
+                        <h3 class="font-outfit text-xl text-amber-300 font-semibold mb-1">No benchmarks yet. The lab is suspiciously calm.</h3>
+                        <p class="text-zinc-300 font-outfit text-sm md:text-base">Run a benchmark and wake the metrics goblins 👾 — right now the dashboard is waiting dramatically for data.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- HERO STATS -->
+        <section id="summaryCards" class="grid grid-cols-2 md:grid-cols-4 2xl:grid-cols-8 gap-4 mb-16"></section>
+
+        <!-- CHARTS -->
+        <section id="chartsSection" class="mb-16 section-marker">
+            <div class="doc-card p-8 md:p-12">
+                <header class="flex flex-col items-center text-center mb-10">
+                    <div
+                        class="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 mb-6 inline-flex shadow-[0_0_30px_rgba(59,130,246,0.2)]">
+                        <i data-lucide="bar-chart-3" class="w-8 h-8 text-blue-400"></i>
+                    </div>
+                    <h2 class="font-outfit text-3xl md:text-4xl font-bold text-white mb-4">Quality + Pipeline Trends
+                    </h2>
+                    <p class="text-zinc-400 max-w-2xl mx-auto font-outfit">VMAF, SSIM, PSNR quality scores, pipeline
+                        FPS, adaptive mode distribution, and file size comparisons across all benchmark runs.</p>
+                </header>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div class="chart-box"><canvas id="qualityChart"></canvas></div>
+                    <div class="chart-box"><canvas id="speedChart"></canvas></div>
+                    <div class="chart-box"><canvas id="modeChart"></canvas></div>
+                    <div class="chart-box"><canvas id="sizeChart"></canvas></div>
+                    <div class="chart-box xl:col-span-2"><canvas id="classChart"></canvas></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- AGGREGATE METRICS -->
+        <section id="aggregateSection" class="mb-16 section-marker">
+            <div class="doc-card rich-table-card p-6 md:p-8">
+                <header class="flex flex-col md:flex-row items-center justify-between gap-4 mb-5">
+                    <div class="space-y-3 w-full">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div>
+                                <h2 class="font-outfit text-2xl font-bold text-white table-headline">
+                                    <span class="table-header-icon"><i data-lucide="activity" class="w-5 h-5 text-amber-300"></i></span>
+                                    <span>All Aggregated Metrics</span>
+                                </h2>
+                                <p class="table-subtitle">Unified metrics view with key benchmark statistics prioritized at the top.</p>
+                            </div>
+                            <input id="aggregateFilter" type="text"
+                                class="table-filter-input rounded-lg px-3 py-2 text-xs text-zinc-200 w-full md:w-72 max-w-full font-mono"
+                                placeholder="Filter metric name..." />
+                        </div>
+                        <div class="table-kpis">
+                            <span class="table-kpi">Total Metrics <span id="aggTotalMetrics" class="val">0</span></span>
+                            <span class="table-kpi">Key Metrics <span id="aggKeyMetrics" class="val">0</span></span>
+                        </div>
+                    </div>
+                </header>
+                <div id="aggregateTableShell" class="table-shell max-h-[32rem] overflow-auto">
+                    <table class="data-table aggregate-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Min</th>
+                                <th>Avg</th>
+                                <th>Max</th>
+                                <th>Stddev</th>
+                                <th>Count</th>
+                            </tr>
+                        </thead>
+                        <tbody id="aggregateTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- RECORDS TABLE -->
+        <section id="recordsSection" class="mb-16 section-marker">
+            <div class="doc-card rich-table-card p-6 md:p-8">
+                <header class="flex flex-col md:flex-row items-center justify-between gap-4 mb-5">
+                    <div class="space-y-3 w-full">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div>
+                                <h2 class="font-outfit text-2xl font-bold text-white table-headline">
+                                    <span class="table-header-icon"><i data-lucide="database" class="w-5 h-5 text-amber-300"></i></span>
+                                    <span>Benchmark Records</span>
+                                </h2>
+                                <p class="table-subtitle">Raw run-by-run telemetry across video, quality, speed, and pipeline dimensions.</p>
+                            </div>
+                            <input id="recordsFilter" type="text"
+                                class="table-filter-input rounded-lg px-3 py-2 text-xs text-zinc-200 w-full md:w-72 max-w-full font-mono"
+                                placeholder="Filter by title/commit..." />
+                        </div>
+                        <div class="table-kpis">
+                            <span class="table-kpi">Total Records <span id="recordsTotalRows" class="val">0</span></span>
+                            <span class="table-kpi">Visible Rows <span id="recordsVisibleRows" class="val">0</span></span>
+                            <span class="table-kpi">Visible Columns <span id="recordsVisibleCols" class="val">0</span></span>
+                        </div>
+                    </div>
+                </header>
+                <div id="recordsTableShell" class="table-shell max-h-[34rem] overflow-auto">
+                    <table class="data-table records-table" id="recordsTable"></table>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIDEO GALLERY -->
+        <section id="videoSection" class="mb-16 section-marker">
+            <div class="doc-card p-8 md:p-12">
+                <header class="flex flex-col items-center text-center mb-10">
+                    <div
+                        class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 mb-6 inline-flex shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                        <i data-lucide="video" class="w-8 h-8 text-emerald-400"></i>
+                    </div>
+                    <h2 class="font-outfit text-3xl md:text-4xl font-bold text-white mb-4">Benchmark-backed Videos</h2>
+                    <p class="text-zinc-400 max-w-2xl mx-auto font-outfit">Processed videos with full benchmark
+                        telemetry — click to preview, inspect per-video quality metrics.</p>
+                </header>
+                <div id="videoGallery" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+                <div id="noVideos" class="hidden text-zinc-400 text-sm mono text-center py-8">No benchmark-backed videos
+                    found.</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- DETAILS MODAL (cinematic open) -->
+    <div id="detailsModal" class="modal-backdrop">
+        <div class="modal-panel doc-card rounded-xl p-6" style="max-width: 60rem;">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-white font-outfit flex items-center gap-2"><i
+                        data-lucide="file-json" class="w-5 h-5 text-amber-400"></i> Benchmark Details</h3>
+                <button id="closeModal" class="text-zinc-400 hover:text-white transition-colors p-1"><i data-lucide="x"
+                        class="w-5 h-5"></i></button>
+            </div>
+            <pre id="detailsContent"
+                class="text-xs whitespace-pre-wrap text-zinc-200 mono bg-black/40 rounded-lg p-4 border border-white/5 max-h-[70vh] overflow-auto"></pre>
+        </div>
+    </div>
+
+    <!-- FOOTER (matches research.html) -->
+    <footer class="relative z-10 pb-24 lg:pb-8 pt-4 px-4">
+        <div
+            class="max-w-max mx-auto px-4 sm:px-6 py-3 rounded-xl sm:rounded-full bg-surface/80 backdrop-blur-md border border-zinc-800/60 shadow-[0_0_20px_rgba(0,0,0,0.5)] flex flex-col sm:flex-row items-center justify-center gap-3 transition-all hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)] hover-target">
+            <div class="flex items-center gap-2">
+                <i data-lucide="terminal-square" class="w-4 h-4 text-amber-500"></i>
+                <p class="text-zinc-400 text-[11px] sm:text-sm font-mono tracking-wide">
+                    Maintained by <span class="text-zinc-200 font-semibold">Project GlyphMotion</span>
+                </p>
+            </div>
+            <span class="hidden sm:block w-px h-4 bg-zinc-700"></span>
+            <div class="flex items-center text-center gap-1.5">
+                <p class="text-zinc-500 text-[9px] sm:text-xs font-mono tracking-wide leading-tight">
+                    MIT License &copy; 2026<br class="sm:hidden" /> Shitij Halder &amp; Sayan Sarkar
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ==================== CONFIGURATION ====================
+        const _preToken = localStorage.getItem('adminToken');
+        const _preUser = localStorage.getItem('adminUsername');
+        if (!_preToken || !_preUser) {
+            window.location.replace('admin.html');
+        }
+
+        const NGROK_PUBLIC_URL = 'https://backend.projectglyphmotion.studio';
+        const _origin = window.location.origin && window.location.origin !== 'null' ? window.location.origin : '';
+        const BENCHMARK_API_URL = `${NGROK_PUBLIC_URL}/benchmark_data`;
+        const BENCHMARK_CSV_URL = `${NGROK_PUBLIC_URL}/benchmark_data.csv`;
+        const BENCHMARK_SETTINGS_URL = `${NGROK_PUBLIC_URL}/benchmark_settings`;
+        const STATUS_ENDPOINT = `${NGROK_PUBLIC_URL}/status`;
+        const ADMIN_AUTH_EVENTS_ENDPOINT = `${NGROK_PUBLIC_URL}/events/admin_auth`;
+        const VIDEOS_JSON_URL = _origin ? `${_origin}/videos.json` : './videos.json';
+        const CARD_THUMBNAIL_SIZE = 'w480';
+        const STATUS_POLL_INTERVAL_MS = 4000;
+        const AUTH_SSE_RECONNECT_DELAY_MS = 3000;
+
+        Chart.defaults.color = '#71717a';
+        Chart.defaults.font.family = "'JetBrains Mono', monospace";
+        Chart.defaults.font.size = 10;
+
+        let cachedPayload = { records: [], aggregates: {} };
+        let chartRefs = [];
+        let latestMergedVideos = [];
+        let currentlyPlayingVideoElement = null;
+        let authEventSource = null;
+        let authReconnectTimer = null;
+        let isAdminLoggedIn = false;
+        let loggedInUsername = '';
+        let sessionTimeoutEnabled = false;
+        let benchmarkingEnabled = false;
+
+        // ==================== UTILITIES ====================
+        function normalizeText(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '').trim(); }
+        function num(v, d = 2) { const n = Number(v); return Number.isFinite(n) ? n.toFixed(d) : '0'; }
+        function avg(recs, f) { const v = recs.map(r => Number(r[f])).filter(Number.isFinite); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0; }
+        function normalizeMetricKey(k) { return normalizeText(String(k || '').replace(/_+/g, ' ').trim()); }
+        function isMeaningfulValue(v) { return v !== null && v !== undefined && String(v).trim() !== ''; }
+        function pickPreferredKey(keys = []) {
+            if (!keys.length) return '';
+            const scored = [...keys].sort((a, b) => {
+                const s = (k) => {
+                    const str = String(k || '');
+                    const upper = (str.match(/[A-Z]/g) || []).length;
+                    const separators = (str.match(/[_\s-]/g) || []).length;
+                    const lowerOnlyPenalty = str === str.toLowerCase() ? 2 : 0;
+                    return (upper * 3) + separators - lowerOnlyPenalty - (str.length * 0.01);
+                };
+                return s(b) - s(a);
+            });
+            return scored[0];
+        }
+        function formatMetricLabel(k) {
+            const source = String(k || '').replace(/_/g, ' ').trim();
+            if (!source) return 'Unknown Metric';
+            return source.split(/\s+/).map(token => {
+                if (token.length <= 4) return token.toUpperCase();
+                if (/^[A-Z0-9]+$/.test(token)) return token;
+                return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
+            }).join(' ');
+        }
+        function mergeAggregateEntries(entries = []) {
+            const valid = entries.filter(e => Number(e.count || 0) > 0);
+            if (!valid.length) return { min: 0, avg: 0, max: 0, stddev: 0, count: 0 };
+            let totalCount = 0;
+            let totalSum = 0;
+            let totalSumSquares = 0;
+            let minValue = Number.POSITIVE_INFINITY;
+            let maxValue = Number.NEGATIVE_INFINITY;
+            valid.forEach(e => {
+                const n = Number(e.count || 0);
+                const mean = Number(e.avg || 0);
+                const sd = Number(e.stddev || 0);
+                const mn = Number(e.min);
+                const mx = Number(e.max);
+                const variance = Number.isFinite(sd) ? Math.max(0, sd * sd) : 0;
+                totalCount += n;
+                totalSum += mean * n;
+                totalSumSquares += (variance + (mean * mean)) * n;
+                if (Number.isFinite(mn)) minValue = Math.min(minValue, mn);
+                if (Number.isFinite(mx)) maxValue = Math.max(maxValue, mx);
+            });
+            const avgValue = totalCount > 0 ? totalSum / totalCount : 0;
+            const varianceValue = totalCount > 0 ? Math.max(0, (totalSumSquares / totalCount) - (avgValue * avgValue)) : 0;
+            return {
+                min: Number.isFinite(minValue) ? minValue : 0,
+                avg: avgValue,
+                max: Number.isFinite(maxValue) ? maxValue : 0,
+                stddev: Math.sqrt(varianceValue),
+                count: totalCount
+            };
+        }
+        function buildUnifiedAggregates(aggregates = {}) {
+            const grouped = new Map();
+            const keyMetricOrder = [
+                normalizeMetricKey('vmaf'),
+                normalizeMetricKey('ssim'),
+                normalizeMetricKey('psnr'),
+                normalizeMetricKey('Avg_Pipeline_FPS'),
+                normalizeMetricKey('Avg_Latency_ms'),
+                normalizeMetricKey('encode_time_s'),
+                normalizeMetricKey('Output_Size_MB'),
+                normalizeMetricKey('Total_Detections')
+            ];
+            Object.entries(aggregates || {}).forEach(([rawKey, metric]) => {
+                const canonical = normalizeMetricKey(rawKey);
+                if (!canonical) return;
+                if (!grouped.has(canonical)) grouped.set(canonical, []);
+                grouped.get(canonical).push({ rawKey, ...(metric || {}) });
+            });
+
+            const unified = [...grouped.entries()].map(([canonical, items]) => {
+                const mergedStats = mergeAggregateEntries(items);
+                const aliases = items.map(i => i.rawKey);
+                const preferredKey = pickPreferredKey(aliases);
+                return {
+                    canonical,
+                    metricName: formatMetricLabel(preferredKey || aliases[0] || canonical),
+                    aliases,
+                    priorityIndex: keyMetricOrder.includes(canonical) ? keyMetricOrder.indexOf(canonical) : Number.POSITIVE_INFINITY,
+                    ...mergedStats
+                };
+            }).sort((a, b) => {
+                if (a.priorityIndex !== b.priorityIndex) return a.priorityIndex - b.priorityIndex;
+                return a.metricName.localeCompare(b.metricName);
+            });
+
+            const totalRawMetrics = Object.keys(aggregates || {}).length;
+            const mergedDuplicates = Math.max(0, totalRawMetrics - unified.length);
+            const keyMetricCount = unified.filter(x => Number.isFinite(x.priorityIndex)).length;
+            return { unified, totalRawMetrics, mergedDuplicates, keyMetricCount };
+        }
+        function buildUnifiedRecordColumns(records = []) {
+            const grouped = new Map();
+            (records || []).forEach(row => {
+                Object.keys(row || {}).forEach(rawKey => {
+                    const canonical = normalizeMetricKey(rawKey);
+                    if (!canonical) return;
+                    if (!grouped.has(canonical)) grouped.set(canonical, []);
+                    const bucket = grouped.get(canonical);
+                    if (!bucket.includes(rawKey)) bucket.push(rawKey);
+                });
+            });
+
+            const pref = ['video_title', 'timestamp_iso', 'commit_sha', 'vmaf', 'ssim', 'psnr', 'Avg_Pipeline_FPS', 'avg_fps', 'google_drive_url'];
+            const prefCanonical = pref.map(normalizeMetricKey);
+            const columns = [...grouped.entries()].map(([canonical, aliases]) => {
+                const preferredKey = pickPreferredKey(aliases);
+                return {
+                    canonical,
+                    aliases,
+                    preferredKey,
+                    label: formatMetricLabel(preferredKey || aliases[0] || canonical)
+                };
+            });
+
+            columns.sort((a, b) => {
+                const ai = prefCanonical.indexOf(a.canonical);
+                const bi = prefCanonical.indexOf(b.canonical);
+                if (ai !== -1 || bi !== -1) {
+                    if (ai === -1) return 1;
+                    if (bi === -1) return -1;
+                    return ai - bi;
+                }
+                return a.label.localeCompare(b.label);
+            });
+            return columns;
+        }
+        function getRecordColumnValue(record, aliases = []) {
+            for (const key of aliases) {
+                const value = record?.[key];
+                if (isMeaningfulValue(value)) return value;
+            }
+            return '';
+        }
+        function redirectToAdminLogin() { window.location.href = 'admin.html'; }
+        function clearAdminSession() {
+            disconnectAuthEvents();
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUsername');
+            localStorage.removeItem('sessionTimeoutEnabled');
+            localStorage.removeItem('sessionDurationDays');
+            isAdminLoggedIn = false;
+            loggedInUsername = '';
+        }
+        function ensureAdminSession() {
+            const token = localStorage.getItem('adminToken');
+            loggedInUsername = localStorage.getItem('adminUsername');
+            sessionTimeoutEnabled = localStorage.getItem('sessionTimeoutEnabled') === 'true';
+
+            if (!token || !loggedInUsername) {
+                clearAdminSession();
+                redirectToAdminLogin();
+                return false;
+            }
+
+            if (sessionTimeoutEnabled) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    if (payload.exp && (Date.now() / 1000) > payload.exp) {
+                        clearAdminSession();
+                        redirectToAdminLogin();
+                        return false;
+                    }
+                } catch (_) {
+                    clearAdminSession();
+                    redirectToAdminLogin();
+                    return false;
+                }
+            }
+
+            isAdminLoggedIn = true;
+            return true;
+        }
+        async function authenticatedFetch(url, options = {}) {
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                clearAdminSession();
+                redirectToAdminLogin();
+                throw new Error('Not authenticated');
+            }
+
+            const headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${token}`
+            };
+
+            const response = await fetch(url, { ...options, headers });
+            if (response.status === 401) {
+                clearAdminSession();
+                redirectToAdminLogin();
+                throw new Error('Authentication failed');
+            }
+
+            return response;
+        }
+        function buildAuthEventsUrl() {
+            const token = localStorage.getItem('adminToken');
+            return `${ADMIN_AUTH_EVENTS_ENDPOINT}?token=${encodeURIComponent(token || '')}`;
+        }
+        function disconnectAuthEvents() {
+            if (authEventSource) {
+                authEventSource.close();
+                authEventSource = null;
+            }
+            if (authReconnectTimer) {
+                clearTimeout(authReconnectTimer);
+                authReconnectTimer = null;
+            }
+        }
+        function scheduleAuthReconnect() {
+            if (authReconnectTimer) return;
+            authReconnectTimer = setTimeout(() => {
+                authReconnectTimer = null;
+                connectAuthEvents();
+            }, AUTH_SSE_RECONNECT_DELAY_MS);
+        }
+        function forceRealtimeLogout(message = 'Master admin invalidated all sessions. Logging out now...') {
+            clearAdminSession();
+            showToast(message, 'error', 1200);
+            setTimeout(() => redirectToAdminLogin(), 200);
+        }
+        function connectAuthEvents() {
+            const token = localStorage.getItem('adminToken');
+            if (!token || !isAdminLoggedIn) return;
+
+            disconnectAuthEvents();
+
+            try {
+                authEventSource = new EventSource(buildAuthEventsUrl());
+            } catch (_) {
+                scheduleAuthReconnect();
+                return;
+            }
+
+            authEventSource.addEventListener('authRevoked', () => {
+                forceRealtimeLogout();
+            });
+
+            authEventSource.onerror = async () => {
+                disconnectAuthEvents();
+                if (!localStorage.getItem('adminToken')) return;
+
+                try {
+                    await authenticatedFetch(BENCHMARK_API_URL, { method: 'GET' });
+                    scheduleAuthReconnect();
+                } catch (error) {
+                    const msg = String(error?.message || '').toLowerCase();
+                    if (msg.includes('authentication') || msg.includes('not authenticated')) return;
+                    scheduleAuthReconnect();
+                }
+            };
+        }
+        function showToast(message, type = 'error', timeoutMs = 3200) {
+            const host = document.getElementById('toastHost');
+            if (!host) return;
+            const toast = document.createElement('div');
+            toast.className = `custom-toast ${type}`;
+            toast.textContent = message;
+            host.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 240);
+            }, timeoutMs);
+        }
+
+        function setBenchmarkToggleState(enabled, inProgress = false) {
+            benchmarkingEnabled = !!enabled;
+            const btn = document.getElementById('benchmarkToggleBtn');
+            const txt = document.getElementById('benchmarkToggleText');
+            const icon = btn?.querySelector('i[data-lucide]');
+            if (!btn || !txt) return;
+
+            if (benchmarkingEnabled) {
+                txt.textContent = inProgress ? 'ON (RUNNING)' : 'ON';
+                btn.classList.remove('border-zinc-800');
+                btn.classList.add('border-emerald-500/45', 'bg-emerald-500/10');
+                if (icon) icon.className = 'w-3 h-3 text-emerald-400';
+            } else {
+                txt.textContent = 'OFF';
+                btn.classList.remove('border-emerald-500/45', 'bg-emerald-500/10');
+                btn.classList.add('border-zinc-800');
+                if (icon) icon.className = 'w-3 h-3 text-zinc-400';
+            }
+        }
+
+        async function refreshBenchmarkToggleState() {
+            try {
+                const response = await authenticatedFetch(`${BENCHMARK_SETTINGS_URL}?_ts=${Date.now()}`);
+                if (!response.ok) throw new Error(`Failed to fetch benchmark settings: ${response.status}`);
+                const payload = await response.json();
+                setBenchmarkToggleState(!!payload.benchmarkingEnabled, !!payload.benchmarkInProgress);
+            } catch (error) {
+                setBenchmarkToggleState(false, false);
+            }
+        }
+
+        async function toggleBenchmarking() {
+            const targetState = !benchmarkingEnabled;
+            try {
+                const response = await authenticatedFetch(BENCHMARK_SETTINGS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled: targetState })
+                });
+                if (!response.ok) throw new Error(`Failed to update benchmark settings: ${response.status}`);
+                const payload = await response.json();
+                setBenchmarkToggleState(!!payload.benchmarkingEnabled, !!payload.benchmarkInProgress);
+                showToast(`Benchmarking ${payload.benchmarkingEnabled ? 'enabled' : 'disabled'}.`, 'success', 1800);
+            } catch (error) {
+                showToast('Failed to update benchmarking mode.', 'error', 2200);
+                await refreshBenchmarkToggleState();
+            }
+        }
+
+        function resolveDriveFileId(pid, embed, dl) {
+            const ex = u => { if (!u || typeof u !== 'string') return ''; const m1 = u.match(/\/file\/d\/([a-zA-Z0-9_-]+)/); const m2 = u.match(/[?&]id=([a-zA-Z0-9_-]+)/); return (m1 && m1[1]) || (m2 && m2[1]) || ''; };
+            return (pid || '').trim() || ex(embed) || ex(dl) || '';
+        }
+        function toPreviewUrl(url, fid = '') { const id = resolveDriveFileId(fid, url, url); return id ? `https://drive.google.com/file/d/${id}/preview` : url || ''; }
+        function getDriveThumbnailCandidates(fileId, size = CARD_THUMBNAIL_SIZE, retryToken = '') {
+            if (!fileId) return ['/images/thumbnail_fallback.jpg'];
+            const cacheBust = retryToken ? `&rt=${encodeURIComponent(retryToken)}` : '';
+            return [
+                `https://drive.google.com/thumbnail?sz=${size}&id=${fileId}${cacheBust}`,
+                `https://lh3.googleusercontent.com/d/${fileId}=${size}`,
+                `https://drive.google.com/thumbnail?id=${fileId}${cacheBust}`,
+                '/images/thumbnail_fallback.jpg'
+            ];
+        }
+        function attachRobustThumbnailFallback(imgElement, fileId, options = {}) {
+            if (!imgElement) return;
+            const size = options.size || CARD_THUMBNAIL_SIZE;
+            const enableRetry = options.enableRetry !== false;
+            const retryDelayMs = Number(options.retryDelayMs || 6000);
+            const maxRetryAttempts = Number(options.maxRetryAttempts || 12);
+            let retryAttempts = 0, candidateIndex = 0, retryTimer = null;
+            const clearRetryTimer = () => { if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; } };
+            const scheduleRetry = () => {
+                if (!enableRetry || !fileId || retryAttempts >= maxRetryAttempts) return;
+                retryAttempts += 1;
+                const retryToken = `${Date.now()}-${retryAttempts}`;
+                clearRetryTimer();
+                retryTimer = setTimeout(() => {
+                    if (!document.contains(imgElement)) { clearRetryTimer(); return; }
+                    candidateIndex = 0;
+                    candidates = getDriveThumbnailCandidates(fileId, size, retryToken);
+                    imgElement.src = candidates[candidateIndex];
+                }, retryDelayMs);
+            };
+            let candidates = getDriveThumbnailCandidates(fileId, size);
+            imgElement.onload = () => { if (!imgElement.src.includes('thumbnail_fallback.jpg')) clearRetryTimer(); };
+            imgElement.onerror = () => {
+                if (window.caches && candidates[candidateIndex]) {
+                    const failedUrl = candidates[candidateIndex];
+                    if (failedUrl.includes('drive.google.com') || failedUrl.includes('googleusercontent.com')) {
+                        const canonicalUrl = new URL(failedUrl, window.location.origin);
+                        canonicalUrl.searchParams.delete('rt');
+                        const canonicalUrlStr = canonicalUrl.toString();
+                        caches.keys().then(cacheNames => {
+                            cacheNames.forEach(cacheName => {
+                                caches.open(cacheName).then(cache => {
+                                    cache.delete(failedUrl);
+                                    if (failedUrl !== canonicalUrlStr) cache.delete(canonicalUrlStr);
+                                });
+                            });
+                        }).catch(err => console.warn('Cache clear error:', err));
+                    }
+                }
+                candidateIndex += 1;
+                if (candidateIndex < candidates.length) imgElement.src = candidates[candidateIndex];
+                else { imgElement.src = '/images/thumbnail_fallback.jpg'; scheduleRetry(); }
+            };
+            imgElement.src = candidates[candidateIndex];
+        }
+
+        // ==================== MODAL HELPERS ====================
+        function openModal(id) { const m = document.getElementById(id); m.classList.add('active'); document.body.style.overflow = 'hidden'; }
+        function closeModal(id) { const m = document.getElementById(id); m.classList.remove('active'); document.body.style.overflow = ''; }
+
+        document.getElementById('closeModal').addEventListener('click', () => closeModal('detailsModal'));
+        document.getElementById('detailsModal').addEventListener('click', e => { if (e.target.classList.contains('modal-backdrop')) closeModal('detailsModal'); });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                if (document.getElementById('detailsModal').classList.contains('active')) {
+                    closeModal('detailsModal');
+                }
+            }
+        });
+
+        function openDetails(data) {
+            document.getElementById('detailsContent').textContent = JSON.stringify(data, null, 2);
+            openModal('detailsModal');
+        }
+
+        // ==================== VIDEO PLAYBACK ====================
+        function stopAndRevertVideo(vc, fid, embedUrl) {
+            const iframe = vc.querySelector('iframe'); const loader = vc.querySelector('.video-shimmer-loader');
+            if (iframe) { iframe.style.opacity = '0'; setTimeout(() => iframe.remove(), 300); }
+            if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 300); }
+            const tp = document.createElement('div'); tp.className = 'video-thumbnail-placeholder absolute top-0 left-0 w-full h-full';
+            const rid = resolveDriveFileId(fid, embedUrl); tp.setAttribute('data-embed-url', embedUrl); tp.setAttribute('data-file-id', rid);
+            tp.innerHTML = `<img alt="thumb" loading="lazy" decoding="async" class="w-full h-full object-cover rounded-xl" /><div class="play-overlay"><svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>`;
+            attachRobustThumbnailFallback(tp.querySelector('img'), rid);
+            tp.style.opacity = '0'; tp.style.transition = 'opacity 0.3s ease-out';
+            vc.appendChild(tp);
+            setTimeout(() => tp.style.opacity = '1', 50);
+            tp.addEventListener('click', handleThumbnailClick);
+            if (currentlyPlayingVideoElement === iframe) currentlyPlayingVideoElement = null;
+        }
+        function handleThumbnailClick(e) {
+            const ct = e.currentTarget; const vc = ct.closest('.video-container'); const embedUrl = ct.dataset.embedUrl; const fid = ct.dataset.fileId;
+            if (currentlyPlayingVideoElement && currentlyPlayingVideoElement.closest('.video-container') !== vc) { const pc = currentlyPlayingVideoElement.closest('.video-container'); stopAndRevertVideo(pc, currentlyPlayingVideoElement.dataset.fileId, currentlyPlayingVideoElement.dataset.embedUrl); }
+            ct.style.opacity = '0'; setTimeout(() => ct.remove(), 300);
+            const sl = document.createElement('div'); sl.className = 'video-shimmer-loader show'; sl.innerHTML = '<span class="text-zinc-400 font-mono text-xs tracking-widest uppercase">Initializing...</span>'; vc.appendChild(sl);
+            const iframe = document.createElement('iframe'); iframe.src = embedUrl; iframe.setAttribute('allow', 'fullscreen; picture-in-picture; web-share'); iframe.setAttribute('allowfullscreen', ''); iframe.setAttribute('frameborder', '0'); iframe.setAttribute('data-file-id', fid); iframe.setAttribute('data-embed-url', embedUrl); iframe.style.opacity = '0'; iframe.style.transition = 'opacity 0.3s ease'; vc.appendChild(iframe);
+            iframe.onload = () => { sl.style.opacity = '0'; setTimeout(() => sl.remove(), 300); iframe.style.opacity = '1'; }; currentlyPlayingVideoElement = iframe;
+        }
+
+        // ==================== RENDER FUNCTIONS ====================
+        function renderSummary(payload) {
+            if (!payload) return;
+            const r = payload.records || [];
+            const vmafAvg = avg(r, 'vmaf'); const ssimAvg = avg(r, 'ssim'); const psnrAvg = avg(r, 'psnr');
+            const fpsAvg = avg(r, 'Avg_Pipeline_FPS') || avg(r, 'avg_fps');
+            const latAvg = avg(r, 'Avg_Latency_ms') || avg(r, 'avg_latency_ms');
+            const encAvg = avg(r, 'encode_time_s');
+            const sizeAvg = avg(r, 'Output_Size_MB') || avg(r, 'proc_file_size_mb');
+            const det = r.reduce((a, x) => a + Number(x.Total_Detections || x.total_detections || 0), 0);
+            const cards = [
+                { label: 'VMAF Score', value: num(vmafAvg, 2), sub: `Quality Metric`, color: 'from-emerald-400 to-emerald-600' },
+                { label: 'SSIM', value: num(ssimAvg, 4), sub: `Structural Sim.`, color: 'from-cyan-400 to-cyan-600' },
+                { label: 'PSNR', value: num(psnrAvg, 2), sub: `dB Peak Sig.`, color: 'from-indigo-400 to-indigo-600' },
+                { label: 'Total Det.', value: det.toLocaleString(), sub: `Across ${r.length} runs`, color: 'from-violet-400 to-purple-600' },
+                { label: 'FPS', value: num(fpsAvg, 1), sub: `Pipeline Speed`, color: 'from-amber-400 to-amber-600' },
+                { label: 'Avg Latency', value: num(latAvg, 1), sub: `ms per frame`, color: 'from-orange-400 to-orange-600' },
+                { label: 'Encode Time', value: num(encAvg, 1), sub: `Seconds Avg`, color: 'from-rose-400 to-rose-600' },
+                { label: 'Output Size', value: num(sizeAvg, 1), sub: `MB Per Video`, color: 'from-fuchsia-400 to-pink-600' }
+            ];
+            const cmap = { 'emerald-400': '#34d399', 'emerald-600': '#059669', 'cyan-400': '#22d3ee', 'cyan-600': '#0891b2', 'indigo-400': '#818cf8', 'indigo-600': '#4f46e5', 'violet-400': '#a78bfa', 'purple-600': '#9333ea', 'amber-400': '#fbbf24', 'amber-600': '#d97706', 'orange-400': '#fb923c', 'orange-600': '#ea580c', 'rose-400': '#fb7185', 'rose-600': '#e11d48', 'fuchsia-400': '#e879f9', 'pink-600': '#db2777' };
+            document.getElementById('summaryCards').innerHTML = cards.map(c => {
+                const [fromToken, toToken] = c.color.split(' ');
+                const fromHex = cmap[fromToken.replace('from-', '')] || '#f59e0b';
+                const toHex = cmap[toToken.replace('to-', '')] || '#ea580c';
+                return `<div class="stat-card"><div class="stat-value" style="background:linear-gradient(135deg, ${fromHex}, ${toHex});-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">${c.value}</div><div class="stat-label">${c.label}</div><div class="text-[10px] text-zinc-500 mt-1 mono uppercase tracking-widest">${c.sub}</div></div>`;
+            }).join('');
+        }
+
+        function renderAggregateTable(payload, filter = '') {
+            const q = normalizeText(filter);
+            const { unified, totalRawMetrics, keyMetricCount } = buildUnifiedAggregates(payload.aggregates || {});
+            const filtered = unified.filter(metric => {
+                if (!q) return true;
+                if (normalizeText(metric.metricName).includes(q)) return true;
+                return metric.aliases.some(alias => normalizeText(alias).includes(q));
+            });
+            const rows = filtered.map(metric => {
+                const aliasInfo = metric.aliases.length > 1 ? `Merged aliases: ${metric.aliases.join(', ')}` : `Source key: ${metric.aliases[0] || metric.metricName}`;
+                return `<tr><td><div class="metric-name"><span>${metric.metricName}</span><span class="metric-alias">${aliasInfo}</span></div></td><td>${num(metric.min, 4)}</td><td>${num(metric.avg, 4)}</td><td>${num(metric.max, 4)}</td><td>${num(metric.stddev, 4)}</td><td>${Number(metric.count || 0)}</td></tr>`;
+            }).join('');
+            document.getElementById('aggregateTableBody').innerHTML = rows || '<tr><td colspan="6" class="text-center text-zinc-400 py-6 mono">No aggregated metrics yet. Run benchmarks to summon statistics.</td></tr>';
+            document.getElementById('aggTotalMetrics').textContent = String(totalRawMetrics);
+            document.getElementById('aggKeyMetrics').textContent = String(keyMetricCount);
+        }
+
+        function renderRecordsTable(records, filter = '') {
+            const table = document.getElementById('recordsTable'); const q = normalizeText(filter);
+            const filtered = (records || []).filter(r => {
+                if (!q) return true;
+                return normalizeText(r.video_title).includes(q) || normalizeText(r.commit_sha).includes(q);
+            });
+            const unifiedColumns = buildUnifiedRecordColumns(filtered);
+            if (!unifiedColumns.length) {
+                table.innerHTML = '<thead><tr><th>Records</th></tr></thead><tbody><tr><td class="text-center text-zinc-400 py-6 mono">No benchmark records found. Feed me benchmarks and I shall return glorious numbers.</td></tr></tbody>';
+                document.getElementById('recordsTotalRows').textContent = String((records || []).length);
+                document.getElementById('recordsVisibleRows').textContent = String(filtered.length);
+                document.getElementById('recordsVisibleCols').textContent = '0';
+                return;
+            }
+            table.innerHTML = `<thead><tr>${unifiedColumns.map(col => `<th>${col.label}</th>`).join('')}</tr></thead><tbody>${filtered.map(row => `<tr>${unifiedColumns.map(col => { const v = getRecordColumnValue(row, col.aliases); if (v && typeof v === 'object') return `<td>${JSON.stringify(v)}</td>`; return `<td>${v === null || v === undefined ? '' : String(v)}</td>`; }).join('')}</tr>`).join('')}</tbody>`;
+            document.getElementById('recordsTotalRows').textContent = String((records || []).length);
+            document.getElementById('recordsVisibleRows').textContent = String(filtered.length);
+            document.getElementById('recordsVisibleCols').textContent = String(unifiedColumns.length);
+        }
+
+        function bindInnerScroll(shellId) {
+            const shell = document.getElementById(shellId);
+            if (!shell) return;
+            shell.addEventListener('wheel', (event) => {
+                const canScrollY = shell.scrollHeight > shell.clientHeight;
+                const canScrollX = shell.scrollWidth > shell.clientWidth;
+                if (!canScrollY && !canScrollX) return;
+
+                if (canScrollY && event.deltaY !== 0) {
+                    const nextTop = shell.scrollTop + event.deltaY;
+                    const maxTop = Math.max(0, shell.scrollHeight - shell.clientHeight);
+                    shell.scrollTop = Math.max(0, Math.min(maxTop, nextTop));
+                }
+
+                if (canScrollX && event.deltaX !== 0) {
+                    const nextLeft = shell.scrollLeft + event.deltaX;
+                    const maxLeft = Math.max(0, shell.scrollWidth - shell.clientWidth);
+                    shell.scrollLeft = Math.max(0, Math.min(maxLeft, nextLeft));
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+            }, { passive: false });
+        }
+
+        function renderCharts(payload) {
+            chartRefs.forEach(c => c.destroy()); chartRefs = [];
+            const records = (payload.records || []).slice().reverse(); const labels = records.map(r => (r.video_title || 'Video').slice(0, 24));
+            const chartOpts = (title) => ({ responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: title, color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } }, legend: { labels: { boxWidth: 10, padding: 12 } } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.04)' } }, x: { grid: { display: false }, ticks: { maxRotation: 45 } } } });
+
+            chartRefs.push(new Chart(document.getElementById('qualityChart'), { type: 'line', data: { labels, datasets: [{ label: 'VMAF', data: records.map(r => Number(r.vmaf || 0)), borderColor: '#f59e0b', tension: 0.3, pointRadius: 4 }, { label: 'SSIM', data: records.map(r => Number(r.ssim || 0)), borderColor: '#10b981', tension: 0.3, pointRadius: 4 }, { label: 'PSNR', data: records.map(r => Number(r.psnr || 0)), borderColor: '#60a5fa', tension: 0.3, pointRadius: 4 }] }, options: chartOpts('Quality Metrics') }));
+            chartRefs.push(new Chart(document.getElementById('speedChart'), { type: 'bar', data: { labels, datasets: [{ label: 'Pipeline FPS', data: records.map(r => Number(r.Avg_Pipeline_FPS || r.avg_fps || 0)), backgroundColor: '#a78bfa', borderRadius: 6 }, { label: 'Avg Latency (ms)', data: records.map(r => Number(r.Avg_Latency_ms || r.avg_latency_ms || 0)), backgroundColor: '#f97316', borderRadius: 6 }] }, options: chartOpts('Speed & Latency') }));
+            const mA = records.reduce((a, r) => a + Number(r.mode_a_frames || 0), 0); const mB = records.reduce((a, r) => a + Number(r.mode_b_frames || 0), 0);
+            chartRefs.push(new Chart(document.getElementById('modeChart'), { type: 'doughnut', data: { labels: ['Mode A (Temporal)', 'Mode B (ROI+Temporal)'], datasets: [{ data: [mA, mB], backgroundColor: ['#f59e0b', '#60a5fa'], borderWidth: 2, borderColor: 'rgba(0,0,0,0.3)' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '72%', radius: '78%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } } } } }));
+            chartRefs.push(new Chart(document.getElementById('sizeChart'), { type: 'bar', data: { labels, datasets: [{ label: 'Original MB', data: records.map(r => Number(r.orig_file_size_mb || r.Original_Size_MB || 0)), backgroundColor: '#22d3ee', borderRadius: 6 }, { label: 'Processed MB', data: records.map(r => Number(r.proc_file_size_mb || r.Output_Size_MB || 0)), backgroundColor: '#f43f5e', borderRadius: 6 }] }, options: chartOpts('File Size Comparison') }));
+            const cm = {}; records.forEach(r => { const d = r.class_distribution || {}; if (d && typeof d === 'object') Object.keys(d).forEach(k => cm[k] = (cm[k] || 0) + Number(d[k] || 0)); });
+            const cls = Object.entries(cm).sort((a, b) => b[1] - a[1]).slice(0, 12);
+            chartRefs.push(new Chart(document.getElementById('classChart'), { type: 'bar', data: { labels: cls.map(x => x[0]), datasets: [{ label: 'Detections', data: cls.map(x => x[1]), backgroundColor: '#10b981', borderRadius: 6 }] }, options: chartOpts('Class Distribution (Top 12)') }));
+        }
+
+        function videoMetricPill(label, value, accent = 'text-amber-300') { return `<div class="rounded-lg border border-white/10 bg-black/35 px-2.5 py-2"><div class="text-[10px] uppercase tracking-wide text-zinc-400 mono">${label}</div><div class="text-sm ${accent} mono">${value}</div></div>`; }
+
+        function mergeBenchmarkVideos(videos, records) {
+            const vl = Array.isArray(videos) ? videos : []; const result = []; const seen = new Set();
+            (records || []).forEach(rec => {
+                const tk = normalizeText(rec.video_title); const ck = String(rec.commit_sha || '').trim(); const du = String(rec.google_drive_url || '').trim();
+                let mv = null; if (ck) mv = vl.find(v => String(v.commitSha || '').trim() === ck) || null; if (!mv && tk) mv = vl.find(v => normalizeText(v.title) === tk) || null;
+                const eu = mv?.embedUrl || toPreviewUrl(du); const dl = mv?.downloadUrl || du || eu; const fid = resolveDriveFileId(mv?.googleDriveFileId, eu, dl);
+                const uk = `${rec.timestamp || ''}_${rec.video_title || ''}_${rec.commit_sha || ''}`; if (seen.has(uk)) return; seen.add(uk);
+                result.push({ title: mv?.title || rec.video_title || 'Processed Video', embedUrl: eu, downloadUrl: dl, googleDriveFileId: fid, commitSha: mv?.commitSha || rec.commit_sha || '', timestamp: rec.timestamp || mv?.timestamp || 0, benchmark: rec });
+            });
+            return result.filter(i => i.embedUrl || i.downloadUrl).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        }
+
+        function renderVideoGallery(items) {
+            const gallery = document.getElementById('videoGallery'); const nv = document.getElementById('noVideos'); gallery.innerHTML = '';
+            if (!items.length) { nv.classList.remove('hidden'); return; } nv.classList.add('hidden');
+            items.forEach(item => {
+                const rec = item.benchmark || {}; const fid = resolveDriveFileId(item.googleDriveFileId, item.embedUrl, item.downloadUrl);
+                const card = document.createElement('div'); card.className = 'doc-card p-4';
+                card.innerHTML = `<div class="mb-3 flex items-start justify-between gap-3"><div class="min-w-0"><p class="text-zinc-200 text-sm font-medium font-outfit truncate">${item.title}</p><p class="text-[11px] text-zinc-500 mono mt-1">${rec.commit_sha ? `Commit: ${rec.commit_sha.slice(0, 12)}` : 'Commit: N/A'}</p></div><a href="${item.downloadUrl || item.embedUrl}" target="_blank" class="px-2.5 py-1.5 rounded-md text-xs bg-amber-500 text-black font-medium hover:bg-amber-400 transition-colors shrink-0">Open</a></div><div class="video-container mb-3"><div class="video-thumbnail-placeholder" data-embed-url="${item.embedUrl}" data-file-id="${fid}"><img loading="lazy" decoding="async" alt="thumb" /><div class="play-overlay"><svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div></div><div class="grid grid-cols-2 gap-2">${videoMetricPill('VMAF', num(rec.vmaf, 2), 'text-emerald-300')}${videoMetricPill('SSIM', num(rec.ssim, 4), 'text-cyan-300')}${videoMetricPill('PSNR', num(rec.psnr, 2), 'text-violet-300')}${videoMetricPill('FPS', num(rec.Avg_Pipeline_FPS || rec.avg_fps, 2), 'text-amber-300')}</div>`;
+                attachRobustThumbnailFallback(card.querySelector('img'), fid);
+                card.querySelector('.video-thumbnail-placeholder').addEventListener('click', handleThumbnailClick);
+                gallery.appendChild(card);
+            });
+        }
+
+        // ==================== SERVER STATUS ====================
+        function setServerOnlineState(on) {
+            const d = document.getElementById('serverStatusDot'), p = document.getElementById('serverStatusPing'), t = document.getElementById('serverStatusText'), w = document.getElementById('serverStatusWidget');
+            if (!d || !p || !t || !w) return;
+            if (on) { d.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500'; p.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75'; t.textContent = 'SYSTEM ONLINE'; t.className = 'text-emerald-300'; w.className = 'status-widget border-emerald-500/35 bg-emerald-500/10'; }
+            else { d.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500'; p.className = 'hidden'; t.textContent = 'OFFLINE (STATIC)'; t.className = 'text-zinc-400'; w.className = 'status-widget border-zinc-500/35 bg-zinc-500/10'; }
+        }
+
+        async function checkServerLiveStatus() {
+            try {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 2500);
+                const res = await fetch(STATUS_ENDPOINT, { cache: 'no-store', signal: controller.signal });
+                clearTimeout(timer);
+                setServerOnlineState(res.ok);
+            } catch (_) {
+                setServerOnlineState(false);
+            }
+        }
+
+        // ==================== PROGRESS BAR ====================
+        function startProgress(dur = 1.4) { const b = document.getElementById('refreshProgressBar'); if (!b) return; b.style.transition = 'none'; b.style.opacity = '1'; b.style.transform = 'scaleX(0)'; void b.offsetWidth; b.style.transition = `transform ${dur}s linear, opacity .25s ease`; b.style.transform = 'scaleX(1)'; }
+        function endProgress() { const b = document.getElementById('refreshProgressBar'); if (!b) return; b.style.transform = 'scaleX(1)'; setTimeout(() => { b.style.opacity = '0'; setTimeout(() => { b.style.transition = 'none'; b.style.transform = 'scaleX(0)'; }, 220); }, 120); }
+
+        // ==================== DATA LOADING ====================
+        async function loadDashboard() {
+            startProgress();
+            let benchmarkPayload = null;
+            try {
+                const apiRes = await authenticatedFetch(BENCHMARK_API_URL);
+                if (apiRes.ok) { benchmarkPayload = await apiRes.json(); setServerOnlineState(true); }
+            } catch (error) {
+                const msg = String(error?.message || '').toLowerCase();
+                if (msg.includes('authentication') || msg.includes('not authenticated')) {
+                    endProgress();
+                    return;
+                }
+            }
+            if (!benchmarkPayload) {
+                endProgress();
+                setServerOnlineState(false);
+                benchmarkPayload = { records: [], aggregates: {} };
+            }
+
+            const records = Array.isArray(benchmarkPayload.records) ? benchmarkPayload.records : Array.isArray(benchmarkPayload) ? benchmarkPayload : [];
+            cachedPayload = { ...benchmarkPayload, records, aggregates: benchmarkPayload.aggregates || {} };
+            setBenchmarkToggleState(!!benchmarkPayload.benchmarkingEnabled, !!benchmarkPayload.benchmarkInProgress);
+
+            const noDataBanner = document.getElementById('noBenchmarkDataBanner');
+            if (noDataBanner) noDataBanner.classList.toggle('hidden', records.length > 0);
+
+            renderSummary(cachedPayload);
+            renderAggregateTable(cachedPayload);
+            renderRecordsTable(records);
+            renderCharts(cachedPayload);
+
+            let videos = [];
+            try { const r = await fetch(VIDEOS_JSON_URL, { cache: 'no-cache' }); if (r.ok) videos = await r.json(); } catch (_) { }
+            const merged = mergeBenchmarkVideos(videos, records); latestMergedVideos = merged;
+            renderVideoGallery(merged);
+            endProgress();
+        }
+
+        // ==================== EVENT LISTENERS ====================
+        document.getElementById('aggregateFilter').addEventListener('input', e => renderAggregateTable(cachedPayload, e.target.value || ''));
+        document.getElementById('recordsFilter').addEventListener('input', e => renderRecordsTable(cachedPayload.records || [], e.target.value || ''));
+        document.getElementById('exportBackendCsvBtn').addEventListener('click', async () => {
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+            const filename = `benchmark_data_${dateStr}_${timeStr}.csv`;
+
+            try {
+                const response = await authenticatedFetch(`${BENCHMARK_CSV_URL}?_ts=${Date.now()}`);
+                if (!response.ok) throw new Error(`Failed to export CSV: ${response.status}`);
+                const blob = await response.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = objectUrl;
+                link.download = filename;
+                link.rel = 'noopener';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(objectUrl);
+                showToast('CSV download started.', 'success', 1800);
+            } catch (error) {
+                if (!String(error?.message || '').toLowerCase().includes('authentication')) {
+                    showToast('Unable to export CSV right now.', 'error', 2200);
+                }
+            }
+        });
+        document.getElementById('refreshDashboardBtn').addEventListener('click', () => loadDashboard().catch(console.error));
+        document.getElementById('benchmarkToggleBtn').addEventListener('click', () => toggleBenchmarking().catch(console.error));
+
+        // ==================== INIT ====================
+        lucide.createIcons();
+        const lenis = new Lenis({ duration: 1.2, easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)) });
+        function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
+        requestAnimationFrame(raf);
+
+        // GSAP scroll animations
+        gsap.registerPlugin(ScrollTrigger);
+        document.querySelectorAll('.doc-card').forEach(card => {
+            gsap.from(card, { scrollTrigger: { trigger: card, start: 'top 88%', toggleActions: 'play none none none' }, y: 40, opacity: 0, duration: 0.8, ease: 'power3.out' });
+        });
+        document.querySelectorAll('.stat-card').forEach((card, i) => {
+            gsap.from(card, { scrollTrigger: { trigger: card, start: 'top 90%' }, y: 30, opacity: 0, duration: 0.6, delay: i * 0.1, ease: 'power2.out' });
+        });
+
+        if (ensureAdminSession()) {
+            loadDashboard().catch(console.error);
+            refreshBenchmarkToggleState().catch(console.error);
+            checkServerLiveStatus().catch(() => setServerOnlineState(false));
+            connectAuthEvents();
+            setInterval(() => { checkServerLiveStatus().catch(() => setServerOnlineState(false)); }, STATUS_POLL_INTERVAL_MS);
+        }
+
+        bindInnerScroll('aggregateTableShell');
+        bindInnerScroll('recordsTableShell');
+
+        // Keyboard shortcut: T to scroll top, ESC to close modals
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-backdrop.active').forEach(m => closeModal(m.id));
+                return;
+            }
+            const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) || e.ctrlKey || e.metaKey || e.altKey) return;
+            if (e.key.toLowerCase() === 't') { e.preventDefault(); lenis.scrollTo(0, { duration: 1.15, easing: t => 1 - Math.pow(1 - t, 3) }); }
+        });
+
+        // Universal scaling fix
+        (function () {
+            const REF = 1920, MIN = 0.6, MAX = 1.0;
+            function apply() { const vw = window.innerWidth, vh = window.innerHeight; if (vw <= 1024) { document.documentElement.style.zoom = '1'; document.documentElement.style.setProperty('--real-vh', vh + 'px'); return; } let z = vw / REF; z = Math.max(MIN, Math.min(MAX, z)); document.documentElement.style.zoom = z; document.documentElement.style.setProperty('--real-vh', (vh / z) + 'px'); }
+            apply(); let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(apply, 100); });
+        })();
+
+        window.addEventListener('beforeunload', () => {
+            disconnectAuthEvents();
+        });
+    </script>
+</body>
+
+</html>

@@ -9,7 +9,10 @@ import subprocess
 import threading
 import time
 import queue
+import json
 import re # Added for ffprobe output parsing
+import numpy as np
+from collections import Counter
 
 # Attempt to import psutil for CPU/Memory monitoring
 try:
@@ -40,6 +43,29 @@ def check_ffmpeg():
         print("⚠️ [WARNING] ffmpeg command not found or not working. Audio processing will be skipped.")
         FFMPEG_AVAILABLE = False
     return FFMPEG_AVAILABLE
+
+
+def detect_nvenc():
+    """Detect if NVENC hevc_nvenc encoder is available in FFmpeg."""
+    global NVENC_AVAILABLE
+    if not USE_NVENC:
+        print("[INFO] NVENC disabled by config (USE_NVENC = False).")
+        return False
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-encoders"],
+            capture_output=True, text=True, timeout=10
+        )
+        if "hevc_nvenc" in result.stdout:
+            NVENC_AVAILABLE = True
+            print("✅ [SUCCESS] NVENC H.265 encoder (hevc_nvenc) detected. Will use hardware encoding.")
+            return True
+        else:
+            print("⚠️ [WARNING] hevc_nvenc not found in FFmpeg. Falling back to libx264.")
+            return False
+    except Exception as e:
+        print(f"⚠️ [WARNING] Could not detect NVENC: {e}. Falling back to libx264.")
+        return False
 
 def get_video_rotation(video_path: str) -> int:
     """
@@ -95,7 +121,7 @@ OUTPUT_SUBDIRECTORY = "output"
 FRAME_QUEUE_SIZE = 30
 UTILIZATION_UPDATE_INTERVAL = 1.0 # Interval for updating CPU/Mem/GPU stats in progress bar
 # Increased MAX_RAM_USAGE_PERCENT slightly to reduce frequent pausing, use with caution.
-MAX_RAM_USAGE_PERCENT = 85.0 # Percentage of total RAM to trigger pause in frame reading
+MAX_RAM_USAGE_PERCENT = 100 # Percentage of total RAM to trigger pause in frame reading (Inreased to 100% for production benchmarking to avoid pausing, can be set to 80-90% for safer operation on systems with less RAM or when running multiple applications simultaneously).
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # +++ User Configuration +++
@@ -113,15 +139,21 @@ TARGET_PROCESSING_WIDTH = 1920
 #   0 = truly lossless (pixel-perfect, but results in very large files)
 #   16-23 = visually lossless for H.264 (recommended for excellent quality with good compression)
 #   Lower CRF means higher quality and larger file size.
-FFMPEG_CRF_VALUE = 16 # Set to 0 for bit to bit lossless pixels, or 16-23 for high quality with reasonable file size.
+FFMPEG_CRF_VALUE = 24 # Production default aligned with Adaptive_Temporal benchmark profile.
 FFMPEG_VIDEO_CODEC = "libx264" # Recommended for wide compatibility. Use "libx265" for HEVC (smaller files, requires x265 encoder).
-FFMPEG_PRESET = "medium" # Encoding speed/compression tradeoff: 'ultrafast', 'superfast', 'fast', 'medium', 'slow', 'slower', 'veryslow'
+FFMPEG_PRESET = "ultrafast" # Production default aligned with Adaptive_Temporal benchmark profile.
+
+# --- NVENC H.265 Hardware Encoding ---
+# When True, pipeline will use NVIDIA NVENC hevc_nvenc if available for 40-50% smaller files.
+# Falls back silently to libx264 if NVENC is unavailable.
+USE_NVENC = True
+NVENC_AVAILABLE = False  # Runtime flag, set by detect_nvenc() at startup
 
 # --- Watermark Configuration ---
 # ENABLE_WATERMARK: Master switch to turn watermark on/off
 # Set to True to add "Processed by projectglyphmotion.studio" watermark to output videos
 # Set to False to disable watermark completely
-ENABLE_WATERMARK = True  # ON by default - change to False to disable
+ENABLE_WATERMARK = False # Changed to False by default for production benchmarking, can be enabled when benchmarking is not a concern or for personal use. (Main reason is that FFMPEG custom compiled with VMAF AND NVENC has no default font library that can draw the watermark text, resulting in an error and no output video. Enabling watermark requires either using a standard FFMPEG build with font support or providing a custom font file path in the drawtext filter). For simplicity and maximum compatibility in production benchmarking, watermark is disabled by default.
 
 # Watermark text - displayed in bottom-right corner
 WATERMARK_TEXT = "Processed by projectglyphmotion.studio"
@@ -154,7 +186,45 @@ DEFAULT_ROI_OVERLAY_OPACITY = 30  # Percentage (0-100)
 
 # ROI overlay color (BGR format for OpenCV)
 ROI_OVERLAY_COLOR = (20, 20, 30)  # Dark gray-blue, matches the website theme
-# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+# --- Adaptive HFDR Production Defaults (always-on by design) ---
+ADAPTIVE_HFDR_ENABLED = True
+ADAPTIVE_TARGET_FPS = 20.0
+ADAPTIVE_INITIAL_ALPHA = 0.30
+ADAPTIVE_HFDR_SIGMA = 2.0
+ADAPTIVE_HFDR_CACHE_INTERVAL = 3
+ADAPTIVE_TEMPORAL_THRESHOLD = 0.003
+ADAPTIVE_TEMPORAL_KEYFRAME_INTERVAL = 30
+ADAPTIVE_TEMPORAL_BLEND_ALPHA = 0.85  # Blend ratio (0=prev, 1=current) — keep mostly current
+ADAPTIVE_MOTION_GATE_THRESHOLD = 0.025
+ADAPTIVE_ROI_MARGIN_PX = 24
+ADAPTIVE_UNIFIED_MOTION_THRESHOLD = 0.02
+ADAPTIVE_UNIFIED_OBJECT_THRESHOLD = 3
+ADAPTIVE_UNIFIED_HYSTERESIS = 5
+ADAPTIVE_ROI_MIN_CACHE = 1
+ADAPTIVE_ROI_MAX_CACHE = 8
+ADAPTIVE_ROI_MOTION_HIGH = 0.025
+ADAPTIVE_ROI_MOTION_LOW = 0.005
+ADAPTIVE_FFMPEG_UNSHARP_ENABLED = True
+ADAPTIVE_FFMPEG_UNSHARP_AMOUNT = 1.5
+ADAPTIVE_FFMPEG_UNSHARP_MSIZE = 5
+ADAPTIVE_PROFILE_NAME = "Adaptive_Temporal"
+
+# --- Motion-Aware Adaptive FFmpeg Filtering Tiers ---
+ADAPTIVE_FILTER_TIERS = {
+    "low":    {"threshold": 0.008, "la": 1.0, "label": "Static"},
+    "medium": {"threshold": 0.025, "la": 1.5, "label": "Medium"},
+    "high":   {"threshold": 999.0, "la": 2.0, "label": "Dynamic"},
+}
+
+# --- Semantic Class-Based Priority ---
+ADAPTIVE_SEMANTIC_MAP = {
+    "person": 3, "car": 3, "truck": 3, "bus": 3,
+    "motorcycle": 2, "bicycle": 2, "dog": 2, "cat": 2, "bird": 2,
+    "backpack": 1, "umbrella": 1, "handbag": 1, "suitcase": 1,
+}
+ADAPTIVE_SEMANTIC_ALPHA_MAP = {3: 1.0, 2: 0.7, 1: 0.4, 0: 0.15}
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 def get_watermark_filter():
@@ -210,12 +280,8 @@ def get_watermark_filter():
 def get_system_utilization(device_to_use):
     """
     Retrieves current system utilization statistics (CPU, Memory, GPU).
-    Args:
-        device_to_use (str): "cuda" or "cpu" to determine if GPU stats should be fetched.
-    Returns:
-        dict: A dictionary containing utilization percentages and memory usage in GB.
+    Uses torch.cuda for GPU monitoring when GPUtil is not available.
     """
-    # Fix: Move global declaration to the top of the function
     global GPUTIL_AVAILABLE
 
     util_stats = {}
@@ -225,38 +291,56 @@ def get_system_utilization(device_to_use):
         util_stats['mem_used_gb'] = mem_info.used / (1024**3)
         util_stats['mem_total_gb'] = mem_info.total / (1024**3)
         util_stats['mem'] = mem_info.percent
-    if GPUTIL_AVAILABLE and device_to_use == "cuda":
-        try:
-            gpus = GPUtil.getGPUs()
-            if gpus:
-                gpu = gpus[0]
-                util_stats['gpu_load'] = gpu.load * 100
-                util_stats['gpu_mem'] = gpu.memoryUtil * 100
-        except Exception:
-            # GPUtil can sometimes fail if GPU is busy or driver issues.
-            # Log and continue without GPU stats.
-            print("⚠️ [WARNING] GPUtil failed to get GPU stats.")
-            GPUTIL_AVAILABLE = False # Temporarily disable if it fails
+
+    if device_to_use == "cuda":
+        gpu_stats_collected = False
+        # Try GPUtil first (more accurate load reporting)
+        if GPUTIL_AVAILABLE:
+            try:
+                gpus = GPUtil.getGPUs()
+                if gpus:
+                    gpu = gpus[0]
+                    util_stats['gpu_load'] = gpu.load * 100
+                    util_stats['gpu_mem_mb'] = gpu.memoryUsed  # Actual MB used
+                    gpu_stats_collected = True
+            except Exception:
+                print("⚠️ [WARNING] GPUtil failed to get GPU stats.")
+                GPUTIL_AVAILABLE = False
+
+        # Fallback: use torch.cuda built-in monitoring (always works when CUDA is available)
+        if not gpu_stats_collected and torch.cuda.is_available():
+            try:
+                # VRAM usage from PyTorch (reliable, no extra dependency)
+                vram_used_mb = torch.cuda.memory_allocated(0) / (1024 * 1024)
+                vram_reserved_mb = torch.cuda.memory_reserved(0) / (1024 * 1024)
+                util_stats['gpu_mem_mb'] = round(vram_reserved_mb, 1)  # Reserved is more accurate for peak tracking
+
+                # GPU utilization from torch (available in PyTorch 2.0+)
+                try:
+                    gpu_util = torch.cuda.utilization(0)  # Returns 0-100 int
+                    util_stats['gpu_load'] = float(gpu_util)
+                except Exception:
+                    # torch.cuda.utilization not available in older PyTorch — estimate from activity
+                    util_stats['gpu_load'] = 50.0 if vram_used_mb > 100 else 0.0
+            except Exception:
+                pass
+
     return util_stats
 
 def format_utilization_string(stats):
     """
     Formats system utilization statistics into a human-readable string.
-    Args:
-        stats (dict): Dictionary of utilization statistics.
-    Returns:
-        str: Formatted string (e.g., "CPU:50% | Mem:30% (X/YGB) | GPU-L:70% | GPU-M:40%").
     """
     parts = []
     if 'cpu' in stats: parts.append(f"CPU:{stats['cpu']:.1f}%")
     if 'mem' in stats:
         parts.append(f"Mem:{stats['mem']:.1f}% ({stats.get('mem_used_gb',0):.1f}/{stats.get('mem_total_gb',0):.1f}GB)")
     if 'gpu_load' in stats: parts.append(f"GPU-L:{stats['gpu_load']:.1f}%")
-    if 'gpu_mem' in stats: parts.append(f"GPU-M:{stats['gpu_mem']:.1f}%")
+    if 'gpu_mem_mb' in stats: parts.append(f"VRAM:{stats['gpu_mem_mb']:.0f}MB")
     return " | ".join(parts) if parts else "Stats N/A"
 
 
-def frame_reader_thread_func(cap, frame_input_queue, stop_event, original_width, original_height, target_processing_width=None):
+def frame_reader_thread_func(cap, frame_input_queue, stop_event, original_width, original_height, target_processing_width=None, pass_original=False):
     """
     Thread function to read frames from video, resize for processing, and put into a queue.
     Includes a RAM usage check to pause reading if memory is high.
@@ -310,7 +394,7 @@ def frame_reader_thread_func(cap, frame_input_queue, stop_event, original_width,
                 if stop_event.is_set():
                     print("[INFO] [FRAME_READER] Stop event received during RAM pause.")
                     # Fix: Ensure stop signal is consistent (2 values)
-                    if not frame_input_queue.full(): frame_input_queue.put((False, None))
+                    if not frame_input_queue.full(): frame_input_queue.put((False, None, None))
                     return
 
         # Only read frame if there's space in the queue
@@ -319,7 +403,7 @@ def frame_reader_thread_func(cap, frame_input_queue, stop_event, original_width,
             if not ret: # End of video or error reading frame
                 print(f"[INFO] Frame reader: End of video or cannot read frame after {count} frames.")
                 # Fix: Ensure end signal is consistent (2 values)
-                frame_input_queue.put((False, None))
+                frame_input_queue.put((False, None, None))
                 break
 
             # Resize frame for internal processing if target_processing_width is set
@@ -332,15 +416,16 @@ def frame_reader_thread_func(cap, frame_input_queue, stop_event, original_width,
             else:
                 processed_frame = frame
 
-            # Put the processed_frame (at tracking resolution) into the queue
-            frame_input_queue.put((True, processed_frame))
+            # Put the processed frame and (optionally) the original full-res frame into queue
+            original_to_pass = frame if pass_original else None
+            frame_input_queue.put((True, processed_frame, original_to_pass))
             count += 1
         else:
             time.sleep(0.005) # Small delay to prevent busy-waiting if queue is full
 
     # Ensure stop signal is sent if loop finishes naturally
     if not stop_event.is_set() and not frame_input_queue.full():
-        frame_input_queue.put((False, None))
+        frame_input_queue.put((False, None, None))
     print(f"[INFO] Frame reader thread finished after reading {count} frames.")
 
 
@@ -408,6 +493,9 @@ def parse_arguments():
     parser.add_argument("--allowed_classes",nargs="+",default=DEFAULT_ALLOWED_CLASSES,help=f"Classes to track.")
     parser.add_argument("--confidence_threshold",type=float,default=DEFAULT_CONFIDENCE_THRESHOLD,help=f"Min confidence.")
     parser.add_argument("--input_video", type=str, required=True, help="Path to the input video file.")
+    parser.add_argument("--codec", type=str, default=FFMPEG_VIDEO_CODEC, help="FFmpeg video codec (e.g. libx264, libx265).")
+    parser.add_argument("--preset", type=str, default=FFMPEG_PRESET, help="FFmpeg preset (ultrafast, fast, medium, etc.).")
+    parser.add_argument("--crf", type=int, default=FFMPEG_CRF_VALUE, help="FFmpeg CRF value (lower = higher quality).")
     
     # ROI (Region of Interest) arguments
     parser.add_argument("--roi_enabled", type=str, default="false", help="Enable ROI filtering (true/false).")
@@ -509,48 +597,238 @@ def draw_roi_overlay(frame, roi_coords, opacity):
     
     return frame
 
+
+class PipelineController:
+    """
+    Feedback-driven PID controller for adaptive parameter tuning.
+    Monitors real-time pipeline signals (FPS, motion, queue depth, tracking
+    confidence) and continuously adjusts filter strength and HFDR alpha.
+    """
+    def __init__(self, target_fps=20.0, initial_filter_strength=2.0, initial_alpha=0.3):
+        self.target_fps = target_fps
+        self.filter_strength = initial_filter_strength
+        self.hfdr_alpha = initial_alpha
+        self._fps_window = []
+        self._adjustment_count = 0
+        self._window_size = 10
+
+    def update(self, current_fps, motion_score, queue_depth, tracking_confidence):
+        self._fps_window.append(current_fps)
+        if len(self._fps_window) > self._window_size:
+            self._fps_window.pop(0)
+
+        avg_fps = sum(self._fps_window) / len(self._fps_window)
+        fps_error = avg_fps - self.target_fps
+
+        if fps_error < -3:
+            self.filter_strength = max(0.5, self.filter_strength - 0.3)
+            self.hfdr_alpha = max(0.1, self.hfdr_alpha - 0.05)
+            self._adjustment_count += 1
+        elif fps_error < -1:
+            self.filter_strength = max(0.8, self.filter_strength - 0.1)
+            self.hfdr_alpha = max(0.15, self.hfdr_alpha - 0.02)
+            self._adjustment_count += 1
+        elif fps_error > 5:
+            self.filter_strength = min(3.0, self.filter_strength + 0.2)
+            self.hfdr_alpha = min(0.5, self.hfdr_alpha + 0.03)
+            self._adjustment_count += 1
+        elif fps_error > 2:
+            self.filter_strength = min(2.5, self.filter_strength + 0.1)
+            self.hfdr_alpha = min(0.4, self.hfdr_alpha + 0.01)
+            self._adjustment_count += 1
+
+        # Motion override: high-motion scenes need full filter strength
+        if motion_score > 0.05:
+            self.filter_strength = max(self.filter_strength, 1.5)
+
+        # Queue pressure: if output queue is backing up, reduce work
+        queue_ratio = queue_depth / max(1, FRAME_QUEUE_SIZE)
+        if queue_ratio > 0.8:
+            self.filter_strength = max(0.5, self.filter_strength - 0.2)
+            self.hfdr_alpha = max(0.1, self.hfdr_alpha - 0.05)
+            self._adjustment_count += 1
+
+        # Tracking confidence: if tracker is struggling, boost detail
+        if tracking_confidence < 0.4 and tracking_confidence > 0:
+            self.hfdr_alpha = min(0.5, self.hfdr_alpha + 0.1)
+            self._adjustment_count += 1
+
+        return self.filter_strength, self.hfdr_alpha
+
+    @property
+    def adjustment_count(self):
+        return self._adjustment_count
+
+    @property
+    def avg_fps(self):
+        return sum(self._fps_window) / max(1, len(self._fps_window))
+
+    def compute_roi_refresh_interval(self, motion_score):
+        if motion_score >= ADAPTIVE_ROI_MOTION_HIGH:
+            return ADAPTIVE_ROI_MIN_CACHE
+        elif motion_score <= ADAPTIVE_ROI_MOTION_LOW:
+            return ADAPTIVE_ROI_MAX_CACHE
+        else:
+            ratio = (motion_score - ADAPTIVE_ROI_MOTION_LOW) / max(0.001, (ADAPTIVE_ROI_MOTION_HIGH - ADAPTIVE_ROI_MOTION_LOW))
+            interval = ADAPTIVE_ROI_MAX_CACHE - ratio * (ADAPTIVE_ROI_MAX_CACHE - ADAPTIVE_ROI_MIN_CACHE)
+            return max(ADAPTIVE_ROI_MIN_CACHE, int(round(interval)))
+
+
+class UnifiedModeController:
+    def __init__(self, motion_threshold=0.02, object_threshold=3, hysteresis=5):
+        self.motion_threshold = motion_threshold
+        self.object_threshold = object_threshold
+        self.hysteresis = hysteresis
+        self.current_mode = "A"
+        self._hold_counter = 0
+        self._mode_switches = 0
+
+    def decide_mode(self, motion_score, object_count, avg_confidence=0.5):
+        wants_mode_b = (motion_score > self.motion_threshold or
+                        object_count >= self.object_threshold or
+                        avg_confidence < 0.4)  # Low confidence = need more detail
+        desired_mode = "B" if wants_mode_b else "A"
+
+        if desired_mode != self.current_mode:
+            self._hold_counter += 1
+            if self._hold_counter >= self.hysteresis:
+                self.current_mode = desired_mode
+                self._hold_counter = 0
+                self._mode_switches += 1
+        else:
+            self._hold_counter = 0
+
+        return self.current_mode
+
+    @property
+    def mode_switches(self):
+        return self._mode_switches
+
+
+def should_reuse_frame(current_gray, reference_gray, threshold=0.003):
+    if reference_gray is None:
+        return False, 1.0, False
+    diff = cv2.absdiff(current_gray, reference_gray)
+    diff_ratio = float(np.mean(diff)) / 255.0
+    skip_hfdr = diff_ratio < threshold * 0.3  # Ultra-static only (<0.1% change)
+    should_blend = diff_ratio < threshold and not skip_hfdr  # Slight change → blend
+    return skip_hfdr, diff_ratio, should_blend
+
+
+def extract_hf_detail_only(frame, alpha=0.3, sigma=2.0):
+    blurred = cv2.GaussianBlur(frame, (0, 0), sigmaX=sigma, sigmaY=sigma)
+    return cv2.addWeighted(frame, alpha, blurred, -alpha, 128.0)
+
+
+def apply_hf_detail(frame, hf_detail):
+    return cv2.addWeighted(frame, 1.0, hf_detail, 1.0, -128.0)
+
+
+def build_roi_mask(frame_shape, detections, margin=24, priorities=None):
+    """
+    Create a uint8 mask from YOLO bounding boxes.
+    If priorities dict given, returns per-pixel priority map instead of binary mask.
+    """
+    h, w = frame_shape[:2]
+    mask = np.zeros((h, w), dtype=np.uint8)
+    for det in detections:
+        x1, y1, x2, y2 = int(det[0]), int(det[1]), int(det[2]), int(det[3])
+        class_name = det[4] if len(det) > 4 else ""
+        x1 = max(0, x1 - margin)
+        y1 = max(0, y1 - margin)
+        x2 = min(w, x2 + margin)
+        y2 = min(h, y2 + margin)
+        if priorities is not None:
+            priority = priorities.get(class_name, 0)
+            region = mask[y1:y2, x1:x2]
+            mask[y1:y2, x1:x2] = np.maximum(region, priority)
+        else:
+            mask[y1:y2, x1:x2] = 255
+    return mask
+
+
+def apply_roi_hfdr(frame, hf_detail, roi_mask, alpha_multipliers=None, priority_mask=None):
+    """
+    Apply HFDR only inside ROI regions. Supports semantic mode with per-class alpha scaling.
+    """
+    result = frame.copy()
+    if priority_mask is not None and alpha_multipliers is not None:
+        for priority_level, alpha_scale in alpha_multipliers.items():
+            if alpha_scale <= 0.05:
+                continue
+            level_mask = (priority_mask == priority_level)
+            if not np.any(level_mask):
+                continue
+            blended = cv2.addWeighted(frame, 1.0, hf_detail, alpha_scale, -128.0 * alpha_scale)
+            result[level_mask] = blended[level_mask]
+    else:
+        roi_bool = roi_mask > 0
+        if np.any(roi_bool):
+            blended = apply_hf_detail(frame, hf_detail)
+            result[roi_bool] = blended[roi_bool]
+    return result
+
+
+def get_adaptive_filter_tier(motion_score):
+    """Map a spatial_complexity score to a 3-tier FFmpeg filter strength."""
+    tiers = ADAPTIVE_FILTER_TIERS
+    if motion_score < tiers["low"]["threshold"]:
+        return tiers["low"]["la"], tiers["low"]["label"]
+    elif motion_score < tiers["medium"]["threshold"]:
+        return tiers["medium"]["la"], tiers["medium"]["label"]
+    else:
+        return tiers["high"]["la"], tiers["high"]["label"]
+
+
+def get_semantic_priority(class_name, priority_map=None):
+    """Get the semantic priority level for a detected object class."""
+    if priority_map is None:
+        priority_map = ADAPTIVE_SEMANTIC_MAP
+    return priority_map.get(class_name, 0)
+
 def start_ffmpeg_video_encoder(output_path, width, height, fps, vf_filter_string=""):
     """
-    Starts an FFmpeg subprocess to encode raw video frames from stdin, applying filters if needed.
-    Args:
-        output_path (str): Full path for the output video file.
-        width (int): Width of the video frames FFmpeg will receive from stdin (raw encoded width).
-        height (int): Height of the video frames FFmpeg will receive from stdin (raw encoded height).
-        fps (float): Frame rate of the video.
-        vf_filter_string (str): FFmpeg video filter string (e.g., "transpose=1").
-    Returns:
-        subprocess.Popen: FFmpeg subprocess object.
+    Starts an FFmpeg subprocess to encode raw video frames from stdin.
+    Uses NVENC H.265 if available, otherwise falls back to libx264.
     """
     ffmpeg_cmd = [
         "ffmpeg",
-        "-y", # Overwrite output file without asking
-        "-hide_banner", # Hide FFmpeg startup banner
-        "-loglevel", "error", # Only show errors
-        "-stats", # Show progress stats (prints to stderr)
-
-        # Input Options (raw video from stdin)
+        "-y",
+        "-hide_banner",
+        "-loglevel", "error",
+        "-stats",
         "-f", "rawvideo",
-        "-pix_fmt", "bgr24", # OpenCV's default format (BGR 8-bit per channel)
-        "-s", f"{width}x{height}", # Resolution FFmpeg expects from stdin (RAW dimensions from OpenCV)
-        "-r", str(fps), # Frame rate
-        "-i", "-", # Input from stdin
+        "-pix_fmt", "bgr24",
+        "-s", f"{width}x{height}",
+        "-r", str(fps),
+        "-i", "-",
     ]
 
-    # Add video filter if provided
     if vf_filter_string:
         ffmpeg_cmd.extend(["-vf", vf_filter_string])
 
-    # Output Options (encoded video)
-    ffmpeg_cmd.extend([
-        "-c:v", FFMPEG_VIDEO_CODEC, # Video codec (e.g., libx264, libx265)
-        "-preset", FFMPEG_PRESET, # Encoding speed/compression tradeoff
-        "-crf", str(FFMPEG_CRF_VALUE), # Constant Rate Factor (quality setting)
-        "-pix_fmt", "yuv420p", # Pixel format for wider compatibility (e.g., QuickTime)
-        output_path
-    ])
+    # Choose encoder: NVENC H.265 or libx264 fallback
+    if NVENC_AVAILABLE:
+        ffmpeg_cmd.extend([
+            "-c:v", "hevc_nvenc",
+            "-preset", "p4",
+            "-rc", "vbr",
+            "-cq", str(FFMPEG_CRF_VALUE),
+            "-b:v", "0",
+            "-pix_fmt", "yuv420p",
+            output_path
+        ])
+    else:
+        ffmpeg_cmd.extend([
+            "-c:v", FFMPEG_VIDEO_CODEC,
+            "-preset", FFMPEG_PRESET,
+            "-crf", str(FFMPEG_CRF_VALUE),
+            "-pix_fmt", "yuv420p",
+            output_path
+        ])
 
-    print(f"[INFO] Starting FFmpeg video encoder. Command: {' '.join(ffmpeg_cmd)}")
-    # stderr=subprocess.PIPE is crucial to capture FFmpeg's progress and error messages
+    encoder_name = "hevc_nvenc" if NVENC_AVAILABLE else FFMPEG_VIDEO_CODEC
+    print(f"[INFO] Starting FFmpeg encoder ({encoder_name}). Command: {' '.join(ffmpeg_cmd)}")
     process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     return process
 
@@ -633,6 +911,7 @@ def process_audio_ffmpeg(video_source_path, temp_silent_video_path, final_output
     return False
 
 def main():
+    global FFMPEG_VIDEO_CODEC, FFMPEG_PRESET, FFMPEG_CRF_VALUE
     start_time_total = time.time()
 
     # Define the absolute path for the temporary silent video output
@@ -647,6 +926,30 @@ def main():
     fps = 0.0
     total_frames = 0
     model = None # Initialize model to None, assigned later in try/except
+    telemetry = {
+        "mode_a_frames": 0,
+        "mode_b_frames": 0,
+        "hfdr_fresh_count": 0,
+        "hfdr_cached_count": 0,
+        "hfdr_gated_count": 0,
+        "ffmpeg_unsharp_amount": ADAPTIVE_FFMPEG_UNSHARP_AMOUNT if ADAPTIVE_FFMPEG_UNSHARP_ENABLED else 0.0,
+    }
+    # --- Stats tracking for .stats.json (matches ot_benchmark.py format) ---
+    tracking_stats = {
+        "total_detections": 0,
+        "sum_confidence": 0.0,
+        "unique_ids": set(),
+        "id_appearances": {},
+        "motion_vectors": [],
+        "frame_latencies": [],
+        "objects_per_frame": [],
+        "spatial_complexities": [],
+    }
+    prev_centers_for_motion = {}  # track_id -> (cx, cy) for motion vector calculation
+    peak_cpu = 0.0
+    peak_ram_mb = 0.0
+    peak_gpu_util = 0.0
+    peak_vram_mb = 0.0
 
 
     # --- PyTorch CPU Threading Configuration ---
@@ -664,6 +967,7 @@ def main():
 
     # Initial checks for FFmpeg and monitoring libraries
     print("--- FFMPEG Check ---"); check_ffmpeg(); print("--------------------")
+    print("--- NVENC Check ---"); detect_nvenc(); print("--------------------")
     if PSUTIL_AVAILABLE: print("[DEBUG] Priming psutil.cpu_percent()..."); psutil.cpu_percent()
     if GPUTIL_AVAILABLE:
         print("[DEBUG] Attempting to prime GPUtil.getGPUs()...")
@@ -671,6 +975,13 @@ def main():
         except Exception as e: print(f"[DEBUG] Error GPUtil priming: {e}")
 
     args = parse_arguments()
+
+    FFMPEG_VIDEO_CODEC = str(args.codec or FFMPEG_VIDEO_CODEC).strip() or FFMPEG_VIDEO_CODEC
+    FFMPEG_PRESET = str(args.preset or FFMPEG_PRESET).strip() or FFMPEG_PRESET
+    try:
+        FFMPEG_CRF_VALUE = max(0, min(51, int(args.crf)))
+    except Exception:
+        pass
 
     current_input_video = args.input_video
 
@@ -745,9 +1056,13 @@ def main():
     device_to_use = "cpu"
     if use_gpu and torch.cuda.is_available():
         device_to_use = "cuda"
-        print("✅ [SUCCESS] CUDA GPU available. Using GPU.")
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_mem_total = torch.cuda.get_device_properties(0).total_memory / (1024**2)
+        print(f"✅ [SUCCESS] CUDA GPU available: {gpu_name} ({gpu_mem_total:.0f}MB VRAM)")
+        print(f"   PyTorch CUDA: {torch.version.cuda} | GPUtil monitoring: {'YES' if GPUTIL_AVAILABLE else 'NO (using torch.cuda fallback)'}")
     elif use_gpu:
         print("⚠️ [WARNING] CUDA GPU not found. Falling back to CPU.")
+        print(f"   torch.cuda.is_available() = False | PyTorch build: {torch.__version__}")
     else:
         print("ℹ️ [INFO] Using CPU.")
 
@@ -814,6 +1129,11 @@ def main():
     else:
         print("[INFO] Watermark DISABLED.")
 
+    if ADAPTIVE_FFMPEG_UNSHARP_ENABLED:
+        unsharp_filter = f"unsharp={ADAPTIVE_FFMPEG_UNSHARP_MSIZE}:{ADAPTIVE_FFMPEG_UNSHARP_MSIZE}:{ADAPTIVE_FFMPEG_UNSHARP_AMOUNT}:{ADAPTIVE_FFMPEG_UNSHARP_MSIZE}:{ADAPTIVE_FFMPEG_UNSHARP_MSIZE}:0"
+        vf_filter = f"{vf_filter},{unsharp_filter}" if vf_filter else unsharp_filter
+        print(f"[INFO] Adaptive FFmpeg hybrid unsharp enabled: {ADAPTIVE_FFMPEG_UNSHARP_AMOUNT}")
+
     # Ensure FFmpeg output dimensions are even for codec compatibility.
     if ffmpeg_output_width % 2 != 0:
         ffmpeg_output_width -= 1
@@ -863,7 +1183,7 @@ def main():
     # Start frame reader thread (reads and resizes to tracking resolution)
     reader_thread = threading.Thread(
         target=frame_reader_thread_func,
-        args=(cap, frame_input_queue, stop_event, original_width, original_height, target_width_for_reader)
+        args=(cap, frame_input_queue, stop_event, original_width, original_height, target_width_for_reader, True)
     )
     reader_thread.daemon = True # Allows program to exit even if this thread is still running
     reader_thread.start()
@@ -885,11 +1205,35 @@ def main():
 
     print(f"🚀 Starting video frame processing on {device_to_use.upper()}...")
 
+    adaptive_controller = PipelineController(
+        target_fps=ADAPTIVE_TARGET_FPS,
+        initial_filter_strength=ADAPTIVE_FFMPEG_UNSHARP_AMOUNT,
+        initial_alpha=ADAPTIVE_INITIAL_ALPHA
+    )
+    unified_controller = UnifiedModeController(
+        motion_threshold=ADAPTIVE_UNIFIED_MOTION_THRESHOLD,
+        object_threshold=ADAPTIVE_UNIFIED_OBJECT_THRESHOLD,
+        hysteresis=ADAPTIVE_UNIFIED_HYSTERESIS
+    )
+    class_counts = Counter()
+    total_detections = 0
+    sum_confidence = 0.0
+    frame_fps_samples = []
+    prev_gray_for_motion = None
+    prev_gray_for_temporal = None
+    cached_hf_detail = None
+    cached_hf_frame_index = -9999
+    cached_roi_mask = None
+    roi_mask_last_rebuild = -9999
+    prev_loop_time = time.perf_counter()
+    prev_output_frame = None
+    temporal_blended = False
+
     try:
         while processing_loop_active:
             try:
                 # Get frame from input queue (this frame is at effective_tracking_width/height)
-                ret, frame_to_process = frame_input_queue.get(timeout=1.0)
+                ret, frame_to_process, original_frame = frame_input_queue.get(timeout=1.0)
                 if not ret: # End signal or error from reader thread
                     processing_loop_active = False
                     break
@@ -908,15 +1252,50 @@ def main():
             pbar.set_postfix_str(format_utilization_string(util_stats), refresh=True)
             pbar.update(1) # Update the tqdm progress bar for each frame processed
 
+            # Track peak hardware utilization for stats.json
+            if 'cpu' in util_stats and util_stats['cpu'] > peak_cpu:
+                peak_cpu = util_stats['cpu']
+            if 'mem' in util_stats:
+                ram_mb = util_stats.get('mem_used_gb', 0) * 1024
+                if ram_mb > peak_ram_mb:
+                    peak_ram_mb = ram_mb
+            if 'gpu_load' in util_stats and util_stats['gpu_load'] > peak_gpu_util:
+                peak_gpu_util = util_stats['gpu_load']
+            if 'gpu_mem_mb' in util_stats and util_stats['gpu_mem_mb'] > peak_vram_mb:
+                peak_vram_mb = util_stats['gpu_mem_mb']
+
+            now_loop_time = time.perf_counter()
+            instant_fps = 1.0 / max(0.001, (now_loop_time - prev_loop_time))
+            prev_loop_time = now_loop_time
+            frame_fps_samples.append(instant_fps)
+
+            motion_score = 1.0
+            current_gray = None
+            try:
+                current_gray = cv2.cvtColor(cv2.resize(frame_to_process, (320, 180)), cv2.COLOR_BGR2GRAY)
+                if prev_gray_for_motion is not None:
+                    motion_score = float(np.mean(cv2.absdiff(current_gray, prev_gray_for_motion))) / 255.0
+                prev_gray_for_motion = current_gray
+            except Exception:
+                pass
+
 
             # Perform object tracking on the (potentially lower resolution) frame
+            inference_start = time.perf_counter()
             results = model.track(frame_to_process, persist=True, verbose=False, conf=args.confidence_threshold)
+            inference_time_ms = (time.perf_counter() - inference_start) * 1000.0
+            # Exclude first 5 frames from latency stats (CUDA JIT warmup causes massive spikes)
+            if frame_count > 5:
+                tracking_stats["frame_latencies"].append(inference_time_ms)
 
             # Create a copy of the frame to draw annotations on
             annotated_frame = frame_to_process.copy()
             
             # Get frame dimensions for ROI calculations
             frame_h, frame_w = annotated_frame.shape[:2]
+            frame_detections = []
+            detections_in_frame = 0
+            current_centers = {}
 
             # Draw bounding boxes and labels if objects are detected
             if results and results[0].boxes:
@@ -936,6 +1315,24 @@ def main():
                                 continue  # Skip this detection - outside ROI
                         
                         conf=box.conf[0] # Confidence score
+                        conf_float = float(conf)
+                        detections_in_frame += 1
+                        total_detections += 1
+                        sum_confidence += conf_float
+                        tracking_stats["total_detections"] += 1
+                        tracking_stats["sum_confidence"] += conf_float
+                        tracking_stats["unique_ids"].add(track_id)
+                        tracking_stats["id_appearances"][track_id] = tracking_stats["id_appearances"].get(track_id, 0) + 1
+                        class_counts[class_name] += 1
+                        frame_detections.append((x1, y1, x2, y2, class_name, conf_float))
+
+                        # Track motion vectors per object
+                        cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+                        if track_id in prev_centers_for_motion:
+                            prev_cx, prev_cy = prev_centers_for_motion[track_id]
+                            import math
+                            tracking_stats["motion_vectors"].append(math.hypot(cx - prev_cx, cy - prev_cy))
+                        current_centers[track_id] = (cx, cy)
                         label=f"ID:{track_id} {class_name} {conf:.2f}"
 
                         cv2.rectangle(annotated_frame,(x1,y1),(x2,y2),(0,255,0),2) # Green rectangle
@@ -943,9 +1340,29 @@ def main():
                         cv2.rectangle(annotated_frame,(x1,y1-th-10),(x1+tw,y1-5),(0,255,0),-1) # Background for text
                         cv2.putText(annotated_frame,label,(x1,y1-5),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,0),1) # Black text
 
+            # Update motion vector tracking
+            prev_centers_for_motion = current_centers
+            tracking_stats["objects_per_frame"].append(detections_in_frame)
+            if motion_score < 1.0:  # valid score (not initial)
+                tracking_stats["spatial_complexities"].append(motion_score)
+
             # Draw ROI overlay if enabled
             if roi_enabled and roi_coords and roi_show_overlay:
                 annotated_frame = draw_roi_overlay(annotated_frame, roi_coords, roi_overlay_opacity)
+
+            avg_conf_for_mode = (sum_confidence / max(1, total_detections)) if total_detections > 0 else 0.5
+            active_mode = unified_controller.decide_mode(motion_score, detections_in_frame, avg_conf_for_mode)
+            if active_mode == "A":
+                telemetry["mode_a_frames"] += 1
+            else:
+                telemetry["mode_b_frames"] += 1
+
+            _filter_strength, pid_alpha = adaptive_controller.update(
+                instant_fps,
+                motion_score,
+                frame_output_queue.qsize(),
+                avg_conf_for_mode
+            )
 
             # --- Upscale the annotated frame to the final output resolution ---
             annotated_frame_for_output = annotated_frame
@@ -955,9 +1372,74 @@ def main():
                 annotated_frame_for_output = cv2.resize(
                     annotated_frame,
                     (original_width, original_height), # Resize to raw dimensions for FFmpeg input
-                    interpolation=cv2.INTER_LINEAR
+                    interpolation=cv2.INTER_CUBIC
                 )
                 # print(f"[DEBUG] Resized frame from {annotated_frame.shape[1]}x{annotated_frame.shape[0]} to {original_width}x{original_height} for FFmpeg input.")
+
+            hfdr_state = "NONE"
+            should_gate = motion_score >= ADAPTIVE_MOTION_GATE_THRESHOLD
+            if should_gate:
+                telemetry["hfdr_gated_count"] += 1
+                hfdr_state = "GATED"
+            else:
+                skip_temporal = False
+                temporal_blended = False
+                if current_gray is not None and (frame_count % ADAPTIVE_TEMPORAL_KEYFRAME_INTERVAL != 0):
+                    skip_temporal, _, temporal_blended = should_reuse_frame(current_gray, prev_gray_for_temporal, ADAPTIVE_TEMPORAL_THRESHOLD)
+
+                if current_gray is not None:
+                    prev_gray_for_temporal = current_gray
+
+                need_recompute_hf = True
+                if skip_temporal and cached_hf_detail is not None:
+                    need_recompute_hf = False
+                elif cached_hf_detail is not None and (frame_count - cached_hf_frame_index) < max(1, ADAPTIVE_HFDR_CACHE_INTERVAL):
+                    need_recompute_hf = False
+
+                if original_frame is not None:
+                    try:
+                        if annotated_frame_for_output.shape[1] != original_frame.shape[1] or annotated_frame_for_output.shape[0] != original_frame.shape[0]:
+                            original_for_hf = cv2.resize(original_frame, (annotated_frame_for_output.shape[1], annotated_frame_for_output.shape[0]), interpolation=cv2.INTER_AREA)
+                        else:
+                            original_for_hf = original_frame
+
+                        if need_recompute_hf:
+                            cached_hf_detail = extract_hf_detail_only(original_for_hf, alpha=pid_alpha, sigma=ADAPTIVE_HFDR_SIGMA)
+                            cached_hf_frame_index = frame_count
+                            telemetry["hfdr_fresh_count"] += 1
+                            hfdr_state = "FRESH"
+                        else:
+                            telemetry["hfdr_cached_count"] += 1
+                            hfdr_state = "CACHED"
+
+                        if cached_hf_detail is not None:
+                            if active_mode == "B" and len(frame_detections) > 0:
+                                roi_refresh_interval = adaptive_controller.compute_roi_refresh_interval(motion_score)
+                                if cached_roi_mask is None or (frame_count - roi_mask_last_rebuild) >= roi_refresh_interval:
+                                    cached_roi_mask = build_roi_mask(annotated_frame_for_output.shape, frame_detections, margin=ADAPTIVE_ROI_MARGIN_PX)
+                                    roi_mask_last_rebuild = frame_count
+                                annotated_frame_for_output = apply_roi_hfdr(annotated_frame_for_output, cached_hf_detail, cached_roi_mask)
+                            else:
+                                annotated_frame_for_output = apply_hf_detail(annotated_frame_for_output, cached_hf_detail)
+                    except Exception as hfdr_error:
+                        if frame_count <= 5:
+                            print(f"⚠️ [WARNING] HFDR application failed on frame {frame_count}: {hfdr_error}")
+
+            # --- TEMPORAL BLENDING ---
+            # If temporal blend is recommended, mix with previous output for smoother transitions
+            if temporal_blended and prev_output_frame is not None:
+                try:
+                    if prev_output_frame.shape == annotated_frame_for_output.shape:
+                        annotated_frame_for_output = cv2.addWeighted(
+                            annotated_frame_for_output, ADAPTIVE_TEMPORAL_BLEND_ALPHA,
+                            prev_output_frame, 1.0 - ADAPTIVE_TEMPORAL_BLEND_ALPHA, 0)
+                except Exception:
+                    pass
+
+            # Store reference for temporal reuse
+            prev_output_frame = annotated_frame_for_output
+
+            print(f"[ADAPTIVE] Mode:{active_mode} | Motion:{motion_score:.4f} | HFDR:{hfdr_state} | FPS:{instant_fps:.2f} | Alpha:{pid_alpha:.3f} | Detections:{detections_in_frame}")
 
             # Put the upscaled annotated frame into the output queue for the writer thread
             frame_output_queue.put((True, annotated_frame_for_output))
@@ -1078,8 +1560,99 @@ def main():
     total_processing_time = end_time_total - start_time_total
     minutes = int(total_processing_time // 60)
     seconds = int(total_processing_time % 60)
+
+    avg_fps = sum(frame_fps_samples) / max(1, len(frame_fps_samples)) if 'frame_fps_samples' in locals() else 0.0
+    avg_conf = (sum_confidence / max(1, total_detections)) if 'total_detections' in locals() and total_detections > 0 else 0.0
+
+    # --- Write .stats.json (matches ot_benchmark.py format for production_benchmark.py) ---
+    stats_file_path = f"{final_output_video_path}.stats.json"
+    try:
+        avg_stats_conf = tracking_stats["sum_confidence"] / max(1, tracking_stats["total_detections"])
+        avg_objs = sum(tracking_stats["objects_per_frame"]) / max(1, len(tracking_stats["objects_per_frame"]))
+        avg_motion = sum(tracking_stats["motion_vectors"]) / max(1, len(tracking_stats["motion_vectors"]))
+        avg_complexity = sum(tracking_stats["spatial_complexities"]) / max(1, len(tracking_stats["spatial_complexities"]))
+        avg_latency = sum(tracking_stats["frame_latencies"]) / max(1, len(tracking_stats["frame_latencies"]))
+        max_objs = max(tracking_stats["objects_per_frame"]) if tracking_stats["objects_per_frame"] else 0
+        min_lat = min(tracking_stats["frame_latencies"]) if tracking_stats["frame_latencies"] else 0.0
+        max_lat = max(tracking_stats["frame_latencies"]) if tracking_stats["frame_latencies"] else 0.0
+
+        unique_ids_count = len(tracking_stats["unique_ids"])
+        id_fragmentation_ratio = unique_ids_count / max(1, max_objs)
+        # Real ID switches: count IDs that appeared then disappeared then reappeared
+        # For a simple proxy: unique_ids - max_concurrent_objects = extra IDs from identity loss
+        id_switches = max(0, unique_ids_count - max_objs)
+
+        final_stats = {
+            "YOLO_Confidence_Avg": round(avg_stats_conf, 4),
+            "avg_motion_vector_magnitude": round(avg_motion, 4),
+            "avg_yolo_objects": round(avg_objs, 4),
+            "max_yolo_objects": max_objs,
+            "spatial_complexity_index": round(avg_complexity, 6),
+            "unique_ids_tracked": unique_ids_count,
+            "id_fragmentation_ratio": round(id_fragmentation_ratio, 4),
+            "ID_Switches": id_switches,
+            "avg_inference_latency_ms": round(avg_latency, 3),
+            "min_latency_ms": round(min_lat, 3),
+            "max_latency_ms": round(max_lat, 3),
+            "total_detections": tracking_stats["total_detections"],
+            "avg_pipeline_fps": round(avg_fps, 3),
+            "peak_cpu_percent": round(peak_cpu, 2),
+            "peak_ram_mb": round(peak_ram_mb, 2),
+            "peak_gpu_util_percent": round(peak_gpu_util, 2),
+            "peak_vram_mb": round(peak_vram_mb, 2),
+            "ffmpeg_encoder": "hevc_nvenc" if NVENC_AVAILABLE else FFMPEG_VIDEO_CODEC,
+        }
+        # Add adaptive pipeline stats (matches ot_benchmark.py output)
+        if 'adaptive_controller' in locals() and adaptive_controller is not None:
+            final_stats["adaptive_controller_adjustments"] = adaptive_controller.adjustment_count
+            final_stats["adaptive_controller_final_la"] = round(adaptive_controller.filter_strength, 2)
+            final_stats["adaptive_controller_final_alpha"] = round(adaptive_controller.hfdr_alpha, 3)
+            final_stats["adaptive_controller_avg_fps"] = round(adaptive_controller.avg_fps, 1)
+        if 'unified_controller' in locals() and unified_controller is not None:
+            final_stats["adaptive_unified_mode_switches"] = unified_controller.mode_switches
+            final_stats["adaptive_unified_temporal_frames"] = telemetry.get("mode_a_frames", 0)
+            final_stats["adaptive_unified_roi_temporal_frames"] = telemetry.get("mode_b_frames", 0)
+        with open(stats_file_path, "w", encoding="utf-8") as stats_file:
+            json.dump(final_stats, stats_file, indent=4)
+        print(f"📈 [INFO] Stats JSON saved: {stats_file_path}")
+    except Exception as stats_err:
+        print(f"⚠️ [WARNING] Failed to write stats JSON: {stats_err}")
+
+    # --- Write enriched telemetry JSON ---
+    telemetry_payload = {
+        "adaptive_profile": ADAPTIVE_PROFILE_NAME,
+        "mode_a_frames": telemetry.get("mode_a_frames", 0),
+        "mode_b_frames": telemetry.get("mode_b_frames", 0),
+        "final_pid_alpha": round(adaptive_controller.hfdr_alpha if 'adaptive_controller' in locals() else ADAPTIVE_INITIAL_ALPHA, 4),
+        "avg_fps": round(avg_fps, 3),
+        "class_counts": dict(class_counts) if 'class_counts' in locals() else {},
+        "total_detections": int(total_detections) if 'total_detections' in locals() else 0,
+        "avg_detections_per_frame": round(avg_objs if 'avg_objs' in locals() else 0.0, 3),
+        "avg_confidence": round(avg_conf, 4),
+        "hfdr_fresh_count": telemetry.get("hfdr_fresh_count", 0),
+        "hfdr_cached_count": telemetry.get("hfdr_cached_count", 0),
+        "hfdr_gated_count": telemetry.get("hfdr_gated_count", 0),
+        "processing_time_s": round(total_processing_time, 3),
+        "encode_time_s": round(total_processing_time, 3),
+        "ffmpeg_unsharp_amount": telemetry.get("ffmpeg_unsharp_amount", 0.0),
+        "ffmpeg_preset": FFMPEG_PRESET,
+        "ffmpeg_crf": str(FFMPEG_CRF_VALUE),
+        "final_filter_strength": round(adaptive_controller.filter_strength if 'adaptive_controller' in locals() else ADAPTIVE_FFMPEG_UNSHARP_AMOUNT, 2),
+        "controller_adjustments": adaptive_controller.adjustment_count if 'adaptive_controller' in locals() else 0,
+        "mode_switches": unified_controller.mode_switches if 'unified_controller' in locals() else 0,
+        "ffmpeg_encoder": "hevc_nvenc" if NVENC_AVAILABLE else FFMPEG_VIDEO_CODEC,
+    }
+    telemetry_path = f"{final_output_video_path}.telemetry.json"
+    try:
+        with open(telemetry_path, "w", encoding="utf-8") as telemetry_file:
+            json.dump(telemetry_payload, telemetry_file, indent=2)
+        print(f"[INFO] Adaptive telemetry saved: {telemetry_path}")
+    except Exception as telemetry_error:
+        print(f"⚠️ [WARNING] Failed to write telemetry file: {telemetry_error}")
+
     print(f"\n[DONE] Total script execution time: {minutes} minute(s) and {seconds} second(s).")
     print(f"[INFO] Final output video is at: {final_output_video_path}")
 
 if __name__ == "__main__":
     main()
+

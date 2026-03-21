@@ -294,42 +294,42 @@ def get_commit_details(commit_sha: str):
 
 # --- Main Integration Functions ---
 
-async def update_github_pages_with_video(processed_video_path: str, original_video_title: str, description: str = "") -> Tuple[bool, Optional[str]]:
+async def update_github_pages_with_video(processed_video_path: str, original_video_title: str, description: str = "") -> Tuple[bool, Optional[str], Optional[str]]:
     """
     Uploads processed video to Google Drive, generates embed link,
     and updates videos.json on GitHub Pages.
-    Returns a tuple: (success_status: bool, commit_sha: Optional[str])
+    Returns a tuple: (success_status: bool, commit_sha: Optional[str], download_url: Optional[str])
     """
-    def _run_update_flow() -> Tuple[bool, Optional[str]]:
+    def _run_update_flow() -> Tuple[bool, Optional[str], Optional[str]]:
         logger.info(f"Starting GitHub Pages update process for: {processed_video_path}")
 
         # 1. Authenticate Google Drive
         drive_service = authenticate_google_drive()
         if not drive_service:
             logger.error("Google Drive authentication failed. Aborting GitHub Pages update.")
-            return False, None
+            return False, None, None
 
         # 2. Get or Create Google Drive Output Folder
         folder_id = get_or_create_google_drive_folder(drive_service, GOOGLE_DRIVE_OUTPUT_FOLDER_NAME)
         if not folder_id:
             logger.error("Could not get or create Google Drive output folder. Aborting GitHub Pages update.")
-            return False, None
+            return False, None, None
 
         # 3. Upload Video to Google Drive
         if not os.path.exists(processed_video_path):
             logger.error(f"Processed video file not found on disk: '{processed_video_path}'. "
                          f"Check that ot.py saved it at exactly this path (watch for dot-in-title truncation bugs).")
-            return False, None
+            return False, None, None
         file_id, web_view_link = upload_to_google_drive(drive_service, processed_video_path, folder_id)
         if not file_id:
             logger.error(f"Failed to upload {processed_video_path} to Google Drive. Aborting GitHub Pages update.")
-            return False, None
+            return False, None, None
 
         # CORRECTED LINE: Ensure the embed URL uses the /preview format
         embed_url = get_google_drive_embed_url(file_id)
         if not embed_url:
             logger.error("Failed to generate Google Drive embed URL. Aborting GitHub Pages update.")
-            return False, None
+            return False, None, None
 
         logger.info(f"Google Drive Embed URL: {embed_url}")
         logger.info(f"Google Drive Web View Link: {web_view_link}")
@@ -338,12 +338,12 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
         g = authenticate_github()
         if not g:
             logger.error("GitHub authentication failed. Aborting GitHub Pages update.")
-            return False, None
+            return False, None, None
 
         repo = get_github_repo(g)
         if not repo:
             logger.error("Could not access GitHub repository. Aborting GitHub Pages update.")
-            return False, None
+            return False, None, None
 
         # 5. Fetch existing videos.json content
         existing_content = get_github_file_content(repo, GITHUB_VIDEOS_JSON_PATH, GITHUB_BRANCH)
@@ -399,16 +399,16 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
                 final_commit_success = update_and_commit_github_file(repo, GITHUB_VIDEOS_JSON_PATH, final_json_content, final_commit_message, GITHUB_BRANCH)
                 if final_commit_success:
                     logger.info(f"Successfully updated commit SHA for video: {original_video_title}")
-                    return True, initial_commit_sha # Return success and the initial commit SHA
+                    return True, initial_commit_sha, web_view_link # Return success, initial commit SHA, and download URL
                 else:
                     logger.error(f"Failed to update commit SHA for video: {original_video_title}")
-                    return False, None
+                    return False, None, None
             else:
                 logger.error("Could not fetch updated videos.json content after initial commit.")
-                return False, None
+                return False, None, None
         else:
             logger.error("Failed to make initial commit for new video entry.")
-            return False, None
+            return False, None, None
 
     return await asyncio.to_thread(_run_update_flow)
 
@@ -504,13 +504,13 @@ async def test_github_pages_updater():
     # Ensure you have client_secret.json and token.json for Google Drive API
     # The first run will open a browser for Google authentication.
 
-    success, commit_sha = await update_github_pages_with_video(
+    success, commit_sha, download_url = await update_github_pages_with_video(
         processed_video_path=test_video_file,
         original_video_title=f"Test Video {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         description="This is a test video uploaded via the script."
     )
     if success:
-        print(f"\nTest update successful! Commit SHA: {commit_sha}")
+        print(f"\nTest update successful! Commit SHA: {commit_sha}, Download URL: {download_url}")
     else:
         print("\nTest update failed.")
 

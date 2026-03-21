@@ -2356,6 +2356,10 @@
                 <span id="statusDot" class="status-dot"></span>
                 <span class="text-slate-400 text-xs font-medium">Server: <span id="statusText" class="text-slate-300">Checking...</span></span>
             </div>
+            <div id="benchmarkModePill" class="hidden inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30">
+                <i class="fas fa-flask text-amber-300 text-[11px]"></i>
+                <span id="benchmarkModeText" class="text-amber-200 text-xs font-medium">Benchmarking: ON</span>
+            </div>
         </header>
 
         <!-- Navigation Pills -->
@@ -2392,6 +2396,10 @@
                 <a href="admin_tracker.html" id="adminTrackerLink" class="nav-pill nav-pill-secondary">
                     <i class="fas fa-chart-line"></i>
                     <span>Tracker</span>
+                </a>
+                <a href="benchmark.html" id="benchmarkLink" class="nav-pill nav-pill-secondary">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Benchmark</span>
                 </a>
                 <button id="changePasswordBtn" class="nav-pill nav-pill-secondary">
                     <i class="fas fa-key"></i>
@@ -2450,6 +2458,9 @@
                         <div class="mobile-dropdown-header">Admin Options</div>
                         <a href="admin_tracker.html" class="mobile-dropdown-item">
                             <i class="fas fa-chart-line"></i> Tracker
+                        </a>
+                        <a href="benchmark.html" class="mobile-dropdown-item">
+                            <i class="fas fa-chart-bar"></i> Benchmark
                         </a>
                         <button id="mobileChangePasswordBtn" class="mobile-dropdown-item">
                             <i class="fas fa-key"></i> Change Password
@@ -2592,6 +2603,15 @@
                         <i class="fas fa-info text-cyan-400 text-xs"></i>
                     </div>
                     <p class="text-xs text-cyan-200/85">Video will be available for streaming once you open/play it on Google Drive (this triggers transcoding). Processing time depends on video size—larger files take longer.</p>
+                </div>
+            </div>
+
+            <div id="benchmarkDisclaimer" class="hidden bg-amber-500/5 border border-amber-500/25 rounded-lg p-3 mt-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center">
+                        <i class="fas fa-flask text-amber-300 text-xs"></i>
+                    </div>
+                    <p class="text-xs text-amber-100/90">Benchmarking is enabled for research purposes only and measures pipeline quality/performance metrics. </p>
                 </div>
             </div>
         </section>
@@ -2765,6 +2785,8 @@
         const liveStatusMessage = document.getElementById('liveStatusMessage');
         const serverStatusText = document.getElementById('statusText');
         const statusDot = document.getElementById('statusDot');
+        const benchmarkModePill = document.getElementById('benchmarkModePill');
+        const benchmarkModeText = document.getElementById('benchmarkModeText');
         const toggleLayoutButton = document.getElementById('toggleLayoutButton');
         const mainContentCard = document.getElementById('mainContentCard');
         const footerElements = document.querySelectorAll('.footer-animated'); /* Select all footer elements */
@@ -2795,6 +2817,7 @@
         // New elements for Frame Restriction
         const frameRestrictionInfo = document.getElementById('frameRestrictionInfo');
         const frameRestrictionMessage = document.getElementById('frameRestrictionMessage');
+        const benchmarkDisclaimer = document.getElementById('benchmarkDisclaimer');
 
         // ROI (Region of Interest) Elements
         const roiSection = document.getElementById('roiSection');
@@ -2816,6 +2839,7 @@
         let sessionDurationDays = 0;
         let frameRestrictionEnabled = false; // Default frame restriction state
         let frameRestrictionValue = 0; // Default frame restriction value
+        let benchmarkInProgress = false;
         
         /* Mobile Menu Functions - defined early for use in DOMContentLoaded */
         function toggleMobileMenu() {
@@ -2954,6 +2978,7 @@
         const LOCAL_API_ENDPOINT = NGROK_PUBLIC_URL + '/process_web_video';
         const LOCAL_STATUS_ENDPOINT = NGROK_PUBLIC_URL + '/status';
         const LOCAL_STATUS_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/status';
+        const LOCAL_ADMIN_AUTH_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_auth';
         const LOCAL_DELETE_ENDPOINT = NGROK_PUBLIC_URL + '/delete_video'; // New endpoint for deletion
         const LOCAL_COMMIT_INFO_ENDPOINT = NGROK_PUBLIC_URL + '/get_github_commit_info'; // New endpoint for commit info
         const LOCAL_LOGOUT_ENDPOINT = NGROK_PUBLIC_URL + '/logout'; // New endpoint for logout
@@ -2964,6 +2989,8 @@
         let lastFetchedVideos = [];
         let lastDeleteStatusShown = '';
         let statusEventSource = null;
+        let authEventSource = null;
+        let authReconnectTimer = null;
         let statusFallbackIntervalRef = null;
         let videosJsonETag = null;
         let videosPollInFlight = false;
@@ -3019,6 +3046,7 @@
         }
 
         function clearAdminSession() {
+            disconnectAuthEvents();
             localStorage.removeItem('adminToken');
             localStorage.removeItem('adminUsername');
             localStorage.removeItem('sessionTimeoutEnabled');
@@ -3026,6 +3054,69 @@
             isAdminLoggedIn = false;
             loggedInUsername = '';
             isAdminMaster = false; // Reset master admin status
+        }
+
+        function buildAuthEventsUrl() {
+            const token = localStorage.getItem('adminToken');
+            return `${LOCAL_ADMIN_AUTH_EVENTS_ENDPOINT}?token=${encodeURIComponent(token || '')}`;
+        }
+
+        function disconnectAuthEvents() {
+            if (authEventSource) {
+                authEventSource.close();
+                authEventSource = null;
+            }
+            if (authReconnectTimer) {
+                clearTimeout(authReconnectTimer);
+                authReconnectTimer = null;
+            }
+        }
+
+        function scheduleAuthReconnect() {
+            if (authReconnectTimer) return;
+            authReconnectTimer = setTimeout(() => {
+                authReconnectTimer = null;
+                connectAuthEvents();
+            }, 3000);
+        }
+
+        function forceRealtimeLogout(message = 'Master admin invalidated all sessions. Logging out now...') {
+            showCentralMessage(message, true);
+            clearAdminSession();
+            setTimeout(() => { window.location.href = 'admin.html'; }, 800);
+        }
+
+        function connectAuthEvents() {
+            const token = localStorage.getItem('adminToken');
+            if (!token || !isAdminLoggedIn || !window.EventSource) return;
+
+            disconnectAuthEvents();
+
+            try {
+                authEventSource = new EventSource(buildAuthEventsUrl());
+            } catch (error) {
+                console.error('Failed to initialize admin auth EventSource:', error);
+                scheduleAuthReconnect();
+                return;
+            }
+
+            authEventSource.addEventListener('authRevoked', () => {
+                forceRealtimeLogout();
+            });
+
+            authEventSource.onerror = async () => {
+                disconnectAuthEvents();
+                if (!localStorage.getItem('adminToken')) return;
+
+                try {
+                    await authenticatedFetch(LOCAL_STATUS_ENDPOINT, { method: 'GET' });
+                    scheduleAuthReconnect();
+                } catch (error) {
+                    const msg = String(error?.message || '').toLowerCase();
+                    if (msg.includes('authentication') || msg.includes('not authenticated')) return;
+                    scheduleAuthReconnect();
+                }
+            };
         }
 
 
@@ -3804,6 +3895,32 @@
 
             frameRestrictionEnabled = data.frameRestrictionEnabled;
             frameRestrictionValue = data.frameRestrictionValue;
+            benchmarkInProgress = !!data.benchmarkInProgress;
+
+            if (benchmarkModePill && benchmarkModeText) {
+                if (data.benchmarkingEnabled) {
+                    benchmarkModeText.textContent = 'Benchmarking: ON';
+                    benchmarkModePill.classList.remove('hidden');
+                } else {
+                    benchmarkModePill.classList.add('hidden');
+                }
+            }
+
+            if (benchmarkDisclaimer) {
+                if (data.benchmarkingEnabled) {
+                    benchmarkDisclaimer.classList.remove('hidden');
+                } else {
+                    benchmarkDisclaimer.classList.add('hidden');
+                }
+            }
+
+            if (benchmarkInProgress) {
+                trackButton.disabled = true;
+                liveStatusMessage.textContent = '📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete.';
+                liveProcessingStatusDiv.classList.remove('hidden');
+            } else {
+                trackButton.disabled = false;
+            }
 
             if (frameRestrictionEnabled) {
                 frameRestrictionMessage.textContent = `Video processing is restricted to videos with up to ${frameRestrictionValue} frames. Larger videos will be rejected due to excessive resource usage. Why should you only have fun, let others have fun too.`;
@@ -3860,6 +3977,10 @@
                 liveProcessingStatusDiv.classList.add('hidden');
                 lastDeleteStatusShown = '';
                 isUploadProgressBarRunning = false;
+
+                if (!benchmarkInProgress) {
+                    trackButton.disabled = false;
+                }
 
                 // Resume passive polling once status clears, unless aggressive refresh is still in progress.
                 if (!isAggressivePollingActive) {
@@ -4986,6 +5107,7 @@
                     new Blob([data], { type: 'application/json' })
                 );
             }
+            disconnectAuthEvents();
         });
 
         // Also handle URL input changes - debounced to avoid too many requests
@@ -5046,6 +5168,12 @@
                 return;
             }
 
+            if (benchmarkInProgress) {
+                showError('📊 Benchmark is running. New uploads are temporarily blocked until benchmark completion.');
+                liveStatusMessage.textContent = 'Benchmark in progress — upload blocked.';
+                return;
+            }
+
             showStatus('Sending video to local processing server...');
             trackButton.disabled = true;
 
@@ -5081,6 +5209,10 @@
 
                 if (!response.ok) {
                     const errorData = await response.json();
+                    if (response.status === 429 || errorData.benchmarkInProgress) {
+                        benchmarkInProgress = true;
+                        trackButton.disabled = true;
+                    }
                     throw new Error(errorData.message || 'Unknown error from local server.');
                 }
 
@@ -5203,6 +5335,7 @@
             updateVideoGalleryLayout(); /* Set initial video gallery layout */
             startVideosPollingLoop();
             setupStatusEventStream();
+            connectAuthEvents();
             
             // Add initial status dot class for "checking"
             statusDot.classList.add('checking');
