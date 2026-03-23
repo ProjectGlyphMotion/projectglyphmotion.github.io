@@ -2254,9 +2254,11 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     return
 
                 if authenticate_admin(username, password):
+                    is_master_admin = username in MASTER_ADMIN_USERNAMES
                     expiry = get_session_expiry_time() # Get expiry based on config
                     payload = {
                         'username': username,
+                        'isMasterAdmin': is_master_admin,
                         'exp': expiry if expiry > 0 else None, # Set exp only if timeout is enabled
                         'iat': datetime.datetime.now(datetime.timezone.utc)
                     }
@@ -2265,7 +2267,14 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
                     token = jwt.encode(payload, JWT_SECRET_KEY, algorithm="HS256")
                     logger.info(f"Admin '{username}' logged in successfully.")
-                    self.send_api_response(200, {"message": "Login successful.", "token": token, "username": username, "sessionTimeoutEnabled": SESSION_TIMEOUT_ENABLED, "sessionDurationDays": SESSION_DURATION_DAYS})
+                    self.send_api_response(200, {
+                        "message": "Login successful.",
+                        "token": token,
+                        "username": username,
+                        "isMasterAdmin": is_master_admin,
+                        "sessionTimeoutEnabled": SESSION_TIMEOUT_ENABLED,
+                        "sessionDurationDays": SESSION_DURATION_DAYS
+                    })
                 else:
                     logger.warning(f"Failed login attempt for username: {username}")
                     self.send_api_response(401, {"message": "Invalid username or password."})

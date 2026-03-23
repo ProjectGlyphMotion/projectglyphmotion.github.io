@@ -22,6 +22,7 @@
             color: #e4e4e7;
             -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
+            overflow-y: auto;
         }
 
         .bg-glow-main {
@@ -60,7 +61,8 @@
             align-items: center;
             justify-content: center;
             padding: 1rem;
-            overflow: hidden; /* Prevent scroll for glow effects */
+            overflow-x: hidden;
+            overflow-y: hidden;
         }
 
         /* Background Glow Elements */
@@ -163,6 +165,102 @@
         .password-toggle-icon {
             /* Tailwind classes are handling the positioning, keeping this clear */
         }
+
+        .remember-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.5rem 0.65rem;
+            border: 1px solid rgba(245, 158, 11, 0.16);
+            border-radius: 0.7rem;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .remember-option {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            color: #a1a1aa;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .remember-option input {
+            width: 0.92rem;
+            height: 0.92rem;
+            accent-color: #f59e0b;
+            cursor: pointer;
+        }
+
+        #capsLockWarning {
+            font-size: 11px;
+            color: #fda4af;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+        }
+
+        .remember-hint {
+            margin-top: 0.35rem;
+            color: #71717a;
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.02em;
+            text-align: left;
+            padding-left: 0.12rem;
+        }
+
+        @media (max-width: 1024px) {
+            body {
+                justify-content: flex-start;
+                padding: 0.75rem;
+                overflow-y: auto;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .content-card {
+                border-radius: 1rem;
+            }
+
+            .content-card:hover {
+                transform: none;
+            }
+
+            #adminLoginForm {
+                gap: 1rem;
+            }
+
+            #adminLoginForm input {
+                padding-top: 0.9rem;
+                padding-bottom: 0.9rem;
+            }
+
+            #hashDisplay {
+                font-size: 9px;
+                letter-spacing: 0.12em;
+            }
+
+            .remember-row {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 0.45rem;
+                padding: 0.45rem 0.55rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .content-card {
+                padding: 1rem !important;
+            }
+
+            #adminLoginButton {
+                font-size: 0.95rem;
+            }
+        }
     </style>
 
     <script>
@@ -198,18 +296,18 @@
         <div class="glow-element glow-3"></div>
     </div>
 
-    <main class="relative z-10 w-full max-w-7xl mx-auto px-4 md:px-8 top-10 md:top-14 pb-32 flex flex-col items-center">
+    <main class="relative z-10 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-8 py-6 md:py-6 min-h-screen md:min-h-0 md:h-[var(--real-vh,100vh)] box-border flex flex-col items-center justify-center">
         
-        <header class="flex flex-col items-center justify-center text-center mb-10 relative z-10 w-full">
+        <header class="flex flex-col items-center justify-center text-center mb-6 md:mb-6 relative z-10 w-full">
             <h2 class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-4 flex items-center gap-3">
                 <span class="w-8 h-px bg-zinc-700"></span> Admin Access <span class="w-8 h-px bg-zinc-700"></span>
             </h2>
-            <h1 class="font-retro text-3xl sm:text-4xl md:text-5xl lg:text-[46px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-6">
+            <h1 class="font-retro text-2xl sm:text-4xl md:text-5xl lg:text-[46px] text-amber-500 leading-[1.45] md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-4 md:mb-6">
                 Project<br class="md:hidden" /><span class="md:ml-6">GlyphMotion</span>
             </h1>
         </header>
 
-        <div class="w-full max-w-2xl content-card p-8 md:p-12 relative z-10 mt-2">
+        <div class="w-full max-w-2xl content-card p-6 md:p-10 relative z-10 mt-0 md:mt-1">
             <div class="mb-8 text-center flex flex-col items-center">
                 <!-- Server Status Widget Start -->
                 <div id="serverStatusWidget" class="inline-flex items-center gap-2 px-3 py-1.5 mb-4 bg-black/40 backdrop-blur-md border border-zinc-800 rounded-full cursor-help group transition-all duration-300 hover:border-zinc-500/50 shadow-lg">
@@ -228,7 +326,7 @@
                 <div class="h-px w-16 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent mx-auto"></div>
             </div>
 
-            <form id="adminLoginForm" class="space-y-6">
+            <form id="adminLoginForm" class="space-y-4">
             <div class="relative group">
                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <i class="fas fa-user text-zinc-500 group-focus-within:text-amber-500 transition-colors duration-300"></i>
@@ -262,19 +360,30 @@
                 </span>
             </div>
 
-            <div class="h-6 flex items-center justify-center overflow-hidden mb-2">
+            <div class="-mt-1">
+                <div class="remember-row">
+                    <label for="rememberMeInput" class="remember-option">
+                        <input id="rememberMeInput" type="checkbox" />
+                        <span>Remember me on this device</span>
+                    </label>
+                    <span id="capsLockWarning" class="hidden">Caps Lock is ON</span>
+                </div>
+                <p class="remember-hint">This keeps your username only. Password and token are never auto-filled here.</p>
+            </div>
+
+            <div class="h-3 flex items-center justify-center overflow-hidden mb-0">
                 <span id="hashDisplay" class="font-mono text-[10px] text-amber-500/40 tracking-[0.2em] opacity-0 transition-opacity duration-300 pointer-events-none">
                     AWAITING_INPUT...
                 </span>
             </div>
             
-            <button type="submit" id="adminLoginButton"
-                    class="w-full flex items-center justify-center py-3.5 px-4 rounded-lg font-outfit text-lg font-semibold bg-gradient-to-r from-amber-600/20 to-amber-500/20 border border-amber-500/30 text-amber-500 hover:from-amber-600 hover:to-amber-500 hover:text-white hover:border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)] hover:shadow-[0_0_25px_rgba(245,158,11,0.35)] transition-all duration-300 transform hover:-translate-y-0.5 focus:outline-none group mt-4">
+                <button type="submit" id="adminLoginButton"
+                    class="w-full flex items-center justify-center py-3.5 px-4 rounded-lg font-outfit text-lg font-semibold bg-gradient-to-r from-amber-600/20 to-amber-500/20 border border-amber-500/30 text-amber-500 hover:from-amber-600 hover:to-amber-500 hover:text-white hover:border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)] hover:shadow-[0_0_25px_rgba(245,158,11,0.35)] transition-all duration-300 transform hover:-translate-y-0.5 focus:outline-none group mt-0">
                 <span class="tracking-widest uppercase text-sm">Authenticate</span>
                 <i class="fas fa-arrow-right ml-3 text-sm group-hover:translate-x-1 transition-transform"></i>
             </button>
             
-            <div class="mt-8 text-center">
+            <div class="mt-2 text-center">
                 <a href="documentation.html" class="inline-flex items-center text-zinc-500 hover:text-amber-500 text-xs font-mono uppercase tracking-widest transition-colors">
                     <i class="fas fa-book mr-2"></i> Access Docs
                 </a>
@@ -378,6 +487,42 @@
         const messageText = document.getElementById('messageText');
         const togglePassword = document.getElementById('togglePassword');
         const hashDisplay = document.getElementById('hashDisplay');
+        const rememberMeInput = document.getElementById('rememberMeInput');
+        const capsLockWarning = document.getElementById('capsLockWarning');
+        const LAST_USED_ADMIN_USERNAME_KEY = 'lastUsedAdminUsername';
+
+        const rememberPreference = localStorage.getItem('rememberAdminUsername') === 'true';
+        const rememberedUsername = localStorage.getItem('rememberedAdminUsername');
+        const lastUsedUsername = localStorage.getItem(LAST_USED_ADMIN_USERNAME_KEY);
+
+        if (rememberMeInput) rememberMeInput.checked = rememberPreference || !!rememberedUsername;
+        if (!adminUsernameInput.value) {
+            const prefillUsername = rememberedUsername || lastUsedUsername;
+            if (prefillUsername) adminUsernameInput.value = prefillUsername;
+        }
+
+        function setCapsLockWarning(isOn) {
+            if (!capsLockWarning) return;
+            capsLockWarning.classList.toggle('hidden', !isOn);
+        }
+
+        function syncCapsLockWarning(event) {
+            const hasDetector = !!(event && typeof event.getModifierState === 'function');
+            if (!hasDetector) return;
+            setCapsLockWarning(!!event.getModifierState('CapsLock'));
+        }
+
+        adminPasswordInput.addEventListener('keydown', syncCapsLockWarning);
+        adminPasswordInput.addEventListener('keyup', syncCapsLockWarning);
+        adminPasswordInput.addEventListener('focus', () => setCapsLockWarning(false));
+        adminPasswordInput.addEventListener('blur', () => setCapsLockWarning(false));
+
+        document.addEventListener('keydown', (event) => {
+            if (document.activeElement === adminPasswordInput) syncCapsLockWarning(event);
+        });
+        document.addEventListener('keyup', (event) => {
+            if (document.activeElement === adminPasswordInput) syncCapsLockWarning(event);
+        });
 
         // Typing Effect & Random Hash generator
         function generateRandomHash() {
@@ -443,9 +588,23 @@
 
                 if (response.ok) {
                     showLoginMessage(`Welcome ${data.username || username} to the Web Dashboard. Redirecting...`, false);
+                    const finalUsername = String(data.username || username || '').trim();
+                    if (finalUsername) {
+                        localStorage.setItem(LAST_USED_ADMIN_USERNAME_KEY, finalUsername);
+                    }
+
+                    if (rememberMeInput && rememberMeInput.checked) {
+                        localStorage.setItem('rememberAdminUsername', 'true');
+                        localStorage.setItem('rememberedAdminUsername', finalUsername || username);
+                    } else {
+                        localStorage.removeItem('rememberAdminUsername');
+                        localStorage.removeItem('rememberedAdminUsername');
+                    }
+
                     // Store token, username, and session settings in localStorage
                     localStorage.setItem('adminToken', data.token);
                     localStorage.setItem('adminUsername', data.username);
+                    localStorage.setItem('isMasterAdmin', data.isMasterAdmin === true ? 'true' : 'false');
                     localStorage.setItem('sessionTimeoutEnabled', data.sessionTimeoutEnabled);
                     localStorage.setItem('sessionDurationDays', data.sessionDurationDays); // Store duration as well
 
