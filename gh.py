@@ -15,6 +15,7 @@ from googleapiclient.http import MediaFileUpload
 
 # GitHub API imports
 from github import Github, InputGitTreeElement
+from github.GithubException import GithubException
 
 # --- Logging Setup ---
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -235,33 +236,50 @@ def get_github_file_content(repo, file_path, branch):
         logger.warning(f"File '{file_path}' not found or error fetching from GitHub: {e}. Assuming empty or new file.")
         return None
 
-def update_and_commit_github_file(repo, file_path, new_content, commit_message, branch):
+def update_and_commit_github_file(repo, file_path, new_content, commit_message, branch, max_retries: int = 3):
     """
     Updates a file and commits it to GitHub.
     Returns the SHA of the new commit if successful, otherwise None.
     """
-    try:
-        # Get the current file SHA to update it
-        sha = None
+    for attempt in range(1, max_retries + 1):
         try:
-            contents = repo.get_contents(file_path, ref=branch)
-            sha = contents.sha
-            logger.info(f"Found existing file '{file_path}' with SHA: {sha}")
-        except Exception:
-            # File does not exist, so we'll create it (no SHA needed)
-            logger.info(f"File '{file_path}' does not exist, will create it.")
+            # Get the current file SHA to update it
+            sha = None
+            try:
+                contents = repo.get_contents(file_path, ref=branch)
+                sha = contents.sha
+                logger.info(f"Found existing file '{file_path}' with SHA: {sha}")
+            except Exception:
+                # File does not exist, so we'll create it (no SHA needed)
+                logger.info(f"File '{file_path}' does not exist, will create it.")
 
-        if sha:
-            commit = repo.update_file(file_path, commit_message, new_content, sha, branch=branch)
-            logger.info(f"Successfully updated and committed '{file_path}' to '{branch}' branch. Commit SHA: {commit['commit'].sha}")
-        else:
-            commit = repo.create_file(file_path, commit_message, new_content, branch=branch)
-            logger.info(f"Successfully created and committed '{file_path}' to '{branch}' branch. Commit SHA: {commit['commit'].sha}")
-        
-        return commit['commit'].sha # Return the commit SHA
-    except Exception as e:
-        logger.error(f"Error committing file '{file_path}' to GitHub: {e}", exc_info=True)
-        return None
+            if sha:
+                commit = repo.update_file(file_path, commit_message, new_content, sha, branch=branch)
+                logger.info(f"Successfully updated and committed '{file_path}' to '{branch}' branch. Commit SHA: {commit['commit'].sha}")
+            else:
+                commit = repo.create_file(file_path, commit_message, new_content, branch=branch)
+                logger.info(f"Successfully created and committed '{file_path}' to '{branch}' branch. Commit SHA: {commit['commit'].sha}")
+
+            return commit['commit'].sha # Return the commit SHA
+        except GithubException as e:
+            status = getattr(e, "status", None)
+            is_conflict = status == 409 or "does not match" in str(e).lower()
+            if is_conflict and attempt < max_retries:
+                delay = 0.6 * attempt
+                logger.warning(
+                    f"GitHub conflict while committing '{file_path}' (attempt {attempt}/{max_retries}). "
+                    f"Retrying in {delay:.1f}s..."
+                )
+                time.sleep(delay)
+                continue
+
+            logger.error(f"Error committing file '{file_path}' to GitHub: {e}", exc_info=True)
+            return None
+        except Exception as e:
+            logger.error(f"Error committing file '{file_path}' to GitHub: {e}", exc_info=True)
+            return None
+
+    return None
 
 def get_commit_details(commit_sha: str):
     """
@@ -401,8 +419,11 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
                     logger.info(f"Successfully updated commit SHA for video: {original_video_title}")
                     return True, initial_commit_sha, web_view_link # Return success, initial commit SHA, and download URL
                 else:
-                    logger.error(f"Failed to update commit SHA for video: {original_video_title}")
-                    return False, None, None
+                    logger.warning(
+                        f"Could not backfill commitSha in videos.json for '{original_video_title}'. "
+                        "Primary video publish already succeeded; continuing without failing the request."
+                    )
+                    return True, initial_commit_sha, web_view_link
             else:
                 logger.error("Could not fetch updated videos.json content after initial commit.")
                 return False, None, None

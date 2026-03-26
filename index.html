@@ -2984,6 +2984,87 @@
         const LOCAL_LOGOUT_ENDPOINT = NGROK_PUBLIC_URL + '/logout'; // New endpoint for logout
         const LOCAL_LOGOUT_ALL_ADMINS_ENDPOINT = NGROK_PUBLIC_URL + '/logout_all_admins'; // New endpoint for master logout
         const LOCAL_UPDATE_CREDENTIALS_ENDPOINT = NGROK_PUBLIC_URL + '/update_credentials'; // New endpoint for password update
+        const UPLOAD_REQUEST_TIMEOUT_MS = 8 * 60 * 1000;
+        const CHUNK_UPLOAD_THRESHOLD_BYTES = 48 * 1024 * 1024;
+        const CHUNK_SIZE_BYTES = 16 * 1024 * 1024;
+        const CHUNK_UPLOAD_ENDPOINT = NGROK_PUBLIC_URL + '/upload_chunk';
+        const COMPLETE_CHUNK_UPLOAD_ENDPOINT = NGROK_PUBLIC_URL + '/complete_chunked_upload';
+
+        function formatBytes(bytes) {
+            if (!Number.isFinite(bytes) || bytes <= 0) {
+                return '0 B';
+            }
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let size = bytes;
+            let unitIndex = 0;
+            while (size >= 1024 && unitIndex < units.length - 1) {
+                size /= 1024;
+                unitIndex += 1;
+            }
+            return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+        }
+
+        async function verifyBackendReachable() {
+            try {
+                const pingController = new AbortController();
+                const pingTimer = setTimeout(() => pingController.abort(), 5000);
+                const response = await fetch(LOCAL_STATUS_ENDPOINT, {
+                    method: 'GET',
+                    signal: pingController.signal
+                });
+                clearTimeout(pingTimer);
+                return response.ok;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function buildUploadFailureHint(error, attemptedFile) {
+            const errorText = (error && error.message ? String(error.message) : '').toLowerCase();
+            const fileSizeHint = attemptedFile ? ` File size: ${formatBytes(attemptedFile.size)}.` : '';
+            if (errorText.includes('failed to fetch') || errorText.includes('networkerror') || errorText.includes('abort')) {
+                return `Network/upload connection dropped before backend accepted the request.${fileSizeHint} This is usually backend unreachable, unstable connection, or proxy upload-size/time limits.`;
+            }
+            return `Upload request failed.${fileSizeHint}`;
+        }
+
+        async function uploadFileInChunks(file) {
+            const uploadId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE_BYTES);
+
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+                const start = chunkIndex * CHUNK_SIZE_BYTES;
+                const end = Math.min(start + CHUNK_SIZE_BYTES, file.size);
+                const chunkBlob = file.slice(start, end);
+
+                const chunkForm = new FormData();
+                chunkForm.append('upload_id', uploadId);
+                chunkForm.append('chunk_index', String(chunkIndex));
+                chunkForm.append('total_chunks', String(totalChunks));
+                chunkForm.append('original_filename', file.name || 'uploaded_video.mp4');
+                chunkForm.append('chunk', chunkBlob, `${file.name || 'video'}.part${chunkIndex}`);
+
+                const chunkController = new AbortController();
+                const chunkTimer = setTimeout(() => chunkController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
+                const chunkResponse = await fetch(CHUNK_UPLOAD_ENDPOINT, {
+                    method: 'POST',
+                    body: chunkForm,
+                    signal: chunkController.signal
+                });
+                clearTimeout(chunkTimer);
+
+                if (!chunkResponse.ok) {
+                    const chunkError = await chunkResponse.json().catch(() => ({}));
+                    throw new Error(chunkError.message || `Failed at chunk ${chunkIndex + 1}/${totalChunks}`);
+                }
+
+                const percent = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+                showStatus(`Uploading large file in chunks: ${percent}% (${chunkIndex + 1}/${totalChunks})`);
+                liveStatusMessage.textContent = `Uploading large file: ${percent}%`;
+            }
+
+            return uploadId;
+        }
 
 
         let lastFetchedVideos = [];
@@ -5174,6 +5255,14 @@
                 return;
             }
 
+            const backendReachable = await verifyBackendReachable();
+            if (!backendReachable) {
+                showError('Backend is currently unreachable. Upload was blocked before transfer to avoid wasting mobile/Wi-Fi data.');
+                liveStatusMessage.textContent = 'Backend unreachable. Try again after server connectivity is restored.';
+                trackButton.disabled = false;
+                return;
+            }
+
             showStatus('Sending video to local processing server...');
             trackButton.disabled = true;
 
@@ -5202,13 +5291,56 @@
             }
 
             try {
-                const response = await fetch(LOCAL_API_ENDPOINT, {
-                    method: 'POST',
-                    body: formData
-                });
+                let responseData = null;
+                let response = null;
+
+                const shouldUseChunkedUpload = (
+                    isFileUpload &&
+                    !previewSessionId &&
+                    videoSource &&
+                    Number.isFinite(videoSource.size) &&
+                    videoSource.size >= CHUNK_UPLOAD_THRESHOLD_BYTES
+                );
+
+                if (shouldUseChunkedUpload) {
+                    showStatus(`Large file detected (${formatBytes(videoSource.size)}). Starting chunked upload...`);
+                    const uploadId = await uploadFileInChunks(videoSource);
+
+                    const completePayload = {
+                        upload_id: uploadId
+                    };
+                    if (roiEnabled && roiCoords) {
+                        completePayload.roi_enabled = 'true';
+                        completePayload.roi_x = roiCoords.x.toFixed(4);
+                        completePayload.roi_y = roiCoords.y.toFixed(4);
+                        completePayload.roi_width = roiCoords.width.toFixed(4);
+                        completePayload.roi_height = roiCoords.height.toFixed(4);
+                    }
+
+                    const completeController = new AbortController();
+                    const completeTimer = setTimeout(() => completeController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
+                    response = await fetch(COMPLETE_CHUNK_UPLOAD_ENDPOINT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(completePayload),
+                        signal: completeController.signal
+                    });
+                    clearTimeout(completeTimer);
+                } else {
+                    const uploadController = new AbortController();
+                    const uploadTimer = setTimeout(() => uploadController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
+                    response = await fetch(LOCAL_API_ENDPOINT, {
+                        method: 'POST',
+                        body: formData,
+                        signal: uploadController.signal
+                    });
+                    clearTimeout(uploadTimer);
+                }
 
                 if (!response.ok) {
-                    const errorData = await response.json();
+                    const errorData = await response.json().catch(() => ({}));
                     if (response.status === 429 || errorData.benchmarkInProgress) {
                         benchmarkInProgress = true;
                         trackButton.disabled = true;
@@ -5216,7 +5348,7 @@
                     throw new Error(errorData.message || 'Unknown error from local server.');
                 }
 
-                const responseData = await response.json();
+                responseData = await response.json().catch(() => ({}));
                 
                 // Enhanced success message with Google Drive transcoding guidance
                 let successMessage = responseData.message || 'Processing initiated. Waiting for GitHub commit...';
@@ -5256,8 +5388,9 @@
 
             } catch (error) {
                 console.error('Error initiating tracking:', error);
-                showError(`Failed to initiate tracking: ${error.message}. Ensure your tg.py server is running and accessible.`);
-                liveStatusMessage.textContent = `Error: ${error.message}`;
+                const failureHint = buildUploadFailureHint(error, isFileUpload ? videoSource : null);
+                showError(`Failed to initiate tracking: ${failureHint}`);
+                liveStatusMessage.textContent = `Error: ${failureHint}`;
             } finally {
                 trackButton.disabled = false;
             }

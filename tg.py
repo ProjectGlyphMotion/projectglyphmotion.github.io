@@ -20,6 +20,7 @@ import socket # Added: Import the socket module for socket.timeout
 import base64  # For encoding preview images
 import uuid  # For generating unique session IDs
 import shutil  # For moving cached preview files
+import mimetypes
 from urllib.parse import urlparse, parse_qs
 
 # Import the gh.py script
@@ -61,6 +62,8 @@ AD_SETTINGS_FILE = 'ad_settings.json'
 # --- ROI Preview Configuration ---
 # Directory to store temporary preview files
 PREVIEW_SUBDIRECTORY = "preview_temp"
+# Directory for chunked upload session files
+CHUNK_UPLOAD_SUBDIRECTORY = "chunk_uploads"
 # Time in seconds before an abandoned preview is cleaned up (5 minutes)
 PREVIEW_CLEANUP_TIMEOUT_SECONDS = 300
 # Interval for preview cleanup check (60 seconds)
@@ -70,6 +73,7 @@ PREVIEW_CLEANUP_INTERVAL_SECONDS = 60
 os.makedirs(OUTPUT_SUBDIRECTORY, exist_ok=True)
 os.makedirs(INPUT_SUBDIRECTORY, exist_ok=True)
 os.makedirs(PREVIEW_SUBDIRECTORY, exist_ok=True)
+os.makedirs(CHUNK_UPLOAD_SUBDIRECTORY, exist_ok=True)
 
 # --- Logging ---
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -262,6 +266,38 @@ def extract_video_frame(video_path: str, output_image_path: str, seek_time: floa
         logger.error(f"Error extracting frame: {e}")
         return False
 
+def resolve_uploaded_filename(upload_field, fallback_prefix: str = "uploaded_video") -> str:
+    """Builds a filesystem-safe upload filename while preserving original names when available."""
+    raw_name = (getattr(upload_field, "filename", "") or "").strip()
+    filename = os.path.basename(raw_name).replace("\x00", "")
+
+    # Some clients submit multipart files without filename metadata.
+    if not filename:
+        content_type = (getattr(upload_field, "type", "") or "").split(";", 1)[0].strip().lower()
+        guessed_ext = mimetypes.guess_extension(content_type) if content_type else None
+        if guessed_ext in (".jpe",):
+            guessed_ext = ".jpg"
+        if not guessed_ext:
+            guessed_ext = ".mp4"
+        filename = f"{fallback_prefix}_{int(time.time())}{guessed_ext}"
+
+    return filename.replace("/", "_").replace("\\", "_")
+
+def sanitize_chunk_upload_id(upload_id: str) -> str:
+    """Allows only safe characters for chunk upload session IDs."""
+    cleaned = re.sub(r'[^A-Za-z0-9_-]', '', (upload_id or '').strip())
+    if 8 <= len(cleaned) <= 80:
+        return cleaned
+    return ""
+
+def sanitize_filename_value(filename: str, fallback_prefix: str = "uploaded_video") -> str:
+    """Sanitizes a raw filename string and preserves extension when possible."""
+    safe_name = os.path.basename((filename or "").strip()).replace("\x00", "")
+    safe_name = safe_name.replace("/", "_").replace("\\", "_")
+    if not safe_name:
+        safe_name = f"{fallback_prefix}_{int(time.time())}.mp4"
+    return safe_name
+
 def invalidate_token(token: str):
     """Adds a token to the invalidated list."""
     with _token_invalidation_lock:
@@ -303,7 +339,7 @@ def set_processing_status(message: Union[str, None]):
     
     if message:
         # For recurring high-frequency updates, draw in-place
-        if message.startswith("Processing:") or message.startswith("Downloading:") or message.startswith("Merging"):
+        if message.startswith("Processing:") or message.startswith("Downloading:") or message.startswith("Merging") or message.startswith("Uploading:"):
             sys.stdout.write(f"\r\033[K\033[1;36mProgress:\033[0m {message}")
             sys.stdout.flush()
         else:
@@ -1093,7 +1129,7 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
                     input_filename = cached_basename
                 logger.info(f"Using filename extracted from path: {input_filename}")
         else:
-            input_filename = os.path.basename(getattr(video_source, "filename", "uploaded_file.mp4"))
+            input_filename = resolve_uploaded_filename(video_source)
         local_input_path = os.path.join(INPUT_SUBDIRECTORY, input_filename)
         
     output_filename = f"processed_{os.path.splitext(input_filename)[0]}.mp4" # Ensure .mp4 extension for output
@@ -1430,6 +1466,10 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         if request_path in ('/status', '/events/status', '/events/admin_tracker_data', '/events/admin_auth') and (self.command == 'GET' or self.command == 'HEAD'):
             return
 
+        # Chunk uploads are high-frequency; suppress per-chunk request lines to avoid log spam.
+        if request_path == '/upload_chunk' and self.command == 'POST':
+            return
+
         # Log other requests with a simplified format
         logger.info(f"Incoming Request: {self.command} {self.path}")
 
@@ -1740,6 +1780,205 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         global _ADS_ENABLED_GLOBALLY, _SHOW_ADS_TO_ADMINS
 
+        if self.path == '/upload_chunk':
+            try:
+                ctype, pdict = cgi.parse_header(self.headers.get('content-type', ''))
+                if ctype != 'multipart/form-data' or 'boundary' not in pdict:
+                    self.send_api_response(400, {"success": False, "message": "Expected multipart/form-data payload."})
+                    return
+
+                pdict['boundary'] = bytes(pdict['boundary'], "utf-8")
+                form = cgi.FieldStorage(
+                    fp=self.rfile,
+                    headers=self.headers,
+                    environ={
+                        'REQUEST_METHOD': 'POST',
+                        'CONTENT_TYPE': self.headers['Content-Type'],
+                        'CONTENT_LENGTH': str(self.headers['Content-Length'])
+                    }
+                )
+
+                upload_id = sanitize_chunk_upload_id(form['upload_id'].value if 'upload_id' in form else '')
+                if not upload_id:
+                    self.send_api_response(400, {"success": False, "message": "Invalid or missing upload_id."})
+                    return
+
+                if 'chunk' not in form or getattr(form['chunk'], 'file', None) is None:
+                    self.send_api_response(400, {"success": False, "message": "Missing chunk file payload."})
+                    return
+
+                try:
+                    chunk_index = int(form['chunk_index'].value)
+                    total_chunks = int(form['total_chunks'].value)
+                except Exception:
+                    self.send_api_response(400, {"success": False, "message": "Invalid chunk index metadata."})
+                    return
+
+                if chunk_index < 0 or total_chunks <= 0 or chunk_index >= total_chunks:
+                    self.send_api_response(400, {"success": False, "message": "Chunk index out of bounds."})
+                    return
+
+                raw_filename = form['original_filename'].value if 'original_filename' in form else ''
+                original_filename = sanitize_filename_value(raw_filename, fallback_prefix="chunk_upload")
+
+                upload_dir = os.path.join(CHUNK_UPLOAD_SUBDIRECTORY, upload_id)
+                os.makedirs(upload_dir, exist_ok=True)
+
+                chunk_path = os.path.join(upload_dir, f"chunk_{chunk_index:06d}.part")
+                chunk_field = form['chunk']
+                if hasattr(chunk_field.file, 'seek'):
+                    chunk_field.file.seek(0)
+                with open(chunk_path, 'wb') as chunk_out:
+                    shutil.copyfileobj(chunk_field.file, chunk_out)
+
+                metadata_path = os.path.join(upload_dir, 'metadata.json')
+                metadata = {
+                    "upload_id": upload_id,
+                    "original_filename": original_filename,
+                    "total_chunks": total_chunks,
+                    "updated_at": time.time()
+                }
+                with open(metadata_path, 'w', encoding='utf-8') as metadata_file:
+                    json.dump(metadata, metadata_file)
+
+                received_chunks = len([name for name in os.listdir(upload_dir) if name.startswith('chunk_') and name.endswith('.part')])
+                percent = int((received_chunks / max(total_chunks, 1)) * 100)
+                set_processing_status(f"Uploading: chunks {received_chunks}/{total_chunks} ({percent}%)")
+                self.send_api_response(200, {
+                    "success": True,
+                    "upload_id": upload_id,
+                    "chunk_index": chunk_index,
+                    "total_chunks": total_chunks,
+                    "received_chunks": received_chunks
+                })
+            except Exception as e:
+                logger.error(f"Error handling chunk upload: {e}", exc_info=True)
+                self.send_api_response(500, {"success": False, "message": f"Chunk upload failed: {e}"})
+            return
+
+        if self.path == '/complete_chunked_upload':
+            try:
+                with _benchmark_lock:
+                    if _benchmark_in_progress:
+                        self.send_api_response(429, {
+                            "message": "📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete.",
+                            "benchmarkInProgress": True
+                        })
+                        return
+
+                content_length = int(self.headers.get('Content-Length', 0))
+                raw_body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+                payload = json.loads(raw_body.decode('utf-8') or '{}')
+
+                upload_id = sanitize_chunk_upload_id(payload.get('upload_id', ''))
+                if not upload_id:
+                    self.send_api_response(400, {"success": False, "message": "Invalid or missing upload_id."})
+                    return
+
+                upload_dir = os.path.join(CHUNK_UPLOAD_SUBDIRECTORY, upload_id)
+                metadata_path = os.path.join(upload_dir, 'metadata.json')
+                if not os.path.isdir(upload_dir) or not os.path.exists(metadata_path):
+                    self.send_api_response(404, {"success": False, "message": "Upload session not found or expired."})
+                    return
+
+                with open(metadata_path, 'r', encoding='utf-8') as metadata_file:
+                    metadata = json.load(metadata_file)
+
+                total_chunks = int(metadata.get('total_chunks', 0))
+                if total_chunks <= 0:
+                    self.send_api_response(400, {"success": False, "message": "Invalid upload metadata."})
+                    return
+
+                missing_chunks = []
+                for i in range(total_chunks):
+                    if not os.path.exists(os.path.join(upload_dir, f"chunk_{i:06d}.part")):
+                        missing_chunks.append(i)
+                if missing_chunks:
+                    self.send_api_response(400, {
+                        "success": False,
+                        "message": f"Upload incomplete: missing {len(missing_chunks)} chunk(s).",
+                        "missingChunks": missing_chunks[:10]
+                    })
+                    return
+
+                original_filename = sanitize_filename_value(metadata.get('original_filename', ''), fallback_prefix="chunk_upload")
+                assembled_input_path = os.path.join(INPUT_SUBDIRECTORY, original_filename)
+                if os.path.exists(assembled_input_path):
+                    stem, ext = os.path.splitext(original_filename)
+                    assembled_input_path = os.path.join(INPUT_SUBDIRECTORY, f"{stem}_{int(time.time())}{ext or '.mp4'}")
+
+                with open(assembled_input_path, 'wb') as assembled_file:
+                    for i in range(total_chunks):
+                        chunk_path = os.path.join(upload_dir, f"chunk_{i:06d}.part")
+                        with open(chunk_path, 'rb') as chunk_file:
+                            shutil.copyfileobj(chunk_file, assembled_file)
+
+                try:
+                    shutil.rmtree(upload_dir)
+                except Exception as cleanup_error:
+                    logger.warning(f"Could not clean chunk upload dir {upload_dir}: {cleanup_error}")
+
+                client_ip = get_client_ip(self)
+                geolocation_info = get_geolocation_data(client_ip)
+
+                roi_params = None
+                if str(payload.get('roi_enabled', '')).lower() == 'true':
+                    roi_params = {
+                        'roi_enabled': 'true',
+                        'roi_x': str(payload.get('roi_x', '0')),
+                        'roi_y': str(payload.get('roi_y', '0')),
+                        'roi_width': str(payload.get('roi_width', '1')),
+                        'roi_height': str(payload.get('roi_height', '1')),
+                        'roi_show_overlay': 'false',
+                        'roi_overlay_opacity': '0'
+                    }
+
+                allowed_classes = None
+                allowed_classes_raw = payload.get('allowed_classes')
+                if isinstance(allowed_classes_raw, list):
+                    allowed_classes = [str(item).strip() for item in allowed_classes_raw if str(item).strip()]
+                elif isinstance(allowed_classes_raw, str) and allowed_classes_raw.strip():
+                    allowed_classes = [c.strip() for c in allowed_classes_raw.split(',') if c.strip()]
+
+                confidence_threshold = None
+                if payload.get('confidence_threshold') is not None:
+                    try:
+                        conf_val = float(payload.get('confidence_threshold'))
+                        if 0.0 < conf_val < 1.0:
+                            confidence_threshold = conf_val
+                    except (ValueError, TypeError):
+                        pass
+
+                class WebProgressReporter:
+                    async def edit_text(self, message):
+                        set_processing_status(message)
+
+                main_loop = self.server.main_asyncio_loop
+                processing_future = asyncio.run_coroutine_threadsafe(
+                    process_video_unified(
+                        assembled_input_path,
+                        is_file_upload=True,
+                        progress_message_obj=WebProgressReporter(),
+                        telegram_context=None,
+                        client_ip=client_ip,
+                        geolocation_info=geolocation_info,
+                        roi_params=roi_params,
+                        original_filename=os.path.basename(assembled_input_path),
+                        allowed_classes=allowed_classes,
+                        confidence_threshold=confidence_threshold
+                    ),
+                    main_loop
+                )
+                processing_future.add_done_callback(lambda future: _log_scheduled_future_error(future, "complete_chunked_upload"))
+
+                self.send_api_response(200, {"success": True, "message": "Chunked upload assembled and processing initiated."})
+            except json.JSONDecodeError:
+                self.send_api_response(400, {"success": False, "message": "Invalid JSON payload."})
+            except Exception as e:
+                logger.error(f"Error finalizing chunked upload: {e}", exc_info=True)
+                self.send_api_response(500, {"success": False, "message": f"Failed to finalize chunked upload: {e}"})
+            return
+
         if self.path == '/process_web_video':
             try:
                 with _benchmark_lock:
@@ -1785,15 +2024,22 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     else:
                         logger.warning(f"Preview session {preview_session_id} not found or expired, falling back to regular upload/url")
 
-                # Only require video_url or video_file if we don't have a cached video from preview session
+                # Only require video_url or video_file if we don't have a cached video from preview session.
+                # Prefer file when both fields are present (many forms always send an empty video_url).
                 if not cached_video_path:
-                    if 'video_url' in form:
-                        video_url = form['video_url'].value
-                        logger.info(f"Received video URL from web: {video_url}")
-                    elif 'video_file' in form:
+                    if 'video_file' in form:
                         video_file = form['video_file']
-                        logger.info(f"Received uploaded file from web: {video_file.filename}")
-                    else:
+                        if getattr(video_file, 'file', None) is not None:
+                            logger.info(f"Received uploaded file from web: {getattr(video_file, 'filename', '') or '<unnamed upload>'}")
+                        else:
+                            video_file = None
+
+                    if video_file is None and 'video_url' in form:
+                        video_url = (form['video_url'].value or "").strip()
+                        if video_url:
+                            logger.info(f"Received video URL from web: {video_url}")
+
+                    if video_file is None and not video_url:
                         self.send_api_response(400, {"message": "No video URL or file provided."})
                         return
                 else:
@@ -1859,7 +2105,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     video_source = cached_video_path
                     is_file_upload = True  # Treat cached file as a file upload
                     logger.info(f"Processing with cached video: {cached_video_path}")
-                elif video_file is not None and hasattr(video_file, "filename") and video_file.filename:
+                elif video_file is not None and getattr(video_file, 'file', None) is not None:
                     video_source = video_file
                     is_file_upload = True
                 else:
@@ -1936,14 +2182,20 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         # Session expired or invalid, need new upload/download
                         pass
                 
-                # Handle new video upload or URL
-                if 'video_url' in form:
-                    video_url = form['video_url'].value
-                    logger.info(f"Preview request for URL: {video_url}")
-                elif 'video_file' in form:
+                # Handle new video upload or URL. Prefer file if both fields are present.
+                if 'video_file' in form:
                     video_file = form['video_file']
-                    logger.info(f"Preview request for uploaded file: {video_file.filename}")
-                else:
+                    if getattr(video_file, 'file', None) is not None:
+                        logger.info(f"Preview request for uploaded file: {getattr(video_file, 'filename', '') or '<unnamed upload>'}")
+                    else:
+                        video_file = None
+
+                if video_file is None and 'video_url' in form:
+                    video_url = (form['video_url'].value or "").strip()
+                    if video_url:
+                        logger.info(f"Preview request for URL: {video_url}")
+
+                if not video_file and not video_url:
                     self.send_api_response(400, {"success": False, "message": "No video URL or file provided."})
                     return
                 
@@ -1951,9 +2203,9 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 new_session_id = str(uuid.uuid4())
                 video_title = None  # Will store the video title from yt-dlp (only for URLs)
                 
-                if video_file is not None and hasattr(video_file, "filename") and video_file.filename:
+                if video_file is not None and getattr(video_file, 'file', None) is not None:
                     # Handle file upload
-                    input_filename = os.path.basename(video_file.filename)
+                    input_filename = resolve_uploaded_filename(video_file, fallback_prefix="preview_upload")
                     # Use session ID in filename to make it unique
                     safe_filename = f"{new_session_id}_{input_filename}"
                     local_video_path = os.path.join(PREVIEW_SUBDIRECTORY, safe_filename)
@@ -2036,8 +2288,8 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 # Extract original filename based on source type
                 original_fn = None
                 if video_file is not None:
-                    # File upload - use the original filename
-                    original_fn = os.path.basename(video_file.filename) if hasattr(video_file, 'filename') else None
+                    # File upload - preserve original name when present; fallback if multipart filename is missing.
+                    original_fn = resolve_uploaded_filename(video_file, fallback_prefix="preview_upload")
                 elif video_url:
                     # URL download - use video_title from yt-dlp if available, otherwise extract from URL
                     if video_title:

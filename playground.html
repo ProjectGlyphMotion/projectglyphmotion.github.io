@@ -1695,6 +1695,97 @@
         // Backend URL Logic
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const BASE_URL = isLocal ? 'http://localhost:5000' : 'https://backend.projectglyphmotion.studio';
+        const UPLOAD_REQUEST_TIMEOUT_MS = 8 * 60 * 1000;
+        const CHUNK_UPLOAD_THRESHOLD_BYTES = 48 * 1024 * 1024;
+        const CHUNK_SIZE_BYTES = 16 * 1024 * 1024;
+        const CHUNK_UPLOAD_ENDPOINT = `${BASE_URL}/upload_chunk`;
+        const COMPLETE_CHUNK_UPLOAD_ENDPOINT = `${BASE_URL}/complete_chunked_upload`;
+
+        function formatBytes(bytes) {
+            if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let size = bytes;
+            let unitIndex = 0;
+            while (size >= 1024 && unitIndex < units.length - 1) {
+                size /= 1024;
+                unitIndex += 1;
+            }
+            return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+        }
+
+        async function verifyBackendReachable() {
+            try {
+                const pingController = new AbortController();
+                const pingTimer = setTimeout(() => pingController.abort(), 5000);
+                const response = await fetch(`${BASE_URL}/status`, {
+                    method: 'GET',
+                    signal: pingController.signal
+                });
+                clearTimeout(pingTimer);
+                return response.ok;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        async function uploadFileInChunks(file, selectedClasses, confidenceThreshold) {
+            const uploadId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE_BYTES);
+
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+                const start = chunkIndex * CHUNK_SIZE_BYTES;
+                const end = Math.min(start + CHUNK_SIZE_BYTES, file.size);
+                const chunkBlob = file.slice(start, end);
+
+                const chunkForm = new FormData();
+                chunkForm.append('upload_id', uploadId);
+                chunkForm.append('chunk_index', String(chunkIndex));
+                chunkForm.append('total_chunks', String(totalChunks));
+                chunkForm.append('original_filename', file.name || 'uploaded_video.mp4');
+                chunkForm.append('chunk', chunkBlob, `${file.name || 'video'}.part${chunkIndex}`);
+
+                const chunkController = new AbortController();
+                const chunkTimer = setTimeout(() => chunkController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
+                const chunkResponse = await fetch(CHUNK_UPLOAD_ENDPOINT, {
+                    method: 'POST',
+                    body: chunkForm,
+                    signal: chunkController.signal
+                });
+                clearTimeout(chunkTimer);
+
+                if (!chunkResponse.ok) {
+                    const chunkError = await chunkResponse.json().catch(() => ({}));
+                    throw new Error(chunkError.message || `Chunk upload failed at ${chunkIndex + 1}/${totalChunks}`);
+                }
+
+                const percent = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+                showStatus(`Uploading in chunks: ${percent}% (${chunkIndex + 1}/${totalChunks})`, 'info');
+            }
+
+            const completeController = new AbortController();
+            const completeTimer = setTimeout(() => completeController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
+            const completeResponse = await fetch(COMPLETE_CHUNK_UPLOAD_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    upload_id: uploadId,
+                    allowed_classes: selectedClasses,
+                    confidence_threshold: Number(confidenceThreshold),
+                    roi_enabled: 'false'
+                }),
+                signal: completeController.signal
+            });
+            clearTimeout(completeTimer);
+
+            if (!completeResponse.ok) {
+                const completeError = await completeResponse.json().catch(() => ({}));
+                throw new Error(completeError.message || 'Failed to finalize chunked upload.');
+            }
+
+            return completeResponse;
+        }
 
         studioForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1712,6 +1803,12 @@
                 return;
             }
 
+            const backendReachable = await verifyBackendReachable();
+            if (!backendReachable) {
+                showStatus('Backend is unreachable right now. Upload was not started to avoid wasting data.', 'error');
+                return;
+            }
+
             const formData = new FormData();
             if (videoFile) formData.append('video_file', videoFile);
             if (videoUrl) formData.append('video_url', videoUrl);
@@ -1725,10 +1822,20 @@
             showStatus('Sending request to server...', 'info');
 
             try {
-                const response = await fetch(`${BASE_URL}/process_web_video`, {
-                    method: 'POST',
-                    body: formData
-                });
+                let response;
+                if (videoFile && Number.isFinite(videoFile.size) && videoFile.size >= CHUNK_UPLOAD_THRESHOLD_BYTES) {
+                    showStatus(`Large file detected (${formatBytes(videoFile.size)}). Starting chunked upload...`, 'info');
+                    response = await uploadFileInChunks(videoFile, selectedClasses, confSlider.value);
+                } else {
+                    const uploadController = new AbortController();
+                    const uploadTimer = setTimeout(() => uploadController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
+                    response = await fetch(`${BASE_URL}/process_web_video`, {
+                        method: 'POST',
+                        body: formData,
+                        signal: uploadController.signal
+                    });
+                    clearTimeout(uploadTimer);
+                }
                 
                 if (response.ok) {
                     showStatus('🚀 Processing started! <a href="index.html" class="underline font-bold">Go to Dashboard</a> to monitor progress.', 'success');
@@ -1737,7 +1844,8 @@
                     showStatus(data.message || 'Server error occurred.', 'error');
                 }
             } catch (err) {
-                showStatus('Network error: ' + err.message, 'error');
+                const fileHint = videoFile ? ` File size: ${formatBytes(videoFile.size)}.` : '';
+                showStatus('Network error before backend accepted upload. Usually backend unreachable, unstable connection, or proxy size/time limits.' + fileHint, 'error');
             } finally {
                 processBtn.disabled = false;
                 processBtn.innerHTML = '<i class="fas fa-rocket"></i> Process Video';
