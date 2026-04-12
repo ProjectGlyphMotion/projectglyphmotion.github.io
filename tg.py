@@ -2436,6 +2436,87 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 logger.error(f"Error handling video deletion: {e}", exc_info=True)
                 self.send_api_response(500, {"message": f"Server error during deletion: {e}"})
+        elif self.path == '/benchmark_data/delete_records':
+            admin_payload = self._authenticate_request()
+            if not admin_payload:
+                return
+
+            try:
+                with _benchmark_lock:
+                    if _benchmark_in_progress:
+                        self.send_api_response(409, {
+                            "message": "Cannot delete benchmark records while benchmark run is in progress.",
+                            "benchmarkInProgress": True
+                        })
+                        return
+
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+                data = json.loads(post_body.decode('utf-8') or '{}')
+
+                raw_indices = data.get('recordIndices')
+                if not isinstance(raw_indices, list) or not raw_indices:
+                    self.send_api_response(400, {"message": "'recordIndices' must be a non-empty array."})
+                    return
+
+                sanitized_indices = []
+                for value in raw_indices:
+                    try:
+                        idx = int(value)
+                    except (TypeError, ValueError):
+                        continue
+                    if idx >= 0:
+                        sanitized_indices.append(idx)
+                unique_indices = sorted(set(sanitized_indices))
+
+                if not unique_indices:
+                    self.send_api_response(400, {"message": "No valid record indices provided for deletion."})
+                    return
+
+                records = []
+                if os.path.exists('benchmark_data.json'):
+                    with open('benchmark_data.json', 'r', encoding='utf-8') as benchmark_file:
+                        loaded = json.load(benchmark_file)
+                    if isinstance(loaded, dict) and isinstance(loaded.get('records'), list):
+                        records = loaded.get('records', [])
+                    elif isinstance(loaded, list):
+                        records = loaded
+
+                if not records:
+                    self.send_api_response(404, {"message": "No benchmark records available to delete."})
+                    return
+
+                max_index = len(records) - 1
+                valid_indices = [idx for idx in unique_indices if idx <= max_index]
+                if not valid_indices:
+                    self.send_api_response(400, {"message": "Selected record indices are out of bounds."})
+                    return
+
+                index_set = set(valid_indices)
+                remaining_records = [record for i, record in enumerate(records) if i not in index_set]
+                deleted_count = len(records) - len(remaining_records)
+
+                if deleted_count <= 0:
+                    self.send_api_response(400, {"message": "No benchmark records were deleted."})
+                    return
+
+                _save_json_and_csv(remaining_records)
+
+                logger.info(
+                    f"Deleted {deleted_count} benchmark record(s) by admin '{admin_payload.get('username')}'. "
+                    f"Indices: {valid_indices}"
+                )
+                self.send_api_response(200, {
+                    "message": f"Deleted {deleted_count} benchmark record(s).",
+                    "deletedCount": deleted_count,
+                    "deletedIndices": valid_indices,
+                    "remainingCount": len(remaining_records)
+                })
+            except json.JSONDecodeError:
+                self.send_api_response(400, {"message": "Invalid JSON payload."})
+            except Exception as e:
+                logger.error(f"Error deleting benchmark records: {e}", exc_info=True)
+                self.send_api_response(500, {"message": f"Server error deleting benchmark records: {e}"})
         elif self.path == '/benchmark_settings':
             admin_payload = self._authenticate_request()
             if not admin_payload:

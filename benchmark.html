@@ -178,6 +178,31 @@
             color: #fbbf24;
         }
 
+        .control-pill[disabled] {
+            opacity: 0.45;
+            cursor: not-allowed;
+            filter: grayscale(0.2);
+        }
+
+        .control-pill.control-pill-danger {
+            border-color: rgba(248, 113, 113, 0.34);
+            background: rgba(127, 29, 29, 0.35);
+            color: #fca5a5;
+        }
+
+        .control-pill.control-pill-danger:hover:not([disabled]) {
+            border-color: rgba(248, 113, 113, 0.6);
+            background: rgba(185, 28, 28, 0.35);
+            color: #fecaca;
+        }
+
+        .control-pill.control-pill-armed {
+            border-color: rgba(245, 158, 11, 0.62);
+            background: rgba(245, 158, 11, 0.18);
+            color: #fde68a;
+            box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2), 0 0 16px -10px rgba(245, 158, 11, 0.7);
+        }
+
         .status-widget {
             display: inline-flex;
             align-items: center;
@@ -447,6 +472,26 @@
             max-width: 280px;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .records-table th.record-select-col,
+        .records-table td.record-select-col {
+            min-width: 28px;
+            width: 28px;
+            max-width: 28px;
+            text-align: center;
+            padding-left: 0.2rem;
+            padding-right: 0.2rem;
+            border-left: 1px solid rgba(245, 158, 11, 0.16);
+            background: linear-gradient(180deg, rgba(11, 11, 14, 0.92) 0%, rgba(13, 13, 17, 0.92) 100%);
+        }
+
+        #recordsSelectAll,
+        .record-row-select {
+            width: 14px;
+            height: 14px;
+            accent-color: #f59e0b;
+            cursor: pointer;
         }
 
         .aggregate-table {
@@ -906,6 +951,12 @@
             border-color: rgba(248, 113, 113, 0.55);
             color: #fda4af;
         }
+
+        .custom-toast.warning {
+            border-color: rgba(251, 191, 36, 0.55);
+            color: #fde68a;
+            background: rgba(34, 24, 7, 0.92);
+        }
     </style>
 </head>
 
@@ -994,13 +1045,22 @@
                     <h2 class="font-outfit text-3xl md:text-4xl font-bold text-white mb-4">Quality + Pipeline Trends
                     </h2>
                     <p class="text-zinc-400 max-w-2xl mx-auto font-outfit">VMAF, SSIM, PSNR quality scores, pipeline
-                        FPS, adaptive mode distribution, and file size comparisons across all benchmark runs.</p>
+                        FPS, MOTA tracking quality, adaptive mode distribution, and file size comparisons across all benchmark runs.</p>
                 </header>
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     <div class="chart-box"><canvas id="qualityChart"></canvas></div>
                     <div class="chart-box"><canvas id="speedChart"></canvas></div>
+                    <div class="chart-box"><canvas id="motaVmafChart"></canvas></div>
+                    <div class="chart-box"><canvas id="qualityRadarChart"></canvas></div>
+                    <div class="chart-box"><canvas id="trackingHealthChart"></canvas></div>
+                    <div class="chart-box"><canvas id="latencySpreadChart"></canvas></div>
                     <div class="chart-box"><canvas id="modeChart"></canvas></div>
                     <div class="chart-box"><canvas id="sizeChart"></canvas></div>
+                    <div class="chart-box"><canvas id="resourceStressChart"></canvas></div>
+                    <div class="chart-box"><canvas id="compressionEfficiencyChart"></canvas></div>
+                    <div class="chart-box"><canvas id="hfdrBehaviorChart"></canvas></div>
+                    <div class="chart-box"><canvas id="detectionQualityChart"></canvas></div>
+                    <div class="chart-box xl:col-span-2"><canvas id="perfScatterChart"></canvas></div>
                     <div class="chart-box xl:col-span-2"><canvas id="classChart"></canvas></div>
                 </div>
             </div>
@@ -1060,14 +1120,24 @@
                                 </h2>
                                 <p class="table-subtitle">Raw run-by-run telemetry across video, quality, speed, and pipeline dimensions.</p>
                             </div>
-                            <input id="recordsFilter" type="text"
-                                class="table-filter-input rounded-lg px-3 py-2 text-xs text-zinc-200 w-full md:w-72 max-w-full font-mono"
-                                placeholder="Filter by title/commit..." />
+                            <div class="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
+                                <input id="recordsFilter" type="text"
+                                    class="table-filter-input rounded-lg px-3 py-2 text-xs text-zinc-200 w-full md:w-72 max-w-full font-mono"
+                                    placeholder="Filter by title/commit..." />
+                                <div class="flex items-center gap-2">
+                                    <button id="toggleRecordSelectionModeBtn" class="control-pill">Enable Precision Delete Mode</button>
+                                </div>
+                                <div id="recordSelectionActions" class="hidden flex items-center gap-2">
+                                    <button id="clearSelectedRecordsBtn" class="control-pill" disabled>Clear Selection</button>
+                                    <button id="deleteSelectedRecordsBtn" class="control-pill control-pill-danger" disabled>Delete Selected</button>
+                                </div>
+                            </div>
                         </div>
                         <div class="table-kpis">
                             <span class="table-kpi">Total Records <span id="recordsTotalRows" class="val">0</span></span>
                             <span class="table-kpi">Visible Rows <span id="recordsVisibleRows" class="val">0</span></span>
                             <span class="table-kpi">Visible Columns <span id="recordsVisibleCols" class="val">0</span></span>
+                            <span class="table-kpi">Selected <span id="recordsSelectedRows" class="val">0</span></span>
                         </div>
                     </div>
                 </header>
@@ -1142,6 +1212,7 @@
         const BENCHMARK_API_URL = `${NGROK_PUBLIC_URL}/benchmark_data`;
         const BENCHMARK_CSV_URL = `${NGROK_PUBLIC_URL}/benchmark_data.csv`;
         const BENCHMARK_SETTINGS_URL = `${NGROK_PUBLIC_URL}/benchmark_settings`;
+        const BENCHMARK_DELETE_RECORDS_URL = `${NGROK_PUBLIC_URL}/benchmark_data/delete_records`;
         const STATUS_ENDPOINT = `${NGROK_PUBLIC_URL}/status`;
         const ADMIN_AUTH_EVENTS_ENDPOINT = `${NGROK_PUBLIC_URL}/events/admin_auth`;
         const VIDEOS_JSON_URL = _origin ? `${_origin}/videos.json` : './videos.json';
@@ -1167,6 +1238,11 @@
         let lastServerOnlineState = null;
         let reconnectSyncInFlight = false;
         let freshnessTicker = null;
+        let selectedRecordIndexes = new Set();
+        let visibleRecordIndexes = [];
+        let recordSelectionModeEnabled = false;
+        let deleteConfirmStage = 0;
+        let deleteConfirmTimer = null;
 
         // ==================== UTILITIES ====================
         function normalizeText(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '').trim(); }
@@ -1497,6 +1573,133 @@
                 if (isMeaningfulValue(value)) return value;
             }
             return '';
+        }
+        function resetDeleteConfirmState() {
+            deleteConfirmStage = 0;
+            if (deleteConfirmTimer) {
+                clearTimeout(deleteConfirmTimer);
+                deleteConfirmTimer = null;
+            }
+        }
+        function setRecordSelectionMode(enabled, shouldRender = true) {
+            recordSelectionModeEnabled = !!enabled;
+            resetDeleteConfirmState();
+            if (!recordSelectionModeEnabled) selectedRecordIndexes.clear();
+
+            const btn = document.getElementById('toggleRecordSelectionModeBtn');
+            if (btn) {
+                btn.textContent = recordSelectionModeEnabled ? 'Disable Precision Delete Mode' : 'Enable Precision Delete Mode';
+                btn.classList.toggle('control-pill-armed', recordSelectionModeEnabled);
+            }
+
+            const actions = document.getElementById('recordSelectionActions');
+            if (actions) actions.classList.toggle('hidden', !recordSelectionModeEnabled);
+
+            if (shouldRender) {
+                const filterInput = document.getElementById('recordsFilter');
+                renderRecordsTable(cachedPayload.records || [], filterInput?.value || '');
+            } else {
+                syncRecordSelectionState((cachedPayload.records || []).length);
+            }
+        }
+        function syncRecordSelectionState(totalRecords = 0) {
+            const normalizedTotal = Number(totalRecords || 0);
+            selectedRecordIndexes = new Set([...selectedRecordIndexes].filter(idx => idx >= 0 && idx < normalizedTotal));
+            const selectedCount = recordSelectionModeEnabled ? selectedRecordIndexes.size : 0;
+
+            const selectedCountNode = document.getElementById('recordsSelectedRows');
+            if (selectedCountNode) selectedCountNode.textContent = String(selectedCount);
+
+            const deleteBtn = document.getElementById('deleteSelectedRecordsBtn');
+            const clearBtn = document.getElementById('clearSelectedRecordsBtn');
+            if (deleteBtn) deleteBtn.disabled = !recordSelectionModeEnabled || selectedCount === 0;
+            if (clearBtn) clearBtn.disabled = !recordSelectionModeEnabled || selectedCount === 0;
+
+            const selectAll = document.getElementById('recordsSelectAll');
+            if (selectAll) {
+                const visibleCount = visibleRecordIndexes.length;
+                const visibleSelectedCount = visibleRecordIndexes.filter(idx => selectedRecordIndexes.has(idx)).length;
+                selectAll.checked = visibleCount > 0 && visibleSelectedCount === visibleCount;
+                selectAll.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < visibleCount;
+            }
+        }
+        function clearRecordSelection(shouldRender = true) {
+            selectedRecordIndexes.clear();
+            resetDeleteConfirmState();
+            if (shouldRender) {
+                const filterInput = document.getElementById('recordsFilter');
+                renderRecordsTable(cachedPayload.records || [], filterInput?.value || '');
+            } else {
+                syncRecordSelectionState((cachedPayload.records || []).length);
+            }
+        }
+        async function deleteSelectedBenchmarkRecords() {
+            const selected = [...selectedRecordIndexes].sort((a, b) => a - b);
+            if (!recordSelectionModeEnabled) {
+                showToast('Precision Delete Mode is off. Enable it before selecting records.', 'warning', 2300);
+                return;
+            }
+            if (!selected.length) {
+                showToast('Pick at least one record before hitting delete.', 'warning', 2100);
+                return;
+            }
+
+            const isBulkDelete = selected.length > 4;
+            const requiredConfirmations = isBulkDelete ? 2 : 1;
+            if (deleteConfirmStage < requiredConfirmations) {
+                if (isBulkDelete && deleteConfirmStage === 0) {
+                    showToast(`Deleting ${selected.length} records at once? Bold move. Click Delete Selected again if you mean it.`, 'warning', 3400);
+                } else if (isBulkDelete && deleteConfirmStage === 1) {
+                    showToast('Second confirmation: the benchmark goblins asked, "absolutely sure?" Click once more to proceed.', 'warning', 3600);
+                } else {
+                    showToast(`Final check: deleting ${selected.length} record(s). Click Delete Selected again to confirm.`, 'warning', 3000);
+                }
+
+                deleteConfirmStage += 1;
+                if (deleteConfirmTimer) clearTimeout(deleteConfirmTimer);
+                deleteConfirmTimer = setTimeout(() => {
+                    deleteConfirmStage = 0;
+                    deleteConfirmTimer = null;
+                }, 10000);
+                return;
+            }
+            resetDeleteConfirmState();
+
+            const deleteBtn = document.getElementById('deleteSelectedRecordsBtn');
+            const clearBtn = document.getElementById('clearSelectedRecordsBtn');
+            const deleteBtnText = deleteBtn ? deleteBtn.textContent : 'Delete Selected';
+            if (deleteBtn) {
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = 'Deleting...';
+            }
+            if (clearBtn) clearBtn.disabled = true;
+
+            try {
+                const response = await authenticatedFetch(BENCHMARK_DELETE_RECORDS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ recordIndices: selected })
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(payload?.message || `Failed to delete records (${response.status})`);
+                }
+
+                const deletedCount = Number(payload?.deletedCount || selected.length);
+                selectedRecordIndexes.clear();
+                visibleRecordIndexes = [];
+                showToast(`Record purge complete: ${deletedCount} benchmark entr${deletedCount === 1 ? 'y' : 'ies'} removed from the server ledger.`, 'success', 2600);
+                await loadDashboard();
+            } catch (error) {
+                if (!String(error?.message || '').toLowerCase().includes('authentication')) {
+                    showToast(error?.message || 'Failed to delete selected records.', 'error', 2500);
+                }
+            } finally {
+                if (deleteBtn) {
+                    deleteBtn.textContent = deleteBtnText;
+                }
+                syncRecordSelectionState((cachedPayload.records || []).length);
+            }
         }
         function redirectToAdminLogin() { window.location.href = 'admin.html'; }
         function clearAdminSession() {
@@ -1843,22 +2046,53 @@
 
         function renderRecordsTable(records, filter = '') {
             const table = document.getElementById('recordsTable'); const q = normalizeText(filter);
-            const filtered = (records || []).filter(r => {
+            const indexedRows = (records || []).map((row, index) => ({ row, index }));
+            const filtered = indexedRows.filter(({ row }) => {
                 if (!q) return true;
-                return normalizeText(r.video_title).includes(q) || normalizeText(r.commit_sha).includes(q);
+                return normalizeText(row.video_title).includes(q) || normalizeText(row.commit_sha).includes(q);
             });
-            const unifiedColumns = buildUnifiedRecordColumns(filtered);
+            visibleRecordIndexes = filtered.map(item => item.index);
+            const unifiedColumns = buildUnifiedRecordColumns(filtered.map(item => item.row));
             if (!unifiedColumns.length) {
                 table.innerHTML = '<thead><tr><th>Records</th></tr></thead><tbody><tr><td class="text-center text-zinc-400 py-6 mono">No benchmark records found. Feed me benchmarks and I shall return glorious numbers.</td></tr></tbody>';
                 document.getElementById('recordsTotalRows').textContent = String((records || []).length);
                 document.getElementById('recordsVisibleRows').textContent = String(filtered.length);
                 document.getElementById('recordsVisibleCols').textContent = '0';
+                syncRecordSelectionState((records || []).length);
                 return;
             }
-            table.innerHTML = `<thead><tr>${unifiedColumns.map(col => `<th>${col.label}</th>`).join('')}</tr></thead><tbody>${filtered.map(row => `<tr>${unifiedColumns.map(col => { const v = getRecordColumnValue(row, col.aliases); if (v && typeof v === 'object') return `<td>${JSON.stringify(v)}</td>`; return `<td>${v === null || v === undefined ? '' : String(v)}</td>`; }).join('')}</tr>`).join('')}</tbody>`;
+            table.innerHTML = `<thead><tr>${unifiedColumns.map(col => `<th>${col.label}</th>`).join('')}${recordSelectionModeEnabled ? '<th class="record-select-col"><input id="recordsSelectAll" type="checkbox" aria-label="Select all visible benchmark records" /></th>' : ''}</tr></thead><tbody>${filtered.map(({ row, index }) => `<tr>${unifiedColumns.map(col => { const v = getRecordColumnValue(row, col.aliases); if (v && typeof v === 'object') return `<td>${JSON.stringify(v)}</td>`; return `<td>${v === null || v === undefined ? '' : String(v)}</td>`; }).join('')}${recordSelectionModeEnabled ? `<td class="record-select-col"><input class="record-row-select" type="checkbox" data-record-index="${index}" ${selectedRecordIndexes.has(index) ? 'checked' : ''} aria-label="Select record ${index + 1}" /></td>` : ''}</tr>`).join('')}</tbody>`;
+
+            if (recordSelectionModeEnabled) {
+                const selectAll = document.getElementById('recordsSelectAll');
+                if (selectAll) {
+                    selectAll.addEventListener('change', (event) => {
+                        const checked = !!event.target?.checked;
+                        visibleRecordIndexes.forEach(idx => {
+                            if (checked) selectedRecordIndexes.add(idx);
+                            else selectedRecordIndexes.delete(idx);
+                        });
+                        resetDeleteConfirmState();
+                        renderRecordsTable(records, filter);
+                    });
+                }
+
+                table.querySelectorAll('.record-row-select').forEach(node => {
+                    node.addEventListener('change', (event) => {
+                        const idx = Number(event.target?.dataset?.recordIndex);
+                        if (!Number.isFinite(idx)) return;
+                        if (event.target.checked) selectedRecordIndexes.add(idx);
+                        else selectedRecordIndexes.delete(idx);
+                        resetDeleteConfirmState();
+                        syncRecordSelectionState((records || []).length);
+                    });
+                });
+            }
+
             document.getElementById('recordsTotalRows').textContent = String((records || []).length);
             document.getElementById('recordsVisibleRows').textContent = String(filtered.length);
             document.getElementById('recordsVisibleCols').textContent = String(unifiedColumns.length);
+            syncRecordSelectionState((records || []).length);
         }
 
         function bindInnerScroll(shellId) {
@@ -1890,12 +2124,276 @@
             chartRefs.forEach(c => c.destroy()); chartRefs = [];
             const records = (payload.records || []).slice().reverse(); const labels = records.map(r => (r.video_title || 'Video').slice(0, 24));
             const chartOpts = (title) => ({ responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: title, color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } }, legend: { labels: { boxWidth: 10, padding: 12 } } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.04)' } }, x: { grid: { display: false }, ticks: { maxRotation: 45 } } } });
+            const metricNum = (row, aliases = [], fallback = 0) => {
+                for (const key of aliases) {
+                    const n = Number(row?.[key]);
+                    if (Number.isFinite(n)) return n;
+                }
+                return fallback;
+            };
+            const metricNumOrNull = (row, aliases = []) => {
+                for (const key of aliases) {
+                    const n = Number(row?.[key]);
+                    if (Number.isFinite(n)) return n;
+                }
+                return null;
+            };
+            const avgList = (vals = []) => {
+                const valid = vals.filter(Number.isFinite);
+                if (!valid.length) return 0;
+                return valid.reduce((a, b) => a + b, 0) / valid.length;
+            };
 
             chartRefs.push(new Chart(document.getElementById('qualityChart'), { type: 'line', data: { labels, datasets: [{ label: 'VMAF', data: records.map(r => Number(r.vmaf || 0)), borderColor: '#f59e0b', tension: 0.3, pointRadius: 4 }, { label: 'SSIM', data: records.map(r => Number(r.ssim || 0)), borderColor: '#10b981', tension: 0.3, pointRadius: 4 }, { label: 'PSNR', data: records.map(r => Number(r.psnr || 0)), borderColor: '#60a5fa', tension: 0.3, pointRadius: 4 }] }, options: chartOpts('Quality Metrics') }));
             chartRefs.push(new Chart(document.getElementById('speedChart'), { type: 'bar', data: { labels, datasets: [{ label: 'Pipeline FPS', data: records.map(r => Number(r.Avg_Pipeline_FPS || r.avg_fps || 0)), backgroundColor: '#a78bfa', borderRadius: 6 }, { label: 'Avg Latency (ms)', data: records.map(r => Number(r.Avg_Latency_ms || r.avg_latency_ms || 0)), backgroundColor: '#f97316', borderRadius: 6 }] }, options: chartOpts('Speed & Latency') }));
+
+            const motaSeries = records.map(r => metricNumOrNull(r, ['MOTA_Score', 'mota_score', 'MOTA', 'mota']));
+            const idf1Series = records.map(r => metricNumOrNull(r, ['IDF1_Score', 'idf1_score', 'IDF1', 'idf1']));
+            const vmafSeries = records.map(r => metricNumOrNull(r, ['vmaf', 'VMAF']));
+            chartRefs.push(new Chart(document.getElementById('motaVmafChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'VMAF', data: vmafSeries, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.2)', yAxisID: 'yQuality', tension: 0.3, pointRadius: 3 },
+                        { label: 'MOTA', data: motaSeries, borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.2)', yAxisID: 'yTracking', tension: 0.3, pointRadius: 3 },
+                        { label: 'IDF1', data: idf1Series, borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.2)', yAxisID: 'yTracking', tension: 0.3, pointRadius: 2, borderDash: [6, 4] }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'VMAF vs MOTA Tracking Curve', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
+                        legend: { labels: { boxWidth: 10, padding: 12 } }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
+                        yQuality: { position: 'left', min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        yTracking: { position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false } }
+                    }
+                }
+            }));
+
+            const ssimSeries = records.map(r => metricNumOrNull(r, ['ssim', 'SSIM'])).filter(Number.isFinite);
+            const psnrSeries = records.map(r => metricNumOrNull(r, ['psnr', 'PSNR'])).filter(Number.isFinite);
+            const radarVmaf = avgList(vmafSeries.filter(Number.isFinite));
+            const radarMota = avgList(motaSeries.filter(Number.isFinite));
+            const radarIdf1 = avgList(idf1Series.filter(Number.isFinite));
+            const radarSsimScaled = avgList(ssimSeries) * 100;
+            const radarPsnrScaled = Math.min(100, avgList(psnrSeries) * 2.5);
+            chartRefs.push(new Chart(document.getElementById('qualityRadarChart'), {
+                type: 'radar',
+                data: {
+                    labels: ['VMAF', 'MOTA', 'IDF1', 'SSIM x100', 'PSNR x2.5'],
+                    datasets: [{
+                        label: 'Average Quality Profile',
+                        data: [radarVmaf, radarMota, radarIdf1, radarSsimScaled, radarPsnrScaled],
+                        borderColor: '#f43f5e',
+                        backgroundColor: 'rgba(244,63,94,0.2)',
+                        pointBackgroundColor: '#fb7185',
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Quality Fingerprint Radar', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
+                        legend: { labels: { boxWidth: 10, padding: 12 } }
+                    },
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 100,
+                            grid: { color: 'rgba(255,255,255,0.08)' },
+                            angleLines: { color: 'rgba(255,255,255,0.08)' },
+                            pointLabels: { color: '#d4d4d8', font: { family: 'JetBrains Mono', size: 10 } },
+                            ticks: { display: false }
+                        }
+                    }
+                }
+            }));
+
+            chartRefs.push(new Chart(document.getElementById('trackingHealthChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'MOTA', data: records.map(r => metricNumOrNull(r, ['MOTA_Score', 'mota_score', 'MOTA', 'mota'])), borderColor: '#22d3ee', tension: 0.28, pointRadius: 2.5 },
+                        { label: 'IDF1', data: records.map(r => metricNumOrNull(r, ['IDF1_Score', 'idf1_score', 'IDF1', 'idf1'])), borderColor: '#a78bfa', tension: 0.28, pointRadius: 2.5 },
+                        { label: 'HOTA', data: records.map(r => metricNumOrNull(r, ['HOTA_Score', 'hota_score', 'HOTA', 'hota'])), borderColor: '#34d399', tension: 0.28, pointRadius: 2.5 },
+                        { label: 'ID Switches', data: records.map(r => metricNumOrNull(r, ['ID_Switches', 'id_switches'])), borderColor: '#f87171', tension: 0.2, pointRadius: 2, yAxisID: 'ySecondary', borderDash: [5, 4] }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Tracking Health Panel (MOTA/IDF1/HOTA)', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
+                        legend: { labels: { boxWidth: 10, padding: 12 } }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
+                        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        ySecondary: { position: 'right', min: 0, grid: { drawOnChartArea: false } }
+                    }
+                }
+            }));
+
+            chartRefs.push(new Chart(document.getElementById('latencySpreadChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Min Latency (ms)', data: records.map(r => metricNumOrNull(r, ['Min_Latency_ms', 'min_latency_ms'])), borderColor: '#22c55e', tension: 0.3, pointRadius: 2 },
+                        { label: 'Avg Latency (ms)', data: records.map(r => metricNumOrNull(r, ['Avg_Latency_ms', 'avg_latency_ms'])), borderColor: '#f59e0b', tension: 0.3, pointRadius: 2 },
+                        { label: 'Max Latency (ms)', data: records.map(r => metricNumOrNull(r, ['Max_Latency_ms', 'max_latency_ms'])), borderColor: '#ef4444', tension: 0.3, pointRadius: 2 },
+                        { label: 'Latency Jitter (ms)', data: records.map(r => metricNumOrNull(r, ['Latency_Jitter_ms', 'latency_jitter_ms'])), borderColor: '#60a5fa', tension: 0.3, pointRadius: 2, borderDash: [6, 3] }
+                    ]
+                },
+                options: chartOpts('Latency Envelope + Jitter')
+            }));
+
             const mA = records.reduce((a, r) => a + Number(r.mode_a_frames || 0), 0); const mB = records.reduce((a, r) => a + Number(r.mode_b_frames || 0), 0);
             chartRefs.push(new Chart(document.getElementById('modeChart'), { type: 'doughnut', data: { labels: ['Mode A (Temporal)', 'Mode B (ROI+Temporal)'], datasets: [{ data: [mA, mB], backgroundColor: ['#f59e0b', '#60a5fa'], borderWidth: 2, borderColor: 'rgba(0,0,0,0.3)' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '72%', radius: '78%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } } } } }));
             chartRefs.push(new Chart(document.getElementById('sizeChart'), { type: 'bar', data: { labels, datasets: [{ label: 'Original MB', data: records.map(r => Number(r.orig_file_size_mb || r.Original_Size_MB || 0)), backgroundColor: '#22d3ee', borderRadius: 6 }, { label: 'Processed MB', data: records.map(r => Number(r.proc_file_size_mb || r.Output_Size_MB || 0)), backgroundColor: '#f43f5e', borderRadius: 6 }] }, options: chartOpts('File Size Comparison') }));
+
+            chartRefs.push(new Chart(document.getElementById('resourceStressChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Peak CPU %', data: records.map(r => metricNumOrNull(r, ['Peak_CPU_%', 'peak_cpu_percent'])), borderColor: '#f97316', tension: 0.28, pointRadius: 2.5, yAxisID: 'util' },
+                        { label: 'Peak GPU Util %', data: records.map(r => metricNumOrNull(r, ['Peak_GPU_Util_%', 'peak_gpu_util_percent'])), borderColor: '#8b5cf6', tension: 0.28, pointRadius: 2.5, yAxisID: 'util' },
+                        { label: 'Peak RAM MB', data: records.map(r => metricNumOrNull(r, ['Peak_RAM_MB', 'peak_ram_mb'])), borderColor: '#22d3ee', tension: 0.28, pointRadius: 2.5, yAxisID: 'mem' },
+                        { label: 'Peak VRAM MB', data: records.map(r => metricNumOrNull(r, ['Peak_VRAM_MB', 'peak_vram_mb'])), borderColor: '#10b981', tension: 0.28, pointRadius: 2.5, yAxisID: 'mem' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'System Resource Stress (CPU/GPU/RAM/VRAM)', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
+                        legend: { labels: { boxWidth: 10, padding: 12 } }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
+                        util: { position: 'left', min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        mem: { position: 'right', min: 0, grid: { drawOnChartArea: false } }
+                    }
+                }
+            }));
+
+            chartRefs.push(new Chart(document.getElementById('compressionEfficiencyChart'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Input Video Mbps', data: records.map(r => metricNumOrNull(r, ['orig_bitrate_mbps', 'Actual_Bitrate_Mbps'])), backgroundColor: 'rgba(34,211,238,0.6)', borderRadius: 5, yAxisID: 'bitrate' },
+                        { label: 'Output Video Mbps', data: records.map(r => metricNumOrNull(r, ['proc_bitrate_mbps', 'Output_Video_Mbps'])), backgroundColor: 'rgba(244,63,94,0.6)', borderRadius: 5, yAxisID: 'bitrate' },
+                        { label: 'Compression Ratio', data: records.map(r => metricNumOrNull(r, ['compression_ratio', 'Compression_Ratio'])), type: 'line', borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.2)', tension: 0.25, pointRadius: 2.5, yAxisID: 'ratio' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Compression Efficiency (Bitrate + Ratio)', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
+                        legend: { labels: { boxWidth: 10, padding: 12 } }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
+                        bitrate: { position: 'left', min: 0, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        ratio: { position: 'right', min: 0, grid: { drawOnChartArea: false } }
+                    }
+                }
+            }));
+
+            chartRefs.push(new Chart(document.getElementById('hfdrBehaviorChart'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'HFDR Fresh', data: records.map(r => metricNumOrNull(r, ['hfdr_fresh_count'])), backgroundColor: 'rgba(16,185,129,0.72)', stack: 'hfdr' },
+                        { label: 'HFDR Cached', data: records.map(r => metricNumOrNull(r, ['hfdr_cached_count'])), backgroundColor: 'rgba(59,130,246,0.72)', stack: 'hfdr' },
+                        { label: 'HFDR Gated', data: records.map(r => metricNumOrNull(r, ['hfdr_gated_count'])), backgroundColor: 'rgba(245,158,11,0.72)', stack: 'hfdr' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'HFDR Behavior Distribution', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
+                        legend: { labels: { boxWidth: 10, padding: 12 } }
+                    },
+                    scales: {
+                        x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 45 } },
+                        y: { stacked: true, min: 0, grid: { color: 'rgba(255,255,255,0.04)' } }
+                    }
+                }
+            }));
+
+            chartRefs.push(new Chart(document.getElementById('detectionQualityChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'YOLO Count', data: records.map(r => metricNumOrNull(r, ['YOLO_Count', 'total_detections', 'Total_Detections'])), borderColor: '#38bdf8', tension: 0.25, pointRadius: 2.5, yAxisID: 'count' },
+                        { label: 'Avg Confidence', data: records.map(r => metricNumOrNull(r, ['avg_confidence', 'YOLO_Confidence_Avg'])).map(v => Number.isFinite(v) ? v * (v <= 1.0 ? 100 : 1) : null), borderColor: '#facc15', tension: 0.25, pointRadius: 2.5, yAxisID: 'score' },
+                        { label: 'mAP@0.5', data: records.map(r => metricNumOrNull(r, ['mAP@0.5'])).map(v => Number.isFinite(v) ? v * (v <= 1.0 ? 100 : 1) : null), borderColor: '#34d399', tension: 0.25, pointRadius: 2.5, yAxisID: 'score' },
+                        { label: 'mAP@0.5:0.95', data: records.map(r => metricNumOrNull(r, ['mAP@0.5:0.95'])).map(v => Number.isFinite(v) ? v * (v <= 1.0 ? 100 : 1) : null), borderColor: '#a78bfa', tension: 0.25, pointRadius: 2.5, yAxisID: 'score' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Detection Quality + Confidence', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
+                        legend: { labels: { boxWidth: 10, padding: 12 } }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
+                        count: { position: 'left', min: 0, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        score: { position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false } }
+                    }
+                }
+            }));
+
+            const perfBubbles = records.map(r => {
+                const fps = metricNumOrNull(r, ['Avg_Pipeline_FPS', 'avg_fps']);
+                const vmaf = metricNumOrNull(r, ['vmaf', 'VMAF']);
+                const detections = metricNum(r, ['total_detections', 'Total_Detections'], 0);
+                if (!Number.isFinite(fps) || !Number.isFinite(vmaf)) return null;
+                const radius = Math.max(3, Math.min(13, Math.sqrt(Math.max(0, detections)) / 6));
+                return { x: fps, y: vmaf, r: radius };
+            }).filter(Boolean);
+            chartRefs.push(new Chart(document.getElementById('perfScatterChart'), {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: 'FPS vs VMAF (bubble size = detections)',
+                        data: perfBubbles,
+                        backgroundColor: 'rgba(56,189,248,0.35)',
+                        borderColor: '#38bdf8',
+                        borderWidth: 1.5,
+                        hoverBackgroundColor: 'rgba(56,189,248,0.55)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Performance-Quality Bubble Map', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
+                        legend: { labels: { boxWidth: 10, padding: 12 } }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Pipeline FPS', color: '#a1a1aa' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        y: { title: { display: true, text: 'VMAF', color: '#a1a1aa' }, min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' } }
+                    }
+                }
+            }));
+
             const cm = {}; records.forEach(r => { const d = r.class_distribution || {}; if (d && typeof d === 'object') Object.keys(d).forEach(k => cm[k] = (cm[k] || 0) + Number(d[k] || 0)); });
             const cls = Object.entries(cm).sort((a, b) => b[1] - a[1]).slice(0, 12);
             chartRefs.push(new Chart(document.getElementById('classChart'), { type: 'bar', data: { labels: cls.map(x => x[0]), datasets: [{ label: 'Detections', data: cls.map(x => x[1]), backgroundColor: '#10b981', borderRadius: 6 }] }, options: chartOpts('Class Distribution (Top 12)') }));
@@ -1931,6 +2429,8 @@
         function clearDashboardData() {
             cachedPayload = { records: [], aggregates: {} };
             latestMergedVideos = [];
+            selectedRecordIndexes.clear();
+            visibleRecordIndexes = [];
             chartRefs.forEach(c => c.destroy());
             chartRefs = [];
             renderSummary(cachedPayload);
@@ -2035,6 +2535,8 @@
 
             const records = Array.isArray(benchmarkPayload.records) ? benchmarkPayload.records : Array.isArray(benchmarkPayload) ? benchmarkPayload : [];
             cachedPayload = { ...benchmarkPayload, records, aggregates: benchmarkPayload.aggregates || {} };
+            selectedRecordIndexes.clear();
+            visibleRecordIndexes = [];
             setBenchmarkToggleState(!!benchmarkPayload.benchmarkingEnabled, !!benchmarkPayload.benchmarkInProgress);
 
             const noDataBanner = document.getElementById('noBenchmarkDataBanner');
@@ -2059,6 +2561,11 @@
         // ==================== EVENT LISTENERS ====================
         document.getElementById('aggregateFilter').addEventListener('input', e => renderAggregateTable(cachedPayload, e.target.value || ''));
         document.getElementById('recordsFilter').addEventListener('input', e => renderRecordsTable(cachedPayload.records || [], e.target.value || ''));
+        document.getElementById('toggleRecordSelectionModeBtn').addEventListener('click', () => {
+            setRecordSelectionMode(!recordSelectionModeEnabled, true);
+        });
+        document.getElementById('clearSelectedRecordsBtn').addEventListener('click', () => clearRecordSelection(true));
+        document.getElementById('deleteSelectedRecordsBtn').addEventListener('click', () => deleteSelectedBenchmarkRecords().catch(console.error));
         document.getElementById('exportBackendCsvBtn').addEventListener('click', async () => {
             const now = new Date();
             const dateStr = now.toISOString().split('T')[0];
