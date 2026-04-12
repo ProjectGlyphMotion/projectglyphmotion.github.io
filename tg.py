@@ -1302,24 +1302,44 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
                 if progress_message_obj:
                     await progress_message_obj.edit_text(benchmark_status_message)
 
-                try:
-                    stats_path = f"{local_output_path}.stats.json"
-                    await run_production_benchmark(
-                        original_video_path=local_input_path,
-                        processed_video_path=local_output_path,
-                        video_title=video_title_for_gh,
-                        google_drive_url=drive_download_url or "",
-                        commit_sha=commit_sha,
-                        telemetry_path=telemetry_path if os.path.exists(telemetry_path) else None,
-                        stats_path=stats_path if os.path.exists(stats_path) else None,
-                    )
-                    set_processing_status("✅ Benchmark complete. Benchmark dashboard data updated.")
-                except Exception as benchmark_error:
-                    logger.error(f"Production benchmark failed: {benchmark_error}", exc_info=True)
-                    set_processing_status("⚠️ Benchmark failed. Core upload succeeded, check backend logs.")
-                finally:
-                    with _benchmark_lock:
-                        _benchmark_in_progress = False
+                async def _run_benchmark_background():
+                    global _benchmark_in_progress
+                    try:
+                        stats_path = f"{local_output_path}.stats.json"
+                        benchmark_result = await run_production_benchmark(
+                            original_video_path=local_input_path,
+                            processed_video_path=local_output_path,
+                            video_title=video_title_for_gh,
+                            google_drive_url=drive_download_url or "",
+                            commit_sha=commit_sha,
+                            telemetry_path=telemetry_path if os.path.exists(telemetry_path) else None,
+                            stats_path=stats_path if os.path.exists(stats_path) else None,
+                        )
+
+                        vmaf_value = benchmark_result.get("vmaf", benchmark_result.get("VMAF", "")) if isinstance(benchmark_result, dict) else ""
+                        mota_value = benchmark_result.get("MOTA_Score", benchmark_result.get("mota_score", "")) if isinstance(benchmark_result, dict) else ""
+                        try:
+                            update_recon_index_scores(
+                                project_root=os.getcwd(),
+                                video_filename=os.path.basename(local_input_path),
+                                vmaf_score=vmaf_value,
+                                mota_score=mota_value,
+                                stage="post_process",
+                            )
+                        except Exception as recon_score_error:
+                            logger.warning(f"Could not update recon_index scores: {recon_score_error}")
+
+                        set_processing_status("✅ Benchmark complete. Benchmark dashboard data updated.")
+                        reset_status_after_delay(5)
+                    except Exception as benchmark_error:
+                        logger.error(f"Production benchmark failed: {benchmark_error}", exc_info=True)
+                        set_processing_status("⚠️ Benchmark failed. Core upload succeeded, check backend logs.")
+                        reset_status_after_delay(8)
+                    finally:
+                        with _benchmark_lock:
+                            _benchmark_in_progress = False
+
+                asyncio.get_running_loop().create_task(_run_benchmark_background())
             
             # --- Add tracking entry after successful GitHub update ---
             if commit_sha: # Only add if commit_sha is available
@@ -1366,7 +1386,8 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
                 save_tracking_data()
                 logger.info(f"Added tracking entry for video '{video_title_for_gh}' from IP {client_ip}")
 
-            reset_status_after_delay() # Reset status after success
+            if not is_benchmarking_enabled():
+                reset_status_after_delay() # Reset status after success only when benchmark mode is off
             return True
         else:
             if progress_message_obj:
@@ -1903,6 +1924,8 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
                 original_filename = sanitize_filename_value(metadata.get('original_filename', ''), fallback_prefix="chunk_upload")
                 assembled_input_path = os.path.join(INPUT_SUBDIRECTORY, original_filename)
+                assembled_input_dir = os.path.dirname(assembled_input_path) or INPUT_SUBDIRECTORY
+                os.makedirs(assembled_input_dir, exist_ok=True)
                 if os.path.exists(assembled_input_path):
                     stem, ext = os.path.splitext(original_filename)
                     assembled_input_path = os.path.join(INPUT_SUBDIRECTORY, f"{stem}_{int(time.time())}{ext or '.mp4'}")

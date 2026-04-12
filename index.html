@@ -3997,8 +3997,6 @@
 
             if (benchmarkInProgress) {
                 trackButton.disabled = true;
-                liveStatusMessage.textContent = '📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete.';
-                liveProcessingStatusDiv.classList.remove('hidden');
             } else {
                 trackButton.disabled = false;
             }
@@ -4055,7 +4053,12 @@
                     stopVideosPollingLoop();
                 }
             } else {
-                liveProcessingStatusDiv.classList.add('hidden');
+                if (benchmarkInProgress) {
+                    liveStatusMessage.textContent = '📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete.';
+                    liveProcessingStatusDiv.classList.remove('hidden');
+                } else {
+                    liveProcessingStatusDiv.classList.add('hidden');
+                }
                 lastDeleteStatusShown = '';
                 isUploadProgressBarRunning = false;
 
@@ -4067,6 +4070,13 @@
                 if (!isAggressivePollingActive) {
                     startVideosPollingLoop();
                 }
+            }
+
+            // Benchmark lock message must always be visible while benchmark is running.
+            if (benchmarkInProgress) {
+                liveStatusMessage.textContent = '📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete.';
+                liveProcessingStatusDiv.classList.remove('hidden');
+                trackButton.disabled = true;
             }
         }
 

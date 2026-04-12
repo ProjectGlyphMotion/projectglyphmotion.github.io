@@ -13,6 +13,18 @@ import json
 import re # Added for ffprobe output parsing
 import numpy as np
 from collections import Counter
+from recon_integration import (
+    append_recon_index_row,
+    build_recon_index_row,
+    build_recon_messages,
+    cleanup_temp_file,
+    ensure_recon_log_structure,
+    get_recon_flags,
+    needs_normalization_fallback,
+    normalize_video,
+    run_recon,
+    save_recon_json,
+)
 
 # Attempt to import psutil for CPU/Memory monitoring
 try:
@@ -913,6 +925,11 @@ def process_audio_ffmpeg(video_source_path, temp_silent_video_path, final_output
 def main():
     global FFMPEG_VIDEO_CODEC, FFMPEG_PRESET, FFMPEG_CRF_VALUE
     start_time_total = time.time()
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    recon_report = None
+    recon_flags = {}
+    fallback_mode_used = False
+    recon_normalized_temp_path = None
 
     # Define the absolute path for the temporary silent video output
     temp_silent_video_abs_path = os.path.abspath(os.path.join(OUTPUT_SUBDIRECTORY, TEMP_VIDEO_BASENAME))
@@ -1029,6 +1046,54 @@ def main():
     if not os.path.exists(current_input_video) or not os.path.isfile(current_input_video):
         print(f"❌ [ERROR] Input video file not found or is not a file: {current_input_video}"); return
 
+    # --- Recon intake + normalization gate (before model/capture/threads) ---
+    try:
+        ensure_recon_log_structure(project_root)
+        recon_report = run_recon(current_input_video, project_root)
+        if recon_report is not None:
+            intake_json_path = save_recon_json(project_root, current_input_video, recon_report)
+            print(f"[RECON] Intake analysis saved: {intake_json_path}")
+
+            recon_flags = get_recon_flags(recon_report)
+            for message in build_recon_messages(recon_flags):
+                print(message)
+
+            if recon_flags.get("normalization_triggered"):
+                recon_normalized_temp_path = normalize_video(current_input_video, ffmpeg_bin="ffmpeg", target_fps=30)
+                print(f"[RECON] Normalized input created: {recon_normalized_temp_path}")
+
+                normalized_recon_report = run_recon(recon_normalized_temp_path, project_root)
+                if normalized_recon_report is not None:
+                    normalized_json_path = save_recon_json(
+                        project_root,
+                        current_input_video,
+                        normalized_recon_report,
+                        suffix="normalized",
+                    )
+                    print(f"[RECON] Normalized verification saved: {normalized_json_path}")
+                current_input_video = recon_normalized_temp_path
+
+            intake_row = build_recon_index_row(
+                recon_report,
+                stage="intake",
+                video_filename=os.path.basename(args.input_video),
+                normalization_triggered=bool(recon_flags.get("normalization_triggered")),
+                normalization_reasons=recon_flags.get("normalization_reasons", []),
+            )
+            append_recon_index_row(project_root, intake_row)
+        else:
+            fallback_mode_used = True
+            print("⚠️ [WARNING] [RECON] recon.py failed or unavailable. Using ffprobe fallback for normalization gate.")
+            if needs_normalization_fallback(current_input_video):
+                print("[RECON] Fallback ffprobe detected normalization need - normalizing input.")
+                recon_normalized_temp_path = normalize_video(current_input_video, ffmpeg_bin="ffmpeg", target_fps=30)
+                current_input_video = recon_normalized_temp_path
+            else:
+                print("[RECON] Fallback ffprobe: input looks clean - normalization skipped.")
+    except Exception as recon_error:
+        fallback_mode_used = True
+        print(f"⚠️ [WARNING] [RECON] Input analysis failed: {recon_error}. Proceeding without recon logging.")
+
     show_preview = ENABLE_PREVIEW_IN_SCRIPT
     use_gpu = USE_GPU_IN_SCRIPT
 
@@ -1073,14 +1138,18 @@ def main():
         model.to(device_to_use)
         print(f"✅ [SUCCESS] Model loaded.")
     except Exception as e:
-        print(f"❌ [ERROR] Failed to load model: {e}"); return
+        print(f"❌ [ERROR] Failed to load model: {e}")
+        cleanup_temp_file(recon_normalized_temp_path)
+        return
 
     print(f"[INFO] Tracking classes: {args.allowed_classes}")
 
     # Open video capture
     cap = cv2.VideoCapture(current_input_video)
     if not cap.isOpened():
-        print(f"❌ [ERROR] Failed to open input video file: {current_input_video}"); return
+        print(f"❌ [ERROR] Failed to open input video file: {current_input_video}")
+        cleanup_temp_file(recon_normalized_temp_path)
+        return
 
     # Get original video properties and assign to initialized variables
     original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -1171,7 +1240,10 @@ def main():
     # Pass the determined filter string and the target final output dimensions
     ffmpeg_process = start_ffmpeg_video_encoder(temp_silent_video_abs_path, original_width, original_height, fps, vf_filter_string=vf_filter)
     if not ffmpeg_process:
-        print("❌ [ERROR] Failed to start FFmpeg video encoder. Exiting."); cap.release(); return
+        print("❌ [ERROR] Failed to start FFmpeg video encoder. Exiting.")
+        cap.release()
+        cleanup_temp_file(recon_normalized_temp_path)
+        return
     print(f"✅ [SUCCESS] FFmpeg encoder started (PID: {ffmpeg_process.pid}).")
 
 
@@ -1517,6 +1589,7 @@ def main():
                     print(f"[CLEANUP] Removed incomplete encoded video '{temp_silent_video_abs_path}'.")
                 except OSError as e:
                     print(f"⚠️ [WARNING] Error deleting incomplete video '{temp_silent_video_abs_path}': {e}")
+            cleanup_temp_file(recon_normalized_temp_path)
             return # Exit main if video encoding failed
 
     print(f"✅ [SUCCESS] Video frame processing complete. Silent video encoded to: '{temp_silent_video_abs_path}'.")
@@ -1649,6 +1722,36 @@ def main():
         print(f"[INFO] Adaptive telemetry saved: {telemetry_path}")
     except Exception as telemetry_error:
         print(f"⚠️ [WARNING] Failed to write telemetry file: {telemetry_error}")
+
+    if recon_report is not None and not fallback_mode_used:
+        try:
+            post_recon_report = run_recon(final_output_video_path, project_root)
+            if post_recon_report is not None:
+                post_json_path = save_recon_json(
+                    project_root,
+                    final_output_video_path,
+                    post_recon_report,
+                    suffix="postprocess",
+                )
+                print(f"[RECON] Post-process analysis saved: {post_json_path}")
+            else:
+                post_recon_report = recon_report
+                print("⚠️ [WARNING] [RECON] Post-process analysis failed; falling back to intake report for CSV row.")
+
+            post_process_row = build_recon_index_row(
+                post_recon_report,
+                stage="post_process",
+                video_filename=os.path.basename(args.input_video),
+                normalization_triggered=bool(recon_flags.get("normalization_triggered")),
+                normalization_reasons=recon_flags.get("normalization_reasons", []),
+                vmaf_score=final_stats.get("VMAF", "") if 'final_stats' in locals() else "",
+                mota_score=final_stats.get("MOTA_Score", "") if 'final_stats' in locals() else "",
+            )
+            append_recon_index_row(project_root, post_process_row)
+        except Exception as recon_csv_error:
+            print(f"⚠️ [WARNING] [RECON] Failed to append post_process CSV row: {recon_csv_error}")
+
+    cleanup_temp_file(recon_normalized_temp_path)
 
     print(f"\n[DONE] Total script execution time: {minutes} minute(s) and {seconds} second(s).")
     print(f"[INFO] Final output video is at: {final_output_video_path}")
