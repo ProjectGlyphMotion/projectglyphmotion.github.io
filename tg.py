@@ -25,7 +25,8 @@ from urllib.parse import urlparse, parse_qs
 
 # Import the gh.py script
 from gh import update_github_pages_with_video, delete_video_from_drive_and_github, get_commit_details
-from production_benchmark import run_production_benchmark, BENCHMARKING_ENABLED
+from production_benchmark import run_production_benchmark, BENCHMARKING_ENABLED, _save_json_and_csv
+from recon_integration import update_recon_index_scores
 
 # Import admin_auth.py for authentication and session management
 from admin_auth import authenticate_admin, get_session_expiry_time, update_admin_credential_in_file, verify_password, ADMIN_CREDENTIALS, SESSION_TIMEOUT_ENABLED, SESSION_DURATION_DAYS
@@ -40,7 +41,7 @@ TRACKING_DATA_FILE = 'tracking_data.json' # New file to store tracking data
 
 # Frame Restriction Configuration
 FRAME_RESTRICTION_ENABLED = True # Set to True to enable frame count restriction
-FRAME_RESTRICTION_VALUE = 7000 # Max allowed frames for video processing
+FRAME_RESTRICTION_VALUE = 15000 # Max allowed frames for video processing
 FFPROBE_TIMEOUT_SECONDS = 10 # Timeout for ffprobe command in seconds
 
 # JWT Secret Key (VERY IMPORTANT: Replace with a strong, random key in production!)
@@ -1279,12 +1280,21 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
         if progress_message_obj:
             await progress_message_obj.edit_text("Object tracking complete! Uploading to Google Drive and updating GitHub Pages...")
             set_processing_status("Object tracking complete! Uploading to Google Drive and updating GitHub Pages...") # Update global status
-        
+
+        # Progress callback that relays Google Drive upload progress to the frontend
+        def _upload_progress_callback(percent, uploaded_mb, total_mb):
+            if percent == -1:
+                # Sentinel from gh.py: upload done, now committing to GitHub
+                set_processing_status("Uploading: \u2705 Upload complete. Committing to GitHub Pages...")
+            else:
+                set_processing_status(f"Uploading: {percent}% ({uploaded_mb:.1f}/{total_mb:.1f} MB) \u2192 Google Drive")
+
         # update_github_pages_with_video returns success, commit SHA, and latest Drive download URL
         gh_update_success, commit_sha, drive_download_url = await update_github_pages_with_video(
             processed_video_path=local_output_path,
             original_video_title=video_title_for_gh,
-            description=video_description_for_gh
+            description=video_description_for_gh,
+            progress_callback=_upload_progress_callback
         )
         if gh_update_success:
             if progress_message_obj:
@@ -2927,14 +2937,26 @@ def main():
     web_server_thread.start()
     logger.info(f"Web server thread started on port {WEB_SERVER_PORT}")
 
-    # Build app with longer timeouts
+    # Build app with longer timeouts (60s to tolerate long-running uploads)
     app = (Application.builder()
            .token(TELEGRAM_BOT_TOKEN)
-           .read_timeout(30)
-           .write_timeout(30)
-           .connect_timeout(30)
-           .pool_timeout(30)
+           .read_timeout(60)
+           .write_timeout(60)
+           .connect_timeout(60)
+           .pool_timeout(60)
            .build())
+
+    # --- Telegram Error Handler ---
+    async def telegram_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Catches Telegram polling/network errors gracefully instead of logging raw tracebacks."""
+        from telegram.error import NetworkError, TimedOut
+        err = context.error
+        if isinstance(err, (NetworkError, TimedOut)):
+            logger.warning(f"Telegram polling network error (will retry): {type(err).__name__}: {err}")
+        else:
+            logger.error(f"Unhandled Telegram error: {err}", exc_info=context.error)
+
+    app.add_error_handler(telegram_error_handler)
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("track", track_command))

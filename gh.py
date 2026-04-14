@@ -1,10 +1,11 @@
 import os
+import sys
 import json
 import logging
 import time
 import asyncio
 from datetime import datetime
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Callable
 
 # Google Drive API imports
 from google.oauth2.credentials import Credentials
@@ -145,9 +146,28 @@ def get_or_create_google_drive_folder(service, folder_path, parent_id=None):
             
     return current_parent_id # Return the ID of the innermost folder
 
-def upload_to_google_drive(service, file_path, folder_id):
-    """Uploads a file to Google Drive within a specified folder."""
+# Chunk size for resumable Google Drive uploads (5 MB - sweet spot for performance/progress)
+_GDRIVE_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024
+# Max retries per chunk on transient errors
+_GDRIVE_CHUNK_MAX_RETRIES = 3
+
+
+def upload_to_google_drive(service, file_path, folder_id, progress_callback: Callable = None):
+    """
+    Uploads a file to Google Drive within a specified folder using chunked
+    resumable uploads for reliability with large files.
+
+    Args:
+        service: Authenticated Google Drive API service instance.
+        file_path: Local path of the file to upload.
+        folder_id: Google Drive folder ID to upload into.
+        progress_callback: Optional callable(percent: int, uploaded_mb: float, total_mb: float)
+                           invoked after each chunk for progress reporting.
+    """
     file_name = os.path.basename(file_path)
+    file_size_bytes = os.path.getsize(file_path)
+    file_size_mb = file_size_bytes / (1024 * 1024)
+
     file_metadata = {
         'name': file_name,
         'parents': [folder_id]
@@ -160,20 +180,80 @@ def upload_to_google_drive(service, file_path, folder_id):
         mime_type = 'video/x-msvideo'
     elif file_name.lower().endswith('.webm'):
         mime_type = 'video/webm'
-    
-    media = MediaFileUpload(file_path, mimetype=mime_type, resumable=True) 
+
+    media = MediaFileUpload(
+        file_path,
+        mimetype=mime_type,
+        resumable=True,
+        chunksize=_GDRIVE_UPLOAD_CHUNK_SIZE
+    )
+
+    logger.info(f"Starting Google Drive upload for '{file_name}' ({file_size_mb:.1f} MB) "
+                f"in {_GDRIVE_UPLOAD_CHUNK_SIZE // (1024*1024)} MB chunks...")
+
     try:
-        file = service.files().create(body=file_metadata, media_body=media, fields='id, webContentLink, webViewLink').execute()
-        logger.info(f"File '{file_name}' uploaded to Google Drive. File ID: {file.get('id')}")
-        
+        request = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id, webContentLink, webViewLink'
+        )
+
+        response = None
+        last_progress_log_time = 0
+        while response is None:
+            chunk_retries = 0
+            while True:
+                try:
+                    status, response = request.next_chunk()
+                    break  # Chunk succeeded
+                except Exception as chunk_err:
+                    chunk_retries += 1
+                    if chunk_retries > _GDRIVE_CHUNK_MAX_RETRIES:
+                        logger.error(
+                            f"Google Drive upload chunk failed after {_GDRIVE_CHUNK_MAX_RETRIES} retries: {chunk_err}"
+                        )
+                        raise  # Re-raise to be caught by outer handler
+                    backoff = 2 ** chunk_retries
+                    logger.warning(
+                        f"Google Drive chunk upload error (retry {chunk_retries}/{_GDRIVE_CHUNK_MAX_RETRIES}, "
+                        f"backoff {backoff}s): {chunk_err}"
+                    )
+                    time.sleep(backoff)
+
+            if status is not None:
+                percent = int(status.progress() * 100)
+                uploaded_mb = (status.resumable_progress or 0) / (1024 * 1024)
+                now = time.time()
+                # Log at most once per second to avoid spam
+                if now - last_progress_log_time >= 1.0:
+                    sys.stdout.write(
+                        f"\r\033[K\033[1;35mUploading:\033[0m {percent}% "
+                        f"({uploaded_mb:.1f}/{file_size_mb:.1f} MB) → Google Drive"
+                    )
+                    sys.stdout.flush()
+                    last_progress_log_time = now
+                if progress_callback:
+                    try:
+                        progress_callback(percent, uploaded_mb, file_size_mb)
+                    except Exception:
+                        pass  # Never let callback errors kill the upload
+
+        # Clear the in-place progress line and log final success
+        sys.stdout.write("\r\033[K")
+        sys.stdout.flush()
+
+        file_id = response.get('id')
+        web_view_link = response.get('webViewLink')
+        logger.info(f"✅ File '{file_name}' uploaded to Google Drive ({file_size_mb:.1f} MB). File ID: {file_id}")
+
         # Make file publicly accessible - necessary for embedding on GitHub Pages
         # Check if permissions already exist to avoid errors on re-runs
-        permissions = service.permissions().list(fileId=file.get('id')).execute().get('permissions', [])
+        permissions = service.permissions().list(fileId=file_id).execute().get('permissions', [])
         public_permission_exists = any(p.get('type') == 'anyone' and p.get('role') == 'reader' for p in permissions)
 
         if not public_permission_exists:
             service.permissions().create(
-                fileId=file.get('id'),
+                fileId=file_id,
                 body={'role': 'reader', 'type': 'anyone'},
                 fields='id'
             ).execute()
@@ -181,8 +261,18 @@ def upload_to_google_drive(service, file_path, folder_id):
         else:
             logger.info(f"File '{file_name}' already has public permissions.")
 
-        return file.get('id'), file.get('webViewLink') # webViewLink is good for embedding
+        # Notify 100% complete
+        if progress_callback:
+            try:
+                progress_callback(100, file_size_mb, file_size_mb)
+            except Exception:
+                pass
+
+        return file_id, web_view_link
     except Exception as e:
+        # Clear any lingering progress line
+        sys.stdout.write("\r\033[K")
+        sys.stdout.flush()
         logger.error(f"Error uploading '{file_name}' to Google Drive: {e}", exc_info=True)
         return None, None
 
@@ -312,10 +402,17 @@ def get_commit_details(commit_sha: str):
 
 # --- Main Integration Functions ---
 
-async def update_github_pages_with_video(processed_video_path: str, original_video_title: str, description: str = "") -> Tuple[bool, Optional[str], Optional[str]]:
+async def update_github_pages_with_video(processed_video_path: str, original_video_title: str, description: str = "", progress_callback: Callable = None) -> Tuple[bool, Optional[str], Optional[str]]:
     """
     Uploads processed video to Google Drive, generates embed link,
     and updates videos.json on GitHub Pages.
+
+    Args:
+        processed_video_path: Path to the processed video file.
+        original_video_title: Title for the video entry.
+        description: Description for the video entry.
+        progress_callback: Optional callable(percent, uploaded_mb, total_mb)
+                           forwarded to the Google Drive upload for live progress.
     Returns a tuple: (success_status: bool, commit_sha: Optional[str], download_url: Optional[str])
     """
     def _run_update_flow() -> Tuple[bool, Optional[str], Optional[str]]:
@@ -338,7 +435,10 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
             logger.error(f"Processed video file not found on disk: '{processed_video_path}'. "
                          f"Check that ot.py saved it at exactly this path (watch for dot-in-title truncation bugs).")
             return False, None, None
-        file_id, web_view_link = upload_to_google_drive(drive_service, processed_video_path, folder_id)
+        file_id, web_view_link = upload_to_google_drive(
+            drive_service, processed_video_path, folder_id,
+            progress_callback=progress_callback
+        )
         if not file_id:
             logger.error(f"Failed to upload {processed_video_path} to Google Drive. Aborting GitHub Pages update.")
             return False, None, None
@@ -393,6 +493,13 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
 
         new_json_content = json.dumps(videos_data, indent=4)
         commit_message = f"Add processed video: {original_video_title}"
+
+        # Notify caller that upload is done and we're now committing to GitHub
+        if progress_callback:
+            try:
+                progress_callback(-1, 0, 0)  # Special sentinel: -1 means "committing to GitHub"
+            except Exception:
+                pass
 
         # 7. Commit updated videos.json to GitHub (initial commit)
         initial_commit_sha = update_and_commit_github_file(repo, GITHUB_VIDEOS_JSON_PATH, new_json_content, commit_message, GITHUB_BRANCH)
