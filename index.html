@@ -451,6 +451,26 @@
         }
         .status-error i { color: #f87171; }
 
+        .status-alert.error-banner {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.32);
+            border-left: 4px solid #ef4444;
+            color: #fecaca;
+        }
+        .status-alert.error-banner i {
+            color: #f87171;
+        }
+
+        .status-alert.success-banner {
+            background: rgba(34, 197, 94, 0.12);
+            border: 1px solid rgba(34, 197, 94, 0.34);
+            border-left: 4px solid #22c55e;
+            color: #bbf7d0;
+        }
+        .status-alert.success-banner i {
+            color: #4ade80;
+        }
+
         /* Processing Status */
         .processing-status {
             display: flex;
@@ -909,109 +929,776 @@
             box-shadow: 0 0 0 3px rgb(100 116 139 / 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
         }
         
-        /* Mobile Dropdown Menu */
-        .mobile-menu-container {
-            position: relative;
-            display: inline-block;
+        .hero-status-strip {
+            margin-top: 0.62rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
         }
-        .mobile-menu-btn {
+
+        .status-widget {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            padding: .4rem .65rem;
+            width: fit-content;
+            max-width: 100%;
+            border-radius: .65rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(0, 0, 0, 0.35);
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap;
+            transition: border-color 0.22s ease, background-color 0.22s ease;
+        }
+
+        .benchmark-mode-widget {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            padding: .4rem .65rem;
+            border-radius: .65rem;
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            background: rgba(245, 158, 11, 0.1);
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            color: #fde68a;
+        }
+
+        .admin-identity-chip {
+            background: linear-gradient(135deg, rgba(253, 161, 54, 0.18), rgba(251, 146, 60, 0.12));
+            color: #fbbf24;
+            border-color: rgba(253, 161, 54, 0.32);
+            letter-spacing: 0.02em;
+        }
+
+        .mobile-nav {
+            width: 100%;
+            margin-bottom: 0.72rem;
+        }
+
+        .mobile-nav-shell {
+            width: 100%;
+            border: 1px solid rgba(253, 161, 54, 0.2);
+            background: linear-gradient(180deg, rgba(17, 17, 23, 0.88), rgba(12, 12, 16, 0.96));
+            border-radius: 0.95rem;
+            padding: 0.52rem;
+            box-shadow: 0 10px 36px rgba(0, 0, 0, 0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 0.28rem;
+        }
+
+        .mobile-quick-links {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 0.5rem;
-            color: #fff;
-            font-size: 0.875rem;
+            gap: 0.24rem;
+            overflow-x: auto;
+            overscroll-behavior-x: contain;
+            scrollbar-width: none;
+            padding: 0.04rem 0.02rem 0.08rem;
+        }
+
+        .mobile-quick-links::-webkit-scrollbar {
+            display: none;
+        }
+
+        .mobile-quick-link {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.28rem;
+            min-width: 4.5rem;
+            height: 1.95rem;
+            padding: 0 0.48rem;
+            font-size: 0.6rem;
+            border-radius: 0.52rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.03);
+            color: #cbd5e1;
+            text-decoration: none;
+            transition: transform .2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color .2s ease, background .2s ease;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.03em;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .mobile-quick-link i {
+            font-size: 0.72rem;
+            color: #f59e0b;
+        }
+
+        .mobile-quick-link:active {
+            transform: scale(0.98);
+        }
+
+        .mobile-quick-link:hover {
+            border-color: rgba(253, 161, 54, 0.45);
+            background: rgba(253, 161, 54, 0.13);
+            color: #fde68a;
+        }
+
+        .mobile-control-deck {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.42rem;
+            padding-top: 0.06rem;
+        }
+
+        .mobile-admin-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.38rem 0.62rem;
+            border-radius: 0.68rem;
+            border: 1px solid rgba(253, 161, 54, 0.3);
+            background: rgba(253, 161, 54, 0.12);
+            color: #fbbf24;
+            font-size: 0.67rem;
+            font-family: 'JetBrains Mono', monospace;
+            max-width: 52vw;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mobile-admin-login-btn {
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: transform .18s ease, border-color .2s ease, background .2s ease;
         }
-        .mobile-menu-btn:hover {
-            background: rgba(255, 255, 255, 0.12);
+
+        .mobile-admin-login-btn:hover {
+            border-color: rgba(251, 191, 36, 0.62);
+            background: rgba(245, 158, 11, 0.18);
+            transform: translateY(-1px);
         }
+
+        .mobile-control-deck.hidden {
+            display: none;
+        }
+
+        .mobile-shell-footer {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            min-height: 0;
+        }
+
+        .mobile-menu-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            width: 2.05rem;
+            height: 2.05rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 0.68rem;
+            color: #f8fafc;
+            font-size: 0.86rem;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+        }
+
+        .mobile-menu-btn:focus-visible,
+        .mobile-popup-close-btn:focus-visible,
+        .mobile-dropdown-item:focus-visible,
+        .mobile-quick-link:focus-visible {
+            outline: 2px solid rgba(251, 191, 36, 0.9);
+            outline-offset: 2px;
+        }
+
+        .mobile-menu-btn span,
         .mobile-menu-btn .chevron {
-            transition: transform 0.2s ease;
+            display: none;
         }
+
+        .mobile-menu-btn .chevron {
+            transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
         .mobile-menu-btn.open .chevron {
             transform: rotate(180deg);
         }
-        .mobile-dropdown {
-            position: absolute;
-            top: calc(100% + 0.5rem);
-            left: 50%;
-            transform: translateX(-50%);
-            min-width: 200px;
-            background: rgba(30, 30, 35, 0.98);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 0.75rem;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-            overflow: hidden;
+
+        .mobile-drawer-backdrop {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 50% 35%, rgba(245, 158, 11, 0.16), transparent 55%), rgba(0, 0, 0, 0.72);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
             opacity: 0;
             visibility: hidden;
-            transform: translateX(-50%) translateY(-10px);
-            transition: all 0.2s ease;
-            z-index: 100;
+            transition: opacity 0.28s ease, visibility 0.28s ease;
+            z-index: 110;
         }
-        .mobile-dropdown.show {
+
+        .mobile-drawer-backdrop.show {
             opacity: 1;
             visibility: visible;
-            transform: translateX(-50%) translateY(0);
         }
+
+        .mobile-dropdown {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: min(92vw, 520px);
+            max-height: min(90dvh, 48rem);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background:
+                radial-gradient(140% 62% at 50% -5%, rgba(245, 158, 11, 0.18), transparent 62%),
+                linear-gradient(180deg, rgba(17, 18, 25, 0.98), rgba(10, 10, 14, 0.98));
+            box-shadow: 0 28px 72px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            overflow-y: auto;
+            transform: translate(-50%, -42%) scale(0.92);
+            opacity: 0;
+            visibility: hidden;
+            transition: transform .34s cubic-bezier(0.16, 1, 0.3, 1), opacity .24s ease, visibility .24s ease;
+            z-index: 120;
+            padding: 0;
+            border-radius: 1.1rem;
+        }
+
+        .mobile-dropdown.show {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .mobile-dashboard-panel {
+            transition: opacity 0.2s ease, transform 0.22s ease;
+        }
+
+        .mobile-dashboard-panel.panel-enter {
+            animation: modalSectionEnter 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        @keyframes modalSectionEnter {
+            from {
+                opacity: 0;
+                transform: translateY(8px) scale(0.985);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .mobile-dashboard-panel.hidden {
+            display: none;
+        }
+
         .mobile-dropdown-item {
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            padding: 0.75rem 1rem;
-            color: #e5e5e5;
-            font-size: 0.875rem;
+            padding: 0.68rem 0.74rem;
+            color: #e4e4e7;
+            font-size: 0.76rem;
+            font-family: 'Outfit', sans-serif;
             text-decoration: none;
-            transition: background 0.15s ease;
-            border: none;
-            background: none;
+            transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
             width: 100%;
             cursor: pointer;
             text-align: left;
+            border-radius: 0.7rem;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            opacity: 0;
         }
+
+        .mobile-dropdown.show .mobile-dropdown-item {
+            animation: optionRise 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .mobile-dropdown.show .mobile-dropdown-item:nth-child(1) { animation-delay: 0.02s; }
+        .mobile-dropdown.show .mobile-dropdown-item:nth-child(2) { animation-delay: 0.05s; }
+        .mobile-dropdown.show .mobile-dropdown-item:nth-child(3) { animation-delay: 0.08s; }
+        .mobile-dropdown.show .mobile-dropdown-item:nth-child(4) { animation-delay: 0.11s; }
+        .mobile-dropdown.show .mobile-dropdown-item:nth-child(5) { animation-delay: 0.14s; }
+
+        @keyframes optionRise {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .mobile-dropdown-item:hover {
-            background: rgba(253, 161, 54, 0.15);
-            color: #FDA136;
+            border-color: rgba(245, 158, 11, 0.45);
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.16), rgba(245, 158, 11, 0.08));
+            color: #fde68a;
+            transform: translateY(-1px);
         }
+
         .mobile-dropdown-item i {
-            width: 1.25rem;
+            width: 1.05rem;
             text-align: center;
-            opacity: 0.8;
+            opacity: 0.95;
+            color: #fbbf24;
         }
+
+        .mobile-dropdown-item-danger {
+            color: #fda4af !important;
+            border: 1px solid rgba(248, 113, 113, 0.28);
+            background: linear-gradient(180deg, rgba(127, 29, 29, 0.32), rgba(127, 29, 29, 0.18));
+        }
+
+        .mobile-dropdown-item-danger i {
+            color: #fb7185;
+        }
+
+        .mobile-dropdown-item-danger:hover {
+            background: rgba(185, 28, 28, 0.3);
+            color: #fecdd3 !important;
+        }
+
+        .mobile-dropdown-body {
+            display: flex;
+            flex-direction: column;
+            gap: 0.62rem;
+            padding: 0.88rem 1rem 1.04rem;
+        }
+
+        .mobile-dashboard-label {
+            text-align: center;
+            color: #e5e7eb;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.84rem;
+            font-weight: 700;
+            letter-spacing: 0.065em;
+            text-transform: uppercase;
+            margin-top: 0.4rem;
+            margin-bottom: 0.66rem;
+        }
+
+        .panel-text-shift {
+            background: linear-gradient(110deg, #9ca3af 25%, #fef3c7 45%, #9ca3af 65%);
+            background-size: 220% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: panelTextShimmer 0.46s ease;
+        }
+
+        @keyframes panelTextShimmer {
+            from { background-position: 100% 0; opacity: 0.45; }
+            to { background-position: 0 0; opacity: 1; }
+        }
+
+        .mobile-options-zone {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .mobile-password-panel {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+        }
+
+        .mobile-password-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 0.55rem;
+        }
+
+        .mobile-password-title {
+            color: #f4f4f5;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.84rem;
+            font-weight: 700;
+            letter-spacing: 0.045em;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
+        .mobile-password-back {
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 0.62rem;
+            background: rgba(255, 255, 255, 0.04);
+            color: #d4d4d8;
+            font-size: 0.66rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            min-width: 7.8rem;
+            justify-content: center;
+            padding: 0.62rem 0.98rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            align-self: center;
+            margin-top: 0.18rem;
+        }
+
+        .mobile-password-back:hover {
+            border-color: rgba(245, 158, 11, 0.4);
+            color: #fde68a;
+            background: rgba(245, 158, 11, 0.12);
+        }
+
+        .mobile-password-hint {
+            color: #a1a1aa;
+            font-size: 0.7rem;
+            line-height: 1.45;
+            margin-bottom: 0.65rem;
+            text-align: center;
+        }
+
+        .mobile-password-panel .password-form {
+            margin-top: 0;
+            gap: 0.82rem;
+        }
+
+        .caps-lock-warning {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.4rem 0.58rem;
+            border-radius: 0.62rem;
+            border: 1px solid rgba(245, 158, 11, 0.38);
+            background: rgba(245, 158, 11, 0.12);
+            color: #fde68a;
+            font-size: 0.67rem;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: 0.02em;
+            margin-bottom: 0.48rem;
+        }
+
+        .mobile-password-panel .form-label {
+            font-size: 0.72rem;
+        }
+
+        .mobile-password-panel .input-field {
+            height: 2.38rem;
+            font-size: 0.8rem;
+        }
+
+        .mobile-password-panel .submit-button {
+            margin-top: 0.35rem;
+            padding: 0.72rem 0.95rem;
+            font-size: 0.8rem;
+            border-radius: 0.72rem;
+        }
+
+        .mobile-password-panel #passwordChangeStatusMessage {
+            margin-top: 0.62rem;
+        }
+
+        .drawer-panel {
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            box-shadow: none;
+        }
+
+        .mobile-modal-actions {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 0.52rem;
+            width: 100%;
+        }
+
+        .drawer-panel.sidebar-panel-active {
+            border-color: transparent;
+            background: transparent;
+        }
+
+        .drawer-section-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.42rem;
+        }
+
+        .drawer-panel .mobile-dropdown-header {
+            margin-bottom: 0.36rem;
+        }
+
+        .drawer-panel .mobile-dropdown-divider {
+            margin: 0.4rem 0;
+        }
+
         .mobile-dropdown-divider {
             height: 1px;
-            background: rgba(255, 255, 255, 0.1);
-            margin: 0.25rem 0;
+            background: rgba(255, 255, 255, 0.09);
+            margin: 0.35rem 0;
         }
+
         .mobile-dropdown-header {
-            padding: 0.75rem 1rem;
-            font-size: 0.75rem;
-            color: #888;
+            padding: 0.6rem 0.9rem;
+            font-size: 0.64rem;
+            color: #a1a1aa;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            background: rgba(0, 0, 0, 0.2);
+            letter-spacing: 0.1em;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.62rem;
         }
+
         .admin-name-badge {
-            padding: 0.5rem 1rem;
-            background: linear-gradient(135deg, rgba(253, 161, 54, 0.2), rgba(251, 146, 60, 0.1));
-            border-bottom: 1px solid rgba(253, 161, 54, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.66rem 0.82rem;
+            background: linear-gradient(135deg, rgba(253, 161, 54, 0.2), rgba(251, 146, 60, 0.08));
+            border: 1px solid rgba(253, 161, 54, 0.24);
+            border-radius: 0.72rem;
             font-weight: 600;
-            color: #FDA136;
-            font-size: 0.9rem;
+            color: #fbbf24;
+            font-size: 0.72rem;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 0.4rem;
+        }
+
+        .sidebar-meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin: 0.05rem 0 0.42rem;
+        }
+
+        .sidebar-meta-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.32rem;
+            padding: 0.24rem 0.48rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+            color: #d4d4d8;
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .sidebar-helper-copy {
+            color: #a1a1aa;
+            font-size: 0.72rem;
+            line-height: 1.55;
+            font-family: 'Outfit', sans-serif;
+            margin: 0.05rem 0 0.5rem;
+        }
+
+        .mobile-drawer-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.24rem 0.62rem 0.44rem;
+            margin-bottom: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+        }
+
+        .mobile-drawer-brand {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.84rem;
+            font-weight: 600;
+            line-height: 1.25;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #e5e7eb;
+        }
+
+        .mobile-drawer-subline {
+            margin-top: 0.15rem;
+            color: #71717a;
+            font-size: 0.6rem;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+
+        .mobile-drawer-close {
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: #d4d4d8;
+            border-radius: 0.6rem;
+            width: 1.9rem;
+            height: 1.9rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .mobile-drawer-close:hover {
+            border-color: rgba(245, 158, 11, 0.45);
+            color: #fde68a;
+            background: rgba(245, 158, 11, 0.12);
+        }
+
+        .mobile-popup-close-btn {
+            width: auto;
+            min-width: 8.2rem;
+            border: 1px solid rgba(245, 158, 11, 0.45);
+            border-radius: 0.78rem;
+            padding: 0.62rem 1.08rem;
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.22), rgba(245, 158, 11, 0.12));
+            color: #fde68a;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+            align-self: center;
+        }
+
+        .mobile-popup-close-btn:hover {
+            transform: translateY(-1px);
+            border-color: rgba(245, 158, 11, 0.62);
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.3), rgba(245, 158, 11, 0.16));
+        }
+
+        @media (max-height: 760px) {
+            .mobile-dropdown {
+                max-height: 90dvh;
+            }
+
+            .mobile-dropdown-item {
+                padding: 0.6rem 0.7rem;
+                font-size: 0.73rem;
+            }
+        }
+
+        @media (min-width: 640px) {
+            .mobile-dropdown {
+                width: min(84vw, 660px);
+                max-height: min(90vh, 52rem);
+            }
+
+            #mobileOptionsPanel {
+                display: none !important;
+            }
+
+            .mobile-modal-actions {
+                flex-direction: row;
+                justify-content: center;
+                gap: 0.62rem;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .mobile-dropdown {
+                width: min(52vw, 660px);
+                max-height: min(90vh, 58rem);
+                border-radius: 1.35rem;
+                box-shadow: 0 34px 90px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            }
+
+            .mobile-dropdown-body {
+                gap: 0.95rem;
+                padding: 1.05rem 1.15rem 1.25rem;
+            }
+
+            .drawer-panel,
+            .mobile-password-panel {
+                max-width: none;
+                border: 0;
+                border-radius: 0;
+                padding: 0;
+                background: transparent;
+                box-shadow: none;
+            }
+
+            .mobile-dashboard-label {
+                font-size: 0.92rem;
+                margin-top: 0.15rem;
+                margin-bottom: 0.82rem;
+            }
+
+            .mobile-password-title {
+                font-size: 1rem;
+                letter-spacing: 0.05em;
+            }
+
+            .mobile-password-hint {
+                font-size: 0.78rem;
+                margin-bottom: 0.82rem;
+            }
+
+            .mobile-password-panel .form-label {
+                font-size: 0.78rem;
+            }
+
+            .mobile-password-panel .input-field {
+                height: 2.56rem;
+                font-size: 0.86rem;
+            }
+
+            .mobile-password-panel .submit-button {
+                margin-top: 0.52rem;
+                padding: 0.82rem 1.1rem;
+                font-size: 0.86rem;
+            }
+
+            .mobile-popup-close-btn,
+            .mobile-password-back {
+                min-width: 9.4rem;
+                padding: 0.7rem 1.14rem;
+                font-size: 0.76rem;
+                border-radius: 0.86rem;
+            }
+
         }
         /* Desktop: hide mobile menu, show regular nav */
         @media (min-width: 640px) {
-            .mobile-nav { display: none !important; }
+            .mobile-nav {
+                display: block !important;
+                margin-bottom: 0;
+            }
+            .mobile-nav-shell { display: none !important; }
             .desktop-nav { display: flex !important; }
         }
         /* Mobile: show mobile menu, hide regular nav */
         @media (max-width: 639px) {
             .mobile-nav { display: flex !important; }
             .desktop-nav { display: none !important; }
+            .hero-status-strip {
+                justify-content: center;
+                padding: 0;
+            }
+            .mobile-nav-shell {
+                border-radius: 0.8rem;
+                padding: 0.55rem;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .mobile-quick-links {
+                gap: 0.2rem;
+            }
+
+            .mobile-quick-link {
+                min-width: 3.95rem;
+                height: 1.86rem;
+                font-size: 0.55rem;
+            }
+
+            .mobile-drawer-brand {
+                font-size: 0.68rem;
+            }
         }
 
         /* Removed custom focus outline/shadow to use browser default */
@@ -1023,32 +1710,8 @@
         }
 
 
-        /* Server status dot */
-        .status-dot {
-            height: 8px;
-            width: 8px;
-            background-color: #64748b;
-            border-radius: 50%;
-            display: inline-block;
-            flex-shrink: 0;
-            transition: background-color 0.3s ease;
-        }
-        /* Pulse animation for status dot */
-        @keyframes pulseDot {
-            0% { transform: scale(1); opacity: 0.8; }
-            50% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(1); opacity: 0.8; }
-        }
-        .status-dot.online {
-            background-color: #34D399; /* Green */
-            animation: pulseDot 1.5s infinite ease-in-out;
-        }
-        .status-dot.offline {
-            background-color: #EF4444; /* Red */
-        }
-        .status-dot.checking { /* For initial checking state */
-            background-color: #FFD700; /* Gold/Amber */
-            animation: pulseDot 1.5s infinite ease-in-out;
+        .desktop-admin-row {
+            margin-top: 0.3rem;
         }
 
 
@@ -2351,14 +3014,18 @@
                 Real-time object tracking powered by YOLOv8
             </p>
             
-            <!-- Server Status Pill -->
-            <div id="serverStatus" class="inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50">
-                <span id="statusDot" class="status-dot"></span>
-                <span class="text-slate-400 text-xs font-medium">Server: <span id="statusText" class="text-slate-300">Checking...</span></span>
-            </div>
-            <div id="benchmarkModePill" class="hidden inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30">
-                <i class="fas fa-flask text-amber-300 text-[11px]"></i>
-                <span id="benchmarkModeText" class="text-amber-200 text-xs font-medium">Benchmarking: ON</span>
+            <div class="hero-status-strip">
+                <div id="serverStatus" class="status-widget border-zinc-500/35 bg-zinc-500/10">
+                    <div class="relative flex h-2.5 w-2.5">
+                        <span id="statusPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-75"></span>
+                        <span id="statusDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-zinc-500"></span>
+                    </div>
+                    <span id="statusText" class="text-zinc-300">CHECKING...</span>
+                </div>
+                <div id="benchmarkModePill" class="hidden benchmark-mode-widget">
+                    <i class="fas fa-flask text-amber-300 text-[11px]"></i>
+                    <span id="benchmarkModeText">Benchmarking: ON</span>
+                </div>
             </div>
         </header>
 
@@ -2385,14 +3052,14 @@
 
                 
                 <!-- Admin Info Badge -->
-                <div id="adminInfoBadge" class="nav-pill nav-pill-accent hidden">
+                <div id="adminInfoBadge" class="nav-pill nav-pill-accent admin-identity-chip hidden">
                     <i class="fas fa-shield-alt"></i>
                     <span id="loggedInUsername"></span>
                 </div>
             </div>
             
             <!-- Admin Action Buttons - Second line only when logged in -->
-            <div id="adminActionButtons" class="flex flex-wrap items-center justify-center gap-2 hidden">
+            <div id="adminActionButtons" class="desktop-admin-row flex flex-wrap items-center justify-center gap-2 hidden">
                 <a href="admin_tracker.html" id="adminTrackerLink" class="nav-pill nav-pill-secondary">
                     <i class="fas fa-chart-line"></i>
                     <span>Tracker</span>
@@ -2425,57 +3092,137 @@
         </nav>
         
         <!-- Mobile Navigation -->
-        <nav class="mobile-nav flex-col items-center gap-2 mb-6" style="display: none;">
-            <span id="mobileAdminName" class="text-xs font-semibold text-orange-400 bg-orange-500/10 px-3 py-1 rounded-full hidden"></span>
-            
-            <div class="flex flex-wrap items-center justify-center gap-2">
-                <a href="playground.html" class="nav-pill nav-pill-primary">
-                    <i class="fas fa-flask"></i>
-                    <span>Playground</span>
-                </a>
-                <a href="documentation.html" class="nav-pill nav-pill-secondary">
-                    <i class="fas fa-book"></i>
-                    <span>Docs</span>
-                </a>
-                <a href="changelogs.html" class="nav-pill nav-pill-secondary">
-                    <i class="fas fa-book"></i>
-                    <span>Changelogs</span>
-                </a>
-                <a href="about.html" class="nav-pill nav-pill-secondary">
-                    <i class="fas fa-circle-info"></i>
-                    <span>About</span>
-                </a>
+        <nav class="mobile-nav flex-col items-center gap-2" style="display: none;">
+            <div class="mobile-nav-shell">
+                <div class="mobile-quick-links">
+                    <a href="playground.html" class="mobile-quick-link">
+                        <i class="fas fa-flask"></i>
+                        <span>Play</span>
+                    </a>
+                    <a href="documentation.html" class="mobile-quick-link">
+                        <i class="fas fa-book"></i>
+                        <span>Docs</span>
+                    </a>
+                    <a href="changelogs.html" class="mobile-quick-link">
+                        <i class="fas fa-clock-rotate-left"></i>
+                        <span>Updates</span>
+                    </a>
+                    <a href="about.html" class="mobile-quick-link">
+                        <i class="fas fa-circle-info"></i>
+                        <span>About</span>
+                    </a>
+                </div>
+                <div id="mobileControlDeck" class="mobile-control-deck hidden" aria-label="Admin controls">
+                    <span id="mobileAdminName" class="mobile-admin-pill hidden"></span>
+                    <button id="mobileCenterLoginBtn" class="mobile-admin-pill mobile-admin-login-btn hidden" type="button" aria-label="Login as admin">
+                        Login
+                    </button>
+                    <button id="mobileMenuBtn" class="mobile-menu-btn" onclick="toggleMobileMenu()" type="button" aria-expanded="false" aria-controls="mobileDropdown" aria-label="Open admin dashboard options">
+                        <i class="fas fa-sliders-h" aria-hidden="true"></i>
+                        <span class="sr-only">Open admin dashboard options</span>
+                    </button>
+                </div>
+                <div class="mobile-shell-footer" aria-label="Admin access shortcuts">
+                </div>
             </div>
-            
-            <div class="mobile-menu-container">
-                <button id="mobileMenuBtn" class="mobile-menu-btn" onclick="toggleMobileMenu()">
-                    <i class="fas fa-ellipsis-h"></i>
-                    <span>More</span>
-                    <i class="fas fa-chevron-down chevron"></i>
-                </button>
-                <div id="mobileDropdown" class="mobile-dropdown">
-                    <div id="mobileLoggedInSection" class="hidden">
-                        <div class="mobile-dropdown-header">Admin Options</div>
-                        <a href="admin_tracker.html" class="mobile-dropdown-item">
-                            <i class="fas fa-chart-line"></i> Tracker
-                        </a>
-                        <a href="benchmark.html" class="mobile-dropdown-item">
-                            <i class="fas fa-chart-bar"></i> Benchmark
-                        </a>
-                        <button id="mobileChangePasswordBtn" class="mobile-dropdown-item">
-                            <i class="fas fa-key"></i> Change Password
-                        </button>
-                        <button id="mobileLogoutAllBtn" class="mobile-dropdown-item hidden">
-                            <i class="fas fa-users-slash"></i> Logout All
-                        </button>
-                        <div class="mobile-dropdown-divider"></div>
-                        <button id="mobileLogoutBtn" class="mobile-dropdown-item" style="color: #f87171;">
-                            <i class="fas fa-sign-out-alt"></i> Logout
-                        </button>
+
+            <div id="mobileDrawerBackdrop" class="mobile-drawer-backdrop"></div>
+            <div id="mobileDropdown" class="mobile-dropdown" role="dialog" aria-modal="true" aria-label="Admin dashboard options">
+                <div class="mobile-dropdown-body">
+                    <div id="mobileOptionsPanel" class="mobile-dashboard-panel">
+                        <div class="mobile-dashboard-label" id="mobileDrawerTitle">Admin Dashboard Options</div>
+                        <div class="mobile-options-zone">
+                            <div id="mobileLoggedInSection" class="hidden drawer-panel sidebar-panel-active">
+                                <div class="drawer-section-list" role="menu" aria-label="Admin options">
+                                    <a href="admin_tracker.html" class="mobile-dropdown-item" role="menuitem">
+                                        <i class="fas fa-gauge-high"></i> Tracker Dashboard
+                                    </a>
+                                    <a href="benchmark.html" class="mobile-dropdown-item" role="menuitem">
+                                        <i class="fas fa-chart-column"></i> Benchmark Dashboard
+                                    </a>
+                                    <button id="mobileChangePasswordBtn" class="mobile-dropdown-item" role="menuitem">
+                                        <i class="fas fa-key"></i> Password Settings
+                                    </button>
+                                    <button id="mobileLogoutAllBtn" class="mobile-dropdown-item hidden" role="menuitem">
+                                        <i class="fas fa-users-slash"></i> Logout All Sessions
+                                    </button>
+                                    <button id="mobileLogoutBtn" class="mobile-dropdown-item mobile-dropdown-item-danger" role="menuitem">
+                                        <i class="fas fa-right-from-bracket"></i> Logout
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="mobileNotLoggedInSection" class="drawer-panel">
+                                <div class="drawer-section-list" role="menu" aria-label="Admin options">
+                                    <button id="mobileLoginBtn" class="mobile-dropdown-item" role="menuitem">
+                                        <i class="fas fa-right-to-bracket"></i> Admin Login
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div id="mobileNotLoggedInSection">
-                        <button id="mobileLoginBtn" class="mobile-dropdown-item">
-                            <i class="fas fa-sign-in-alt"></i> Admin Login
+                    <div id="mobilePasswordPanel" class="mobile-dashboard-panel mobile-password-panel hidden" aria-label="Admin password reset">
+                        <div class="mobile-password-header">
+                            <div class="mobile-password-title">Set New Password</div>
+                        </div>
+                        <p class="mobile-password-hint">Reset your admin password here and continue securely from this dashboard. Mixed characters are recommended.</p>
+                        <div id="capsLockWarning" class="caps-lock-warning hidden" role="status" aria-live="polite">
+                            <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                            Caps Lock is ON
+                        </div>
+
+                        <form id="changePasswordForm" class="password-form">
+                            <div class="form-group">
+                                <label for="currentPasswordInput" class="form-label">Current Password</label>
+                                <div class="input-with-icon">
+                                    <input type="password" id="currentPasswordInput" name="currentPassword" 
+                                           placeholder="Enter current password" class="input-field" required>
+                                    <button type="button" class="input-icon-btn" id="toggleCurrentPassword" aria-label="Toggle current password visibility">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="newPasswordInput" class="form-label">New Password</label>
+                                <div class="input-with-icon">
+                                    <input type="password" id="newPasswordInput" name="newPassword" 
+                                           placeholder="Enter new password" class="input-field" required>
+                                    <button type="button" class="input-icon-btn" id="toggleNewPassword" aria-label="Toggle new password visibility">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="confirmNewPasswordInput" class="form-label">Confirm Password</label>
+                                <div class="input-with-icon">
+                                    <input type="password" id="confirmNewPasswordInput" name="confirmNewPassword" 
+                                           placeholder="Confirm new password" class="input-field" required>
+                                    <button type="button" class="input-icon-btn" id="toggleConfirmNewPassword" aria-label="Toggle confirm password visibility">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button type="submit" id="updatePasswordButton" class="submit-button">
+                                <i class="fas fa-check"></i>
+                                <span>Set Password And Continue</span>
+                            </button>
+                        </form>
+
+                        <div id="passwordChangeStatusMessage" class="status-alert status-error hidden">
+                            <i class="fas fa-exclamation-circle" id="passwordStatusIcon"></i>
+                            <p id="passwordChangeMessageText"></p>
+                        </div>
+                    </div>
+                    <div class="mobile-modal-actions" aria-label="Password modal actions">
+                        <button id="mobilePasswordBackBtn" class="mobile-password-back hidden" type="button" aria-label="Back to admin options">
+                            <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                            Back
+                        </button>
+                        <button id="mobileDrawerBottomClose" class="mobile-popup-close-btn" type="button" aria-label="Close admin dashboard options">
+                            <i class="fas fa-xmark" aria-hidden="true"></i>
+                            Close
                         </button>
                     </div>
                 </div>
@@ -2636,63 +3383,7 @@
             <p id="liveStatusMessage">Ready to process</p>
         </div>
 
-        <!-- Admin Password Change Section -->
-        <div id="passwordChangeSection" class="password-section hidden">
-            <div class="section-header">
-                <div class="section-icon">
-                    <i class="fas fa-key"></i>
-                </div>
-                <div>
-                    <h2 class="section-title">Change Password</h2>
-                    <p class="section-subtitle">Update your admin credentials</p>
-                </div>
-            </div>
-
-            <form id="changePasswordForm" class="password-form">
-                <div class="form-group">
-                    <label for="currentPasswordInput" class="form-label">Current Password</label>
-                    <div class="input-with-icon">
-                        <input type="password" id="currentPasswordInput" name="currentPassword" 
-                               placeholder="Enter current password" class="input-field" required>
-                        <button type="button" class="input-icon-btn" id="toggleCurrentPassword">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="newPasswordInput" class="form-label">New Password</label>
-                    <div class="input-with-icon">
-                        <input type="password" id="newPasswordInput" name="newPassword" 
-                               placeholder="Enter new password" class="input-field" required>
-                        <button type="button" class="input-icon-btn" id="toggleNewPassword">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="confirmNewPasswordInput" class="form-label">Confirm Password</label>
-                    <div class="input-with-icon">
-                        <input type="password" id="confirmNewPasswordInput" name="confirmNewPassword" 
-                               placeholder="Confirm new password" class="input-field" required>
-                        <button type="button" class="input-icon-btn" id="toggleConfirmNewPassword">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <button type="submit" id="updatePasswordButton" class="submit-button">
-                    <i class="fas fa-check"></i>
-                    <span>Update Password</span>
-                </button>
-            </form>
-
-            <div id="passwordChangeStatusMessage" class="status-alert status-error hidden">
-                <i class="fas fa-exclamation-circle"></i>
-                <p id="passwordChangeMessageText"></p>
-            </div>
-        </div>
+        <!-- Password change moved into admin dashboard popup -->
 
         <!-- Processed Videos Section -->
         <section id="processedVideosSection" class="videos-section">
@@ -2785,6 +3476,8 @@
         const liveStatusMessage = document.getElementById('liveStatusMessage');
         const serverStatusText = document.getElementById('statusText');
         const statusDot = document.getElementById('statusDot');
+        const statusPing = document.getElementById('statusPing');
+        const serverStatusWidget = document.getElementById('serverStatus');
         const benchmarkModePill = document.getElementById('benchmarkModePill');
         const benchmarkModeText = document.getElementById('benchmarkModeText');
         const toggleLayoutButton = document.getElementById('toggleLayoutButton');
@@ -2801,8 +3494,11 @@
         const changePasswordBtn = document.getElementById('changePasswordBtn');
         const logoutAllAdminsBtn = document.getElementById('logoutAllAdminsBtn');
 
-        // Password Change Section elements
-        const passwordChangeSection = document.getElementById('passwordChangeSection');
+        // Password Change Modal elements
+        const mobileOptionsPanel = document.getElementById('mobileOptionsPanel');
+        const mobilePasswordPanel = document.getElementById('mobilePasswordPanel');
+        const mobilePasswordBackBtn = document.getElementById('mobilePasswordBackBtn');
+        const mobileDrawerTitle = document.getElementById('mobileDrawerTitle');
         const changePasswordForm = document.getElementById('changePasswordForm');
         const currentPasswordInput = document.getElementById('currentPasswordInput');
         const newPasswordInput = document.getElementById('newPasswordInput');
@@ -2813,6 +3509,8 @@
         const updatePasswordButton = document.getElementById('updatePasswordButton');
         const passwordChangeStatusMessage = document.getElementById('passwordChangeStatusMessage');
         const passwordChangeMessageText = document.getElementById('passwordChangeMessageText');
+        const passwordStatusIcon = document.getElementById('passwordStatusIcon');
+        const capsLockWarning = document.getElementById('capsLockWarning');
 
         // New elements for Frame Restriction
         const frameRestrictionInfo = document.getElementById('frameRestrictionInfo');
@@ -2840,25 +3538,169 @@
         let frameRestrictionEnabled = false; // Default frame restriction state
         let frameRestrictionValue = 0; // Default frame restriction value
         let benchmarkInProgress = false;
+        let mobileDrawerHistoryActive = false;
         
+        
+        function setServerConnectionUiState(state) {
+            if (!statusDot || !statusPing || !serverStatusText || !serverStatusWidget) return;
+
+            if (state === 'online') {
+                statusDot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500';
+                statusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
+                serverStatusText.textContent = 'SYSTEM ONLINE';
+                serverStatusText.className = 'text-emerald-300';
+                serverStatusWidget.className = 'status-widget border-emerald-500/35 bg-emerald-500/10';
+                return;
+            }
+
+            if (state === 'offline') {
+                statusDot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500';
+                statusPing.className = 'hidden';
+                serverStatusText.textContent = 'OFFLINE';
+                serverStatusText.className = 'text-zinc-400';
+                serverStatusWidget.className = 'status-widget border-zinc-500/35 bg-zinc-500/10';
+                return;
+            }
+
+            statusDot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-zinc-500';
+            statusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-75';
+            serverStatusText.textContent = 'CHECKING...';
+            serverStatusText.className = 'text-zinc-300';
+            serverStatusWidget.className = 'status-widget border-zinc-500/35 bg-zinc-500/10';
+        }
+
         /* Mobile Menu Functions - defined early for use in DOMContentLoaded */
-        function toggleMobileMenu() {
+        function setMobileModalOrigin(originEl = null) {
+            const dropdown = document.getElementById('mobileDropdown');
+            if (!dropdown) return;
+            dropdown.style.removeProperty('--modal-shift-x');
+            dropdown.style.removeProperty('--modal-shift-y');
+        }
+
+        function showMobileDashboardPanel(panel = 'options') {
+            if (!mobileOptionsPanel || !mobilePasswordPanel || !mobilePasswordBackBtn) return;
+
+            const desktopMode = window.matchMedia('(min-width: 640px)').matches;
+            const showPassword = panel === 'password' || desktopMode;
+            const nextPanel = showPassword ? mobilePasswordPanel : mobileOptionsPanel;
+
+            mobileOptionsPanel.classList.toggle('hidden', showPassword);
+            mobilePasswordPanel.classList.toggle('hidden', !showPassword);
+            mobilePasswordBackBtn.classList.toggle('hidden', !showPassword || desktopMode);
+
+            nextPanel.classList.remove('panel-enter');
+            void nextPanel.offsetWidth;
+            nextPanel.classList.add('panel-enter');
+
+            const textTarget = nextPanel.querySelector('.mobile-dashboard-label, .mobile-password-title');
+            if (textTarget) {
+                textTarget.classList.remove('panel-text-shift');
+                void textTarget.offsetWidth;
+                textTarget.classList.add('panel-text-shift');
+            }
+
+            updateMobileOptionCount();
+
+            if (showPassword) {
+                currentPasswordInput?.focus();
+            }
+        }
+
+        function resetPasswordModalState() {
+            passwordChangeStatusMessage?.classList.add('hidden');
+            if (currentPasswordInput) currentPasswordInput.value = '';
+            if (newPasswordInput) newPasswordInput.value = '';
+            if (confirmNewPasswordInput) confirmNewPasswordInput.value = '';
+            if (capsLockWarning) capsLockWarning.classList.add('hidden');
+        }
+
+        function updateCapsLockWarning(event) {
+            if (!capsLockWarning || typeof event?.getModifierState !== 'function') return;
+            capsLockWarning.classList.toggle('hidden', !event.getModifierState('CapsLock'));
+        }
+
+        function openMobileDashboard(panel = 'options') {
+            showMobileDashboardPanel(panel);
+            toggleMobileMenu(true);
+        }
+
+        function toggleMobileMenu(forceState = null, source = 'ui') {
             const btn = document.getElementById('mobileMenuBtn');
             const dropdown = document.getElementById('mobileDropdown');
-            btn.classList.toggle('open');
-            dropdown.classList.toggle('show');
+            const backdrop = document.getElementById('mobileDrawerBackdrop');
+            if (!btn || !dropdown) return;
+
+            const currentlyOpen = dropdown.classList.contains('show');
+            const shouldOpen = typeof forceState === 'boolean' ? forceState : !dropdown.classList.contains('show');
+            if (shouldOpen === currentlyOpen) return;
+
+            btn.classList.toggle('open', shouldOpen);
+            btn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+
+            if (shouldOpen && !currentlyOpen) {
+                setMobileModalOrigin();
+            }
+
+            dropdown.classList.toggle('show', shouldOpen);
+            backdrop?.classList.toggle('show', shouldOpen);
+            document.body.style.overflow = shouldOpen ? 'hidden' : '';
+
+            if (shouldOpen) {
+                updateMobileOptionCount();
+            }
+
+            if (shouldOpen) {
+                if (!mobileDrawerHistoryActive) {
+                    history.pushState({ ...(history.state || {}), __mobileDrawer: true }, '');
+                    mobileDrawerHistoryActive = true;
+                }
+            } else if (source === 'popstate') {
+                mobileDrawerHistoryActive = false;
+            } else if (mobileDrawerHistoryActive) {
+                mobileDrawerHistoryActive = false;
+                history.back();
+            }
+
+            if (!shouldOpen) {
+                setTimeout(() => {
+                    showMobileDashboardPanel('options');
+                }, 220);
+            }
+        }
+
+        function updateMobileOptionCount() {
+            const countNode = document.getElementById('mobileOptionCount');
+            if (mobilePasswordPanel && !mobilePasswordPanel.classList.contains('hidden')) {
+                if (countNode) {
+                    countNode.innerHTML = `<i class="fas fa-key" aria-hidden="true"></i> password mode`;
+                }
+                return;
+            }
+            const activeSection = document.getElementById('mobileLoggedInSection')?.classList.contains('hidden')
+                ? document.getElementById('mobileNotLoggedInSection')
+                : document.getElementById('mobileLoggedInSection');
+            if (!countNode || !activeSection) return;
+
+            const visibleOptions = activeSection.querySelectorAll('.mobile-dropdown-item:not(.hidden)').length;
+            countNode.innerHTML = `<i class="fas fa-layer-group" aria-hidden="true"></i> ${visibleOptions} option${visibleOptions === 1 ? '' : 's'}`;
         }
         
         function updateMobileMenu(isLoggedIn, username, isMaster) {
             const mobileAdminName = document.getElementById('mobileAdminName');
+            const mobileControlDeck = document.getElementById('mobileControlDeck');
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileCenterLoginBtn = document.getElementById('mobileCenterLoginBtn');
             const mobileLoggedInSection = document.getElementById('mobileLoggedInSection');
             const mobileNotLoggedInSection = document.getElementById('mobileNotLoggedInSection');
             const mobileLogoutAllBtn = document.getElementById('mobileLogoutAllBtn');
             
             if (isLoggedIn && username) {
+                if (mobileControlDeck) mobileControlDeck.classList.remove('hidden');
+                if (mobileMenuBtn) mobileMenuBtn.classList.remove('hidden');
+                if (mobileCenterLoginBtn) mobileCenterLoginBtn.classList.add('hidden');
                 // Show admin name
                 if (mobileAdminName) {
-                    mobileAdminName.textContent = `👤 ${username}`;
+                    mobileAdminName.textContent = username;
                     mobileAdminName.classList.remove('hidden');
                 }
                 
@@ -2874,13 +3716,21 @@
                         mobileLogoutAllBtn.classList.add('hidden');
                     }
                 }
+                updateMobileOptionCount();
             } else {
                 // Not logged in
+                if (mobileControlDeck) mobileControlDeck.classList.remove('hidden');
+                toggleMobileMenu(false);
                 if (mobileAdminName) mobileAdminName.classList.add('hidden');
+                if (mobileMenuBtn) mobileMenuBtn.classList.add('hidden');
+                if (mobileCenterLoginBtn) mobileCenterLoginBtn.classList.remove('hidden');
                 if (mobileLoggedInSection) mobileLoggedInSection.classList.add('hidden');
                 if (mobileNotLoggedInSection) mobileNotLoggedInSection.classList.remove('hidden');
+                updateMobileOptionCount();
             }
         }
+
+        setServerConnectionUiState('checking');
 
         // ROI State Variables
         let roiEnabled = false;
@@ -3100,6 +3950,7 @@
 
         // Helper function to make authenticated fetch requests
         async function authenticatedFetch(url, options = {}) {
+            const { allow401 = false, ...fetchOptions } = options;
             const token = localStorage.getItem('adminToken');
             if (!token) {
                 // If no token, redirect to login page
@@ -3109,14 +3960,14 @@
             }
 
             const headers = {
-                ...options.headers,
+                ...fetchOptions.headers,
                 'Authorization': `Bearer ${token}`
             };
 
-            const response = await fetch(url, { ...options, headers });
+            const response = await fetch(url, { ...fetchOptions, headers });
 
             // If response is 401, token is invalid/expired, force re-login
-            if (response.status === 401) {
+            if (response.status === 401 && !allow401) {
                 showCentralMessage('Session expired or invalid. Please log in again.', true);
                 clearAdminSession(); // Clear local storage items
                 setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
@@ -3221,14 +4072,15 @@
         function showPasswordChangeMessage(message, isError = true) {
             passwordChangeMessageText.textContent = message;
             passwordChangeStatusMessage.classList.remove('hidden');
+            passwordChangeStatusMessage.classList.remove('error-banner', 'success-banner', 'status-error');
+
             if (isError) {
+                passwordChangeStatusMessage.classList.add('status-error');
                 passwordChangeStatusMessage.classList.add('error-banner');
-                passwordChangeStatusMessage.classList.remove('success-banner');
-                passwordChangeStatusMessage.querySelector('svg').innerHTML = `<path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94l-1.72-1.72Z" clip-rule="evenodd" />`;
+                if (passwordStatusIcon) passwordStatusIcon.className = 'fas fa-exclamation-circle';
             } else {
-                passwordChangeStatusMessage.classList.remove('error-banner');
                 passwordChangeStatusMessage.classList.add('success-banner');
-                passwordChangeStatusMessage.querySelector('svg').innerHTML = `<path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" />`;
+                if (passwordStatusIcon) passwordStatusIcon.className = 'fas fa-check-circle';
             }
         }
 
@@ -4127,9 +4979,7 @@
             statusEventSource = new EventSource(LOCAL_STATUS_EVENTS_ENDPOINT);
 
             statusEventSource.onopen = () => {
-                serverStatusText.textContent = 'Online';
-                statusDot.classList.remove('offline', 'checking');
-                statusDot.classList.add('online');
+                setServerConnectionUiState('online');
                 stopStatusFallbackPolling();
                 pollForProcessingStatus();
                 pollForNewVideos();
@@ -4145,9 +4995,7 @@
             });
 
             statusEventSource.onerror = () => {
-                serverStatusText.textContent = 'Offline';
-                statusDot.classList.remove('online', 'checking');
-                statusDot.classList.add('offline');
+                setServerConnectionUiState('offline');
                 startStatusFallbackPolling();
             };
         }
@@ -4157,18 +5005,12 @@
             try {
                 const response = await fetch(LOCAL_STATUS_ENDPOINT, { method: 'HEAD' }); /* Use HEAD request for efficiency */
                 if (response.ok) {
-                    serverStatusText.textContent = 'Online';
-                    statusDot.classList.remove('offline', 'checking');
-                    statusDot.classList.add('online');
+                    setServerConnectionUiState('online');
                 } else {
-                    serverStatusText.textContent = 'Offline';
-                    statusDot.classList.remove('online', 'checking');
-                    statusDot.classList.add('offline');
+                    setServerConnectionUiState('offline');
                 }
             } catch (error) {
-                serverStatusText.textContent = 'Offline';
-                statusDot.classList.remove('online', 'checking');
-                statusDot.classList.add('offline');
+                setServerConnectionUiState('offline');
                 console.error('Error checking server health:', error.message);
             }
         }
@@ -4647,12 +5489,18 @@
             this.querySelector('i').classList.toggle('fa-eye-slash');
         });
 
+        [currentPasswordInput, newPasswordInput, confirmNewPasswordInput].forEach((field) => {
+            field?.addEventListener('keydown', updateCapsLockWarning);
+            field?.addEventListener('keyup', updateCapsLockWarning);
+            field?.addEventListener('blur', () => capsLockWarning?.classList.add('hidden'));
+        });
+
         // Handle password change form submission
         changePasswordForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             passwordChangeStatusMessage.classList.add('hidden');
             updatePasswordButton.disabled = true;
-            updatePasswordButton.textContent = 'Updating...';
+            updatePasswordButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Updating...</span>';
 
             const currentPassword = currentPasswordInput.value;
             const newPassword = newPasswordInput.value;
@@ -4661,19 +5509,20 @@
             if (newPassword !== confirmNewPassword) {
                 showPasswordChangeMessage('New passwords do not match!');
                 updatePasswordButton.disabled = false;
-                updatePasswordButton.textContent = 'Update Password';
+                updatePasswordButton.innerHTML = '<i class="fas fa-check"></i><span>Set Password And Continue</span>';
                 return;
             }
 
             if (!currentPassword || !newPassword) {
                 showPasswordChangeMessage('Please fill all password fields.');
                 updatePasswordButton.disabled = false;
-                updatePasswordButton.textContent = 'Update Password';
+                updatePasswordButton.innerHTML = '<i class="fas fa-check"></i><span>Set Password And Continue</span>';
                 return;
             }
 
             try {
                 const response = await authenticatedFetch(LOCAL_UPDATE_CREDENTIALS_ENDPOINT, {
+                    allow401: true,
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -4687,11 +5536,22 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    showPasswordChangeMessage('Password updated successfully. Please log in again with your new password.', false);
+                    const redirectSeconds = 5;
+                    let remainingSeconds = redirectSeconds;
+                    showPasswordChangeMessage(`Password updated successfully. Redirecting to login page in ${remainingSeconds}s...`, false);
                     clearAdminSession(); // Clear session as token is invalidated
+
+                    const redirectCountdown = setInterval(() => {
+                        remainingSeconds -= 1;
+                        if (remainingSeconds > 0) {
+                            showPasswordChangeMessage(`Password updated successfully. Redirecting to login page in ${remainingSeconds}s...`, false);
+                        }
+                    }, 1000);
+
                     setTimeout(() => {
+                        clearInterval(redirectCountdown);
                         window.location.href = 'admin.html'; // Redirect to login
-                    }, 2000);
+                    }, redirectSeconds * 1000);
                 } else {
                     showPasswordChangeMessage(data.message || 'Failed to update password.');
                 }
@@ -4700,7 +5560,7 @@
                 showPasswordChangeMessage('Network error or server unreachable during password update.');
             } finally {
                 updatePasswordButton.disabled = false;
-                updatePasswordButton.textContent = 'Update Password';
+                updatePasswordButton.innerHTML = '<i class="fas fa-check"></i><span>Set Password And Continue</span>';
             }
         });
 
@@ -5531,30 +6391,46 @@
             localStorage.setItem('isThreeColumnLayout', isThreeColumnLayout); /* Save state */
         });
 
-        // Close mobile menu when clicking outside
-        document.addEventListener('click', (e) => {
-            const container = document.querySelector('.mobile-menu-container');
-            if (container && !container.contains(e.target)) {
-                document.getElementById('mobileMenuBtn')?.classList.remove('open');
-                document.getElementById('mobileDropdown')?.classList.remove('show');
+        document.getElementById('mobileDrawerBackdrop')?.addEventListener('click', () => toggleMobileMenu(false));
+        document.getElementById('mobileDrawerBottomClose')?.addEventListener('click', () => toggleMobileMenu(false));
+        window.addEventListener('popstate', () => {
+            const dropdown = document.getElementById('mobileDropdown');
+            if (dropdown?.classList.contains('show') || mobileDrawerHistoryActive) {
+                toggleMobileMenu(false, 'popstate');
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                toggleMobileMenu(false);
             }
         });
         
         // Mobile button event listeners
+        document.getElementById('mobileCenterLoginBtn')?.addEventListener('click', () => {
+            window.location.href = 'admin.html';
+        });
+
         document.getElementById('mobileLoginBtn')?.addEventListener('click', () => {
+            toggleMobileMenu(false);
             window.location.href = 'admin.html';
         });
         
         document.getElementById('mobileLogoutBtn')?.addEventListener('click', () => {
+            toggleMobileMenu(false);
             adminLogoutBtn.click(); // Trigger the desktop logout
         });
         
         document.getElementById('mobileChangePasswordBtn')?.addEventListener('click', () => {
-            changePasswordBtn.click(); // Trigger the desktop change password
-            toggleMobileMenu(); // Close menu
+            resetPasswordModalState();
+            showMobileDashboardPanel('password');
+        });
+
+        document.getElementById('mobilePasswordBackBtn')?.addEventListener('click', () => {
+            showMobileDashboardPanel('options');
         });
         
         document.getElementById('mobileLogoutAllBtn')?.addEventListener('click', () => {
+            toggleMobileMenu(false);
             logoutAllAdminsBtn.click(); // Trigger the desktop logout all
         });
 
@@ -5588,13 +6464,8 @@
 
         // Handle Change Password button click
         changePasswordBtn.addEventListener('click', () => {
-            // Toggle visibility of the password change section
-            passwordChangeSection.classList.toggle('hidden');
-            // Clear any previous messages
-            passwordChangeStatusMessage.classList.add('hidden');
-            currentPasswordInput.value = '';
-            newPasswordInput.value = '';
-            confirmNewPasswordInput.value = '';
+            resetPasswordModalState();
+            openMobileDashboard('password', changePasswordBtn);
         });
 
         // Handle Logout All Admins button click
