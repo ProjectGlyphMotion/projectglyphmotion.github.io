@@ -300,6 +300,11 @@
             border-color: rgba(253, 161, 54, 0.4);
             background: rgba(15, 15, 15, 0.6);
         }
+        .file-upload-zone.drag-active {
+            border-color: rgba(253, 161, 54, 0.75);
+            background: rgba(253, 161, 54, 0.12);
+            box-shadow: 0 0 0 3px rgba(253, 161, 54, 0.18);
+        }
         .file-upload-content {
             display: flex;
             align-items: center;
@@ -366,6 +371,21 @@
             font-size: 0.8125rem;
         }
         .track-button-shine { display: none; }
+
+        .cancel-processing-button {
+            background: linear-gradient(135deg, #ef4444, #be123c);
+            box-shadow: 0 2px 10px rgba(239, 68, 68, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .cancel-processing-button:hover {
+            box-shadow: 0 4px 18px rgba(239, 68, 68, 0.5);
+        }
+        .cancel-processing-button:disabled {
+            opacity: 0.72;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 1px 4px rgba(239, 68, 68, 0.2);
+        }
 
         /* ROI Section Wrapper */
         .roi-section-wrapper {
@@ -3267,9 +3287,9 @@
                         <i class="fas fa-cloud-upload-alt"></i>
                         <span>Upload File</span>
                     </div>
-                    <label class="file-upload-zone">
+                    <label class="file-upload-zone" id="videoFileDropZone">
                         <input type="file" id="videoFile" name="videoFile" accept="video/*" class="sr-only"
-                               onchange="document.getElementById('fileNameDisplay').textContent = this.files[0] ? this.files[0].name : 'Drop file or click to browse'; document.getElementById('videoUrl').value = ''; handleVideoFileChange(this);">
+                               onchange="handleVideoFileChange(this);">
                         <div class="file-upload-content">
                             <i class="fas fa-file-video file-upload-icon"></i>
                             <span id="fileNameDisplay" class="file-upload-text">Drop file or click to browse</span>
@@ -3333,6 +3353,14 @@
                 <span class="track-button-content">
                     <i class="fas fa-play"></i>
                     <span>Start Tracking</span>
+                </span>
+                <span class="track-button-shine"></span>
+            </button>
+
+            <button id="cancelProcessingButton" class="track-button cancel-processing-button hidden" type="button">
+                <span class="track-button-content">
+                    <i class="fas fa-stop-circle"></i>
+                    <span>Cancel Current Processing</span>
                 </span>
                 <span class="track-button-shine"></span>
             </button>
@@ -3465,7 +3493,10 @@
     <script>
         const videoUrlInput = document.getElementById('videoUrl');
         const videoFileInput = document.getElementById('videoFile');
+        const videoFileDropZone = document.getElementById('videoFileDropZone');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
         const trackButton = document.getElementById('trackButton');
+        const cancelProcessingButton = document.getElementById('cancelProcessingButton');
         const statusArea = document.getElementById('statusArea');
         const statusMessage = document.getElementById('statusMessage');
         const errorArea = document.getElementById('errorMessage');
@@ -3538,7 +3569,39 @@
         let frameRestrictionEnabled = false; // Default frame restriction state
         let frameRestrictionValue = 0; // Default frame restriction value
         let benchmarkInProgress = false;
+        let currentProcessingJobId = '';
         let mobileDrawerHistoryActive = false;
+        let suppressCancelledStatusUntilMs = 0;
+        const CANCELLED_STATUS_SUPPRESS_WINDOW_MS = 20000;
+
+        function getOrCreateClientId() {
+            const existing = sessionStorage.getItem('glyphClientId');
+            if (existing && /^[A-Za-z0-9._-]{8,96}$/.test(existing)) {
+                return existing;
+            }
+            const generated = `client_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+            sessionStorage.setItem('glyphClientId', generated);
+            return generated;
+        }
+
+        function getIdentityHeaders(includeJson = false) {
+            const headers = {
+                'X-Client-Id': getOrCreateClientId()
+            };
+            if (includeJson) {
+                headers['Content-Type'] = 'application/json';
+            }
+            const token = localStorage.getItem('adminToken');
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            return headers;
+        }
+
+        function buildStatusUrl() {
+            const clientId = encodeURIComponent(getOrCreateClientId());
+            return `${LOCAL_STATUS_ENDPOINT}?client_id=${clientId}`;
+        }
         
         
         function setServerConnectionUiState(state) {
@@ -3793,14 +3856,27 @@
         const AGGRESSIVE_POLL_MAX_ATTEMPTS = 90; // 3 minutes max at 2s interval
         const POLLING_INTERVAL_STATUS = 2000; // Poll live status every 2 seconds
         const POLLING_INTERVAL_SERVER_HEALTH = 5000; // Poll server health every 5 seconds (new)
-        const POLLING_INTERVAL_STATUS_FALLBACK = 15000; // Used only when SSE is unavailable
+        const POLLING_INTERVAL_STATUS_FALLBACK = 1200; // Fast fallback while SSE is disconnected
+        const STATUS_SSE_RECONNECT_DELAY_MS = 650; // Fast retry to restore instant online recovery
 
         // --- AUTO-DETECT LOCAL DEVELOPMENT vs PRODUCTION ---
-        // Detects if running on localhost/127.0.0.1 and uses local backend
+        // Force production backend on deployed project domains; allow file:// and LAN for local dev.
+        const _host = (window.location.hostname || '').toLowerCase();
+        const IS_PRODUCTION_DOMAIN = (
+            _host === 'projectglyphmotion.studio' ||
+            _host.endsWith('.projectglyphmotion.studio') ||
+            _host === 'projectglyphmotion.github.io' ||
+            _host.endsWith('.github.io')
+        );
         const IS_LOCAL_DEVELOPMENT = (
-            window.location.hostname === 'localhost' ||
-            window.location.hostname === '127.0.0.1' ||
-            window.location.hostname.startsWith('192.168.') // Local network IPs
+            !IS_PRODUCTION_DOMAIN && (
+                window.location.protocol === 'file:' ||
+                _host === 'localhost' ||
+                _host === '127.0.0.1' ||
+                _host.startsWith('192.168.') ||
+                _host.startsWith('10.') ||
+                /^172\.(1[6-9]|2\d|3[0-1])\./.test(_host)
+            )
         );
 
         const POLLING_INTERVAL_VIDEOS = IS_LOCAL_DEVELOPMENT
@@ -3834,6 +3910,7 @@
         const LOCAL_LOGOUT_ENDPOINT = NGROK_PUBLIC_URL + '/logout'; // New endpoint for logout
         const LOCAL_LOGOUT_ALL_ADMINS_ENDPOINT = NGROK_PUBLIC_URL + '/logout_all_admins'; // New endpoint for master logout
         const LOCAL_UPDATE_CREDENTIALS_ENDPOINT = NGROK_PUBLIC_URL + '/update_credentials'; // New endpoint for password update
+        const LOCAL_CANCEL_PROCESSING_ENDPOINT = NGROK_PUBLIC_URL + '/cancel_video_processing';
         const UPLOAD_REQUEST_TIMEOUT_MS = 8 * 60 * 1000;
         const CHUNK_UPLOAD_THRESHOLD_BYTES = 48 * 1024 * 1024;
         const CHUNK_SIZE_BYTES = 16 * 1024 * 1024;
@@ -3898,6 +3975,7 @@
                 const chunkTimer = setTimeout(() => chunkController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
                 const chunkResponse = await fetch(CHUNK_UPLOAD_ENDPOINT, {
                     method: 'POST',
+                    headers: getIdentityHeaders(),
                     body: chunkForm,
                     signal: chunkController.signal
                 });
@@ -3920,6 +3998,8 @@
         let lastFetchedVideos = [];
         let lastDeleteStatusShown = '';
         let statusEventSource = null;
+        let statusSseConnected = false;
+        let statusSseReconnectTimerRef = null;
         let authEventSource = null;
         let authReconnectTimer = null;
         let statusFallbackIntervalRef = null;
@@ -3961,6 +4041,7 @@
 
             const headers = {
                 ...fetchOptions.headers,
+                'X-Client-Id': getOrCreateClientId(),
                 'Authorization': `Bearer ${token}`
             };
 
@@ -4819,7 +4900,11 @@
         });
 
         function applyProcessingStatusData(data) {
-            const currentStatus = (data.status || '').trim();
+            const rawStatus = (data.status || '').trim();
+            const isCancelledStatus = rawStatus.includes('Processing cancelled for job');
+            const suppressingCancelledStatus = isCancelledStatus && Date.now() < suppressCancelledStatusUntilMs;
+            const currentStatus = suppressingCancelledStatus ? '' : rawStatus;
+            const benchmarkStatusLine = (data.benchmarkStatusLine || '').trim();
             const backendSignaledCompletion = !!data.processingComplete;
             const legacyCompletionText =
                 currentStatus.includes('Object tracking and GitHub Pages update complete!') ||
@@ -4829,6 +4914,20 @@
             frameRestrictionEnabled = data.frameRestrictionEnabled;
             frameRestrictionValue = data.frameRestrictionValue;
             benchmarkInProgress = !!data.benchmarkInProgress;
+            currentProcessingJobId = (data.activeProcessingJobId || '').trim();
+            const processingActive = !!data.processingActive || !!data.benchmarkInProgress;
+            const canCancelActiveJob = !!data.canCancelActiveJob;
+
+            if (cancelProcessingButton) {
+                cancelProcessingButton.classList.toggle('hidden', !processingActive || !canCancelActiveJob);
+                const cancelLabel = cancelProcessingButton.querySelector('.track-button-content span');
+                if (cancelLabel) {
+                    cancelLabel.textContent = data.cancelRequested
+                        ? 'Cancellation Requested...'
+                        : 'Cancel Current Processing';
+                }
+                cancelProcessingButton.disabled = !!data.cancelRequested || !canCancelActiveJob;
+            }
 
             if (benchmarkModePill && benchmarkModeText) {
                 if (data.benchmarkingEnabled) {
@@ -4848,6 +4947,8 @@
             }
 
             if (benchmarkInProgress) {
+                trackButton.disabled = true;
+            } else if (processingActive) {
                 trackButton.disabled = true;
             } else {
                 trackButton.disabled = false;
@@ -4905,8 +5006,10 @@
                     stopVideosPollingLoop();
                 }
             } else {
-                if (benchmarkInProgress) {
-                    liveStatusMessage.textContent = '📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete.';
+                if (suppressingCancelledStatus) {
+                    // Preserve local in-flight UI text while backend transitions to the new run.
+                } else if (benchmarkInProgress) {
+                    liveStatusMessage.textContent = benchmarkStatusLine || '📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete.';
                     liveProcessingStatusDiv.classList.remove('hidden');
                 } else {
                     liveProcessingStatusDiv.classList.add('hidden');
@@ -4926,7 +5029,7 @@
 
             // Benchmark lock message must always be visible while benchmark is running.
             if (benchmarkInProgress) {
-                liveStatusMessage.textContent = '📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete.';
+                liveStatusMessage.textContent = benchmarkStatusLine || '📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete.';
                 liveProcessingStatusDiv.classList.remove('hidden');
                 trackButton.disabled = true;
             }
@@ -4935,7 +5038,10 @@
         /* Fallback only: fetch status when SSE is unavailable */
         async function pollForProcessingStatus() {
             try {
-                const response = await fetch(LOCAL_STATUS_ENDPOINT, { cache: 'no-store' });
+                const response = await fetch(buildStatusUrl(), {
+                    cache: 'no-store',
+                    headers: getIdentityHeaders()
+                });
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -4965,6 +5071,26 @@
             statusFallbackIntervalRef = null;
         }
 
+        function scheduleStatusSseReconnect(delayMs = STATUS_SSE_RECONNECT_DELAY_MS) {
+            if (!window.EventSource || statusSseConnected || statusSseReconnectTimerRef) {
+                return;
+            }
+            statusSseReconnectTimerRef = setTimeout(() => {
+                statusSseReconnectTimerRef = null;
+                if (!statusSseConnected) {
+                    setupStatusEventStream();
+                }
+            }, Math.max(150, delayMs));
+        }
+
+        function clearStatusSseReconnectTimer() {
+            if (!statusSseReconnectTimerRef) {
+                return;
+            }
+            clearTimeout(statusSseReconnectTimerRef);
+            statusSseReconnectTimerRef = null;
+        }
+
         function setupStatusEventStream() {
             if (!window.EventSource) {
                 console.warn('EventSource unsupported in this browser, using fallback polling.');
@@ -4973,12 +5099,18 @@
             }
 
             if (statusEventSource) {
+                statusEventSource.onopen = null;
+                statusEventSource.onerror = null;
                 statusEventSource.close();
             }
 
-            statusEventSource = new EventSource(LOCAL_STATUS_EVENTS_ENDPOINT);
+            const clientId = encodeURIComponent(getOrCreateClientId());
+            statusSseConnected = false;
+            statusEventSource = new EventSource(`${LOCAL_STATUS_EVENTS_ENDPOINT}?client_id=${clientId}`);
 
             statusEventSource.onopen = () => {
+                statusSseConnected = true;
+                clearStatusSseReconnectTimer();
                 setServerConnectionUiState('online');
                 stopStatusFallbackPolling();
                 pollForProcessingStatus();
@@ -4995,8 +5127,10 @@
             });
 
             statusEventSource.onerror = () => {
+                statusSseConnected = false;
                 setServerConnectionUiState('offline');
                 startStatusFallbackPolling();
+                scheduleStatusSseReconnect();
             };
         }
 
@@ -5006,11 +5140,20 @@
                 const response = await fetch(LOCAL_STATUS_ENDPOINT, { method: 'HEAD' }); /* Use HEAD request for efficiency */
                 if (response.ok) {
                     setServerConnectionUiState('online');
+                    if (!statusSseConnected) {
+                        scheduleStatusSseReconnect(50);
+                    }
                 } else {
                     setServerConnectionUiState('offline');
+                    if (!statusSseConnected) {
+                        scheduleStatusSseReconnect();
+                    }
                 }
             } catch (error) {
                 setServerConnectionUiState('offline');
+                if (!statusSseConnected) {
+                    scheduleStatusSseReconnect();
+                }
                 console.error('Error checking server health:', error.message);
             }
         }
@@ -5570,13 +5713,23 @@
 
         // Handle video file selection for ROI preview
         function handleVideoFileChange(input) {
-            if (input.files && input.files[0]) {
-                currentVideoFile = input.files[0];
+            const selectedFile = input instanceof File
+                ? input
+                : (input && input.files && input.files[0])
+                    ? input.files[0]
+                    : null;
+
+            if (selectedFile) {
+                currentVideoFile = selectedFile;
+                if (fileNameDisplay) {
+                    fileNameDisplay.textContent = selectedFile.name;
+                }
+                videoUrlInput.value = '';
                 // Cancel any existing preview session when new file is selected
                 if (previewSessionId) {
                     fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: getIdentityHeaders(true),
                         body: JSON.stringify({ preview_session_id: previewSessionId })
                     }).catch(() => {});
                     previewSessionId = null;
@@ -5587,8 +5740,56 @@
                 }
             } else {
                 currentVideoFile = null;
+                if (fileNameDisplay) {
+                    fileNameDisplay.textContent = 'Drop file or click to browse';
+                }
                 clearRoi();
             }
+        }
+
+        function setupVideoFileDragAndDrop() {
+            if (!videoFileDropZone || !videoFileInput) return;
+
+            const preventDefaults = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+            };
+
+            ['dragenter', 'dragover'].forEach((eventName) => {
+                videoFileDropZone.addEventListener(eventName, (event) => {
+                    preventDefaults(event);
+                    videoFileDropZone.classList.add('drag-active');
+                });
+            });
+
+            ['dragleave', 'dragend', 'drop'].forEach((eventName) => {
+                videoFileDropZone.addEventListener(eventName, (event) => {
+                    preventDefaults(event);
+                    videoFileDropZone.classList.remove('drag-active');
+                });
+            });
+
+            videoFileDropZone.addEventListener('drop', (event) => {
+                const droppedFile = event.dataTransfer?.files?.[0] || null;
+                if (!droppedFile) {
+                    return;
+                }
+
+                if (!String(droppedFile.type || '').startsWith('video/')) {
+                    showError('Please drop a valid video file.');
+                    return;
+                }
+
+                try {
+                    const transfer = new DataTransfer();
+                    transfer.items.add(droppedFile);
+                    videoFileInput.files = transfer.files;
+                } catch (error) {
+                    console.warn('Could not sync dropped file to hidden input. Using runtime file reference instead.', error);
+                }
+
+                handleVideoFileChange(droppedFile);
+            });
         }
 
         // Toggle ROI section visibility
@@ -5624,7 +5825,7 @@
                 if (previewSessionId) {
                     fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: getIdentityHeaders(true),
                         body: JSON.stringify({ preview_session_id: previewSessionId })
                     }).catch(() => {});
                     previewSessionId = null;
@@ -5698,7 +5899,7 @@
             if (previewSessionId) {
                 fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getIdentityHeaders(true),
                     body: JSON.stringify({ preview_session_id: previewSessionId })
                 }).catch(() => {}); // Ignore errors
                 previewSessionId = null;
@@ -5714,6 +5915,7 @@
             try {
                 const response = await fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/get_video_preview'), {
                     method: 'POST',
+                    headers: getIdentityHeaders(),
                     body: formData,
                     signal: currentPreviewAbortController.signal
                 });
@@ -6099,6 +6301,7 @@
         async function initiateVideoProcessing() {
             statusArea.classList.add('hidden');
             errorArea.classList.add('hidden');
+            statusMessage.textContent = '';
             errorMessage.textContent = '';
             liveProcessingStatusDiv.classList.remove('hidden'); /* Show live status area */
             liveStatusMessage.textContent = 'Initiating processing...'; /* Initial message */
@@ -6112,12 +6315,17 @@
             } else if (videoFileInput.files.length > 0) {
                 videoSource = videoFileInput.files[0];
                 isFileUpload = true;
+            } else if (currentVideoFile) {
+                videoSource = currentVideoFile;
+                isFileUpload = true;
             } else {
                 showError('Please provide a video URL or upload a file.');
                 liveStatusMessage.textContent = 'Failed: No video provided.';
                 trackButton.disabled = false; // Re-enable if no input
                 return;
             }
+
+            suppressCancelledStatusUntilMs = Date.now() + CANCELLED_STATUS_SUPPRESS_WINDOW_MS;
 
             if (benchmarkInProgress) {
                 showError('📊 Benchmark is running. New uploads are temporarily blocked until benchmark completion.');
@@ -6191,9 +6399,7 @@
                     const completeTimer = setTimeout(() => completeController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
                     response = await fetch(COMPLETE_CHUNK_UPLOAD_ENDPOINT, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        headers: getIdentityHeaders(true),
                         body: JSON.stringify(completePayload),
                         signal: completeController.signal
                     });
@@ -6203,6 +6409,7 @@
                     const uploadTimer = setTimeout(() => uploadController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
                     response = await fetch(LOCAL_API_ENDPOINT, {
                         method: 'POST',
+                        headers: getIdentityHeaders(),
                         body: formData,
                         signal: uploadController.signal
                     });
@@ -6219,6 +6426,11 @@
                 }
 
                 responseData = await response.json().catch(() => ({}));
+                currentProcessingJobId = (responseData.jobId || '').trim();
+                if (cancelProcessingButton && currentProcessingJobId) {
+                    cancelProcessingButton.classList.remove('hidden');
+                    cancelProcessingButton.disabled = false;
+                }
                 
                 // Enhanced success message with Google Drive transcoding guidance
                 let successMessage = responseData.message || 'Processing initiated. Waiting for GitHub commit...';
@@ -6268,6 +6480,8 @@
 
 
         document.addEventListener('DOMContentLoaded', async () => {
+            setupVideoFileDragAndDrop();
+
             // Check admin login status
             const token = localStorage.getItem('adminToken');
             loggedInUsername = localStorage.getItem('adminUsername');
@@ -6514,6 +6728,57 @@
             // Directly initiate video processing
             initiateVideoProcessing();
         });
+
+        if (cancelProcessingButton) {
+            cancelProcessingButton.addEventListener('click', async () => {
+                showConfirmationModal(
+                    `Cancel this processing job?`,
+                    async () => {
+                        try {
+                            cancelProcessingButton.disabled = true;
+                            const payload = currentProcessingJobId ? { job_id: currentProcessingJobId } : {};
+                            const response = await fetch(LOCAL_CANCEL_PROCESSING_ENDPOINT, {
+                                method: 'POST',
+                                headers: getIdentityHeaders(true),
+                                body: JSON.stringify(payload)
+                            });
+                            const responseData = await response.json().catch(() => ({}));
+                            if (!response.ok || responseData.success === false) {
+                                if (response.status === 403) {
+                                    currentProcessingJobId = '';
+                                    if (cancelProcessingButton) {
+                                        cancelProcessingButton.classList.add('hidden');
+                                        cancelProcessingButton.disabled = true;
+                                    }
+                                    pollForProcessingStatus();
+                                }
+                                throw new Error(responseData.message || `Cancel failed (${response.status})`);
+                            }
+                            const cancelledJobId = (
+                                (responseData.processing && responseData.processing.jobId) ||
+                                currentProcessingJobId ||
+                                'unknown'
+                            );
+                            const cancelDoneMessage = `⛔ Processing cancelled for job ${cancelledJobId}. System is ready for the next video.`;
+                            showStatus(cancelDoneMessage);
+                            liveStatusMessage.textContent = cancelDoneMessage;
+                            liveProcessingStatusDiv.classList.remove('hidden');
+                            currentProcessingJobId = '';
+                            if (cancelProcessingButton) {
+                                cancelProcessingButton.classList.add('hidden');
+                                cancelProcessingButton.disabled = true;
+                            }
+                            trackButton.disabled = false;
+                        } catch (error) {
+                            showError(`Failed to cancel processing: ${error.message || error}`);
+                            if (cancelProcessingButton && !cancelProcessingButton.classList.contains('hidden')) {
+                                cancelProcessingButton.disabled = false;
+                            }
+                        }
+                    }
+                );
+            });
+        }
 
         // PWA: Register Service Worker
         if ('serviceWorker' in navigator) {

@@ -10,6 +10,7 @@ import threading
 import time
 import queue
 import json
+import signal
 import re # Added for ffprobe output parsing
 import numpy as np
 from collections import Counter
@@ -133,7 +134,7 @@ OUTPUT_SUBDIRECTORY = "output"
 FRAME_QUEUE_SIZE = 30
 UTILIZATION_UPDATE_INTERVAL = 1.0 # Interval for updating CPU/Mem/GPU stats in progress bar
 # Increased MAX_RAM_USAGE_PERCENT slightly to reduce frequent pausing, use with caution.
-MAX_RAM_USAGE_PERCENT = 100 # Percentage of total RAM to trigger pause in frame reading (Inreased to 100% for production benchmarking to avoid pausing, can be set to 80-90% for safer operation on systems with less RAM or when running multiple applications simultaneously).
+MAX_RAM_USAGE_PERCENT = 100 # Percentage of total RAM to trigger pause in frame reading
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # +++ User Configuration +++
@@ -165,7 +166,7 @@ NVENC_AVAILABLE = False  # Runtime flag, set by detect_nvenc() at startup
 # ENABLE_WATERMARK: Master switch to turn watermark on/off
 # Set to True to add "Processed by projectglyphmotion.studio" watermark to output videos
 # Set to False to disable watermark completely
-ENABLE_WATERMARK = False # Changed to False by default for production benchmarking, can be enabled when benchmarking is not a concern or for personal use. (Main reason is that FFMPEG custom compiled with VMAF AND NVENC has no default font library that can draw the watermark text, resulting in an error and no output video. Enabling watermark requires either using a standard FFMPEG build with font support or providing a custom font file path in the drawtext filter). For simplicity and maximum compatibility in production benchmarking, watermark is disabled by default.
+ENABLE_WATERMARK = False # ON by default - change to False to disable
 
 # Watermark text - displayed in bottom-right corner
 WATERMARK_TEXT = "Processed by projectglyphmotion.studio"
@@ -237,6 +238,15 @@ ADAPTIVE_SEMANTIC_MAP = {
 }
 ADAPTIVE_SEMANTIC_ALPHA_MAP = {3: 1.0, 2: 0.7, 1: 0.4, 0: 0.15}
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+_termination_signal_received = False
+
+
+def _handle_termination_signal(signum, _frame):
+    global _termination_signal_received
+    _termination_signal_received = True
+    print(f"\n[INFO] Received termination signal ({signum}). Stopping processing...")
+    raise KeyboardInterrupt
 
 
 def get_watermark_filter():
@@ -925,6 +935,8 @@ def process_audio_ffmpeg(video_source_path, temp_silent_video_path, final_output
 def main():
     global FFMPEG_VIDEO_CODEC, FFMPEG_PRESET, FFMPEG_CRF_VALUE
     start_time_total = time.time()
+    signal.signal(signal.SIGTERM, _handle_termination_signal)
+    signal.signal(signal.SIGINT, _handle_termination_signal)
     project_root = os.path.dirname(os.path.abspath(__file__))
     recon_report = None
     recon_flags = {}
@@ -1303,6 +1315,8 @@ def main():
 
     try:
         while processing_loop_active:
+            if _termination_signal_received:
+                raise KeyboardInterrupt
             try:
                 # Get frame from input queue (this frame is at effective_tracking_width/height)
                 ret, frame_to_process, original_frame = frame_input_queue.get(timeout=1.0)

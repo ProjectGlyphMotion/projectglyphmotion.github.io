@@ -8,11 +8,13 @@ import asyncio
 import re
 import time
 import threading
+import signal
 import http.server
 import socketserver
 import json
+import concurrent.futures
 import cgi
-from typing import Union
+from typing import Union, Optional, Any, Dict
 import requests
 import jwt # New import for JWT
 import datetime # New import for JWT expiry
@@ -104,6 +106,29 @@ _benchmark_lock = threading.Lock()
 _benchmark_in_progress = False
 _benchmarking_enabled_runtime = BENCHMARKING_ENABLED
 _benchmarking_enabled_lock = threading.Lock()
+_active_benchmark_task = None
+_benchmark_progress: Dict[str, Any] = {
+    "runId": "",
+    "progressPct": 0,
+    "stage": "idle",
+    "detail": "",
+    "etaSeconds": None,
+    "updatedAt": 0,
+}
+
+_processing_job_lock = threading.Lock()
+_active_processing_job: Dict[str, Any] = {
+    "jobId": "",
+    "future": None,
+    "startedAt": 0,
+    "cancelRequested": False,
+    "ownerClientId": "",
+    "ownerUsername": "",
+    "ownerIsAdmin": False,
+}
+
+_active_async_processes_lock = threading.Lock()
+_active_async_processes: Dict[int, Dict[str, Any]] = {}
 
 
 def is_benchmarking_enabled() -> bool:
@@ -120,6 +145,187 @@ def set_benchmarking_enabled(enabled: bool) -> bool:
         return _benchmarking_enabled_runtime
 
 
+def _new_processing_job_id() -> str:
+    return str(uuid.uuid4())
+
+
+def _new_benchmark_run_id() -> str:
+    return f"bench-{int(time.time() * 1000)}"
+
+
+def _set_benchmark_progress(
+    *,
+    progress_pct: Optional[int] = None,
+    stage: Optional[str] = None,
+    detail: Optional[str] = None,
+    eta_seconds: Optional[int] = None,
+    run_id: Optional[str] = None,
+) -> None:
+    with _benchmark_lock:
+        if run_id is not None:
+            _benchmark_progress["runId"] = run_id
+        if progress_pct is not None:
+            _benchmark_progress["progressPct"] = max(0, min(100, int(progress_pct)))
+        if stage is not None:
+            _benchmark_progress["stage"] = stage
+        if detail is not None:
+            _benchmark_progress["detail"] = detail
+        _benchmark_progress["etaSeconds"] = eta_seconds
+        _benchmark_progress["updatedAt"] = int(time.time())
+
+
+def _reset_benchmark_progress() -> None:
+    with _benchmark_lock:
+        _benchmark_progress.update({
+            "runId": "",
+            "progressPct": 0,
+            "stage": "idle",
+            "detail": "",
+            "etaSeconds": None,
+            "updatedAt": int(time.time()),
+        })
+
+
+def _set_active_benchmark_task(task) -> None:
+    global _active_benchmark_task
+    with _benchmark_lock:
+        _active_benchmark_task = task
+
+
+def _clear_active_benchmark_task(task=None) -> None:
+    global _active_benchmark_task
+    with _benchmark_lock:
+        if task is None or _active_benchmark_task is task:
+            _active_benchmark_task = None
+
+
+def _cancel_active_benchmark_task(main_loop: asyncio.AbstractEventLoop) -> bool:
+    with _benchmark_lock:
+        task = _active_benchmark_task
+        if not task or task.done():
+            return False
+
+    def _cancel():
+        try:
+            if task and not task.done():
+                task.cancel()
+        except Exception as cancel_error:
+            logger.warning(f"Failed to cancel active benchmark task: {cancel_error}")
+
+    main_loop.call_soon_threadsafe(_cancel)
+    return True
+
+
+def _snapshot_active_processing_job() -> Dict[str, Any]:
+    with _processing_job_lock:
+        job_id = _active_processing_job.get("jobId") or ""
+        future = _active_processing_job.get("future")
+        started_at = int(_active_processing_job.get("startedAt") or 0)
+        cancel_requested = bool(_active_processing_job.get("cancelRequested"))
+        owner_client_id = (_active_processing_job.get("ownerClientId") or "").strip()
+        owner_username = (_active_processing_job.get("ownerUsername") or "").strip()
+        owner_is_admin = bool(_active_processing_job.get("ownerIsAdmin"))
+        is_active = bool(job_id and future and not future.done())
+        return {
+            "jobId": job_id if is_active else "",
+            "isActive": is_active,
+            "startedAt": started_at if is_active else 0,
+            "cancelRequested": cancel_requested if is_active else False,
+            "ownerClientId": owner_client_id if is_active else "",
+            "ownerUsername": owner_username if is_active else "",
+            "ownerIsAdmin": owner_is_admin if is_active else False,
+        }
+
+
+def _clear_active_processing_job_if_matches(job_id: str) -> None:
+    with _processing_job_lock:
+        if (_active_processing_job.get("jobId") or "") != job_id:
+            return
+        _active_processing_job.update({
+            "jobId": "",
+            "future": None,
+            "startedAt": 0,
+            "cancelRequested": False,
+            "ownerClientId": "",
+            "ownerUsername": "",
+            "ownerIsAdmin": False,
+        })
+
+
+def _register_processing_future(
+    job_id: str,
+    future: concurrent.futures.Future,
+    owner_client_id: str = "",
+    owner_username: str = "",
+    owner_is_admin: bool = False,
+) -> None:
+    with _processing_job_lock:
+        _active_processing_job.update({
+            "jobId": job_id,
+            "future": future,
+            "startedAt": int(time.time()),
+            "cancelRequested": False,
+            "ownerClientId": (owner_client_id or "").strip(),
+            "ownerUsername": (owner_username or "").strip(),
+            "ownerIsAdmin": bool(owner_is_admin),
+        })
+
+    def _on_done(done_future: concurrent.futures.Future):
+        cancelled = done_future.cancelled()
+        _clear_active_processing_job_if_matches(job_id)
+        if cancelled:
+            set_processing_status("⛔ Processing cancelled. Server is ready for the next video.")
+            reset_status_after_delay(4)
+
+    future.add_done_callback(_on_done)
+
+
+def _cancel_processing_job(job_id: Optional[str]) -> Dict[str, Any]:
+    active_future = None
+    active_job_id = ""
+    with _processing_job_lock:
+        active_job_id = _active_processing_job.get("jobId") or ""
+        active_future = _active_processing_job.get("future")
+
+        if not active_job_id or not active_future or active_future.done():
+            return {"ok": False, "reason": "no_active_job", "jobId": ""}
+
+        if job_id and job_id != active_job_id:
+            return {"ok": False, "reason": "job_id_mismatch", "jobId": active_job_id}
+
+        _active_processing_job["cancelRequested"] = True
+
+    # Important: call cancel outside the lock to avoid deadlock from done-callback lock reentry.
+    cancelled = active_future.cancel()
+
+    if not cancelled:
+        set_processing_status("⛔ Cancellation requested. Stopping current processing...")
+    return {
+        "ok": True,
+        "reason": "cancel_requested",
+        "jobId": active_job_id,
+        "cancelSignalAccepted": bool(cancelled),
+    }
+
+
+def _sanitize_client_id(raw_client_id: str) -> str:
+    candidate = (raw_client_id or "").strip()
+    if not candidate:
+        return ""
+    candidate = re.sub(r'[^A-Za-z0-9._-]', '', candidate)
+    return candidate[:96]
+
+
+def _can_requester_cancel_active_job(active_job_snapshot: Dict[str, Any], requester: Dict[str, Any]) -> bool:
+    if not active_job_snapshot.get("isActive"):
+        return False
+    if requester.get("isAdmin"):
+        return True
+    owner_client_id = (active_job_snapshot.get("ownerClientId") or "").strip()
+    requester_client_id = (requester.get("clientId") or "").strip()
+    return bool(owner_client_id and requester_client_id and owner_client_id == requester_client_id)
+
+
 def run_async_loop(loop: asyncio.AbstractEventLoop):
     """Runs an asyncio event loop forever in a dedicated daemon thread."""
     asyncio.set_event_loop(loop)
@@ -129,11 +335,286 @@ def run_async_loop(loop: asyncio.AbstractEventLoop):
 def _log_scheduled_future_error(future, operation_name: str):
     """Logs unhandled exceptions from run_coroutine_threadsafe futures."""
     try:
+        if future.cancelled():
+            logger.debug(f"Scheduled async operation '{operation_name}' was cancelled.")
+            return
         exc = future.exception()
         if exc:
             logger.error(f"Scheduled async operation '{operation_name}' failed: {exc}", exc_info=True)
     except Exception as callback_error:
         logger.error(f"Error while checking future for '{operation_name}': {callback_error}", exc_info=True)
+
+
+def _schedule_processing_job(
+    main_loop: asyncio.AbstractEventLoop,
+    coroutine,
+    operation_name: str,
+    owner_client_id: str = "",
+    owner_username: str = "",
+    owner_is_admin: bool = False,
+) -> tuple[Optional[str], Optional[concurrent.futures.Future], Optional[str]]:
+    """
+    Schedules a processing coroutine if no active processing job is running.
+    Returns (job_id, future, error_message).
+    """
+    with _processing_job_lock:
+        active_future = _active_processing_job.get("future")
+        active_job_id = _active_processing_job.get("jobId") or ""
+        if active_future and not active_future.done() and active_job_id:
+            try:
+                coroutine.close()
+            except Exception:
+                pass
+            return None, None, f"Another processing job is already running ({active_job_id})."
+
+    job_id = _new_processing_job_id()
+    future = asyncio.run_coroutine_threadsafe(coroutine, main_loop)
+    _register_processing_future(
+        job_id,
+        future,
+        owner_client_id=owner_client_id,
+        owner_username=owner_username,
+        owner_is_admin=owner_is_admin,
+    )
+    future.add_done_callback(lambda f: _log_scheduled_future_error(f, operation_name))
+    return job_id, future, None
+
+
+def _register_async_process(process: asyncio.subprocess.Process, label: str) -> None:
+    if not process:
+        return
+    with _active_async_processes_lock:
+        _active_async_processes[id(process)] = {
+            "process": process,
+            "label": label,
+            "pid": process.pid,
+            "registeredAt": int(time.time()),
+        }
+
+
+def _unregister_async_process(process: asyncio.subprocess.Process) -> None:
+    if not process:
+        return
+    with _active_async_processes_lock:
+        _active_async_processes.pop(id(process), None)
+
+
+def _snapshot_async_processes() -> list:
+    with _active_async_processes_lock:
+        return list(_active_async_processes.values())
+
+
+def _start_new_session_kwargs() -> Dict[str, Any]:
+    # Put spawned subprocesses in independent process groups for reliable cancel semantics.
+    return {"start_new_session": True} if os.name == "posix" else {}
+
+
+def _is_pid_alive(pid: int) -> bool:
+    if not pid or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except Exception:
+        return False
+
+
+def _terminate_pid_tree_sync(pid: int, label: str) -> bool:
+    if not pid or pid <= 0:
+        return False
+
+    try:
+        if os.name == "posix":
+            try:
+                pgid = os.getpgid(pid)
+                logger.debug(f"SIGTERM process group for '{label}' (pid={pid}, pgid={pgid})")
+                os.killpg(pgid, signal.SIGTERM)
+            except ProcessLookupError:
+                return False
+        else:
+            logger.debug(f"SIGTERM process for '{label}' (pid={pid})")
+            os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return False
+    except Exception as term_error:
+        logger.warning(f"Failed to SIGTERM '{label}' (pid={pid}): {term_error}")
+        return False
+
+    for _ in range(10):
+        if not _is_pid_alive(pid):
+            return True
+        time.sleep(0.1)
+
+    try:
+        if os.name == "posix":
+            try:
+                pgid = os.getpgid(pid)
+                logger.debug(f"SIGKILL process group for '{label}' (pid={pid}, pgid={pgid})")
+                os.killpg(pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                return True
+        else:
+            logger.debug(f"SIGKILL process for '{label}' (pid={pid})")
+            os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return True
+    except Exception as kill_error:
+        logger.warning(f"Failed to SIGKILL '{label}' (pid={pid}): {kill_error}")
+        return False
+
+    for _ in range(10):
+        if not _is_pid_alive(pid):
+            return True
+        time.sleep(0.1)
+
+    return not _is_pid_alive(pid)
+
+
+def _terminate_registered_async_processes_sync() -> int:
+    snapshot = _snapshot_async_processes()
+    if not snapshot:
+        return 0
+
+    terminated = 0
+    for item in snapshot:
+        process = item.get("process")
+        pid = int(item.get("pid") or 0)
+        label = item.get("label") or "subprocess"
+        stopped = _terminate_pid_tree_sync(pid, label)
+        if stopped:
+            terminated += 1
+        if stopped and process:
+            _unregister_async_process(process)
+    return terminated
+
+
+def _list_child_pids(pid: int) -> list[int]:
+    if not pid or pid <= 0:
+        return []
+    try:
+        output = subprocess.check_output(["ps", "-o", "pid=", "--ppid", str(pid)], text=True)
+        return [int(line.strip()) for line in output.splitlines() if line.strip().isdigit()]
+    except Exception:
+        return []
+
+
+def _collect_descendant_pids(root_pid: int) -> list[int]:
+    stack = [root_pid]
+    descendants: list[int] = []
+    seen: set[int] = set()
+    while stack:
+        current = stack.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        children = _list_child_pids(current)
+        for child in children:
+            if child not in seen:
+                descendants.append(child)
+                stack.append(child)
+    return descendants
+
+
+def _force_kill_pid_family_sync(root_pid: int, label: str) -> int:
+    if not root_pid or root_pid <= 0:
+        return 0
+
+    killed = 0
+    descendants = _collect_descendant_pids(root_pid)
+    # Kill descendants first, then root.
+    for pid in descendants:
+        try:
+            os.kill(pid, signal.SIGKILL)
+            killed += 1
+            logger.debug(f"Force-killed descendant process for '{label}' (pid={pid}, root={root_pid})")
+        except Exception:
+            pass
+
+    try:
+        os.kill(root_pid, signal.SIGKILL)
+        killed += 1
+        logger.debug(f"Force-killed root process for '{label}' (pid={root_pid})")
+    except Exception:
+        pass
+
+    return killed
+
+
+def _force_kill_registered_process_families_sync() -> int:
+    snapshot = _snapshot_async_processes()
+    killed = 0
+    for item in snapshot:
+        process = item.get("process")
+        pid = int(item.get("pid") or 0)
+        label = item.get("label") or "subprocess"
+        if pid > 0:
+            killed += _force_kill_pid_family_sync(pid, label)
+        if process:
+            _unregister_async_process(process)
+    return killed
+
+
+def _emergency_kill_registered_processes_sync() -> int:
+    """Immediate best-effort kill for tracked subprocesses.
+    This is used in cancel handler before any potentially blocking cancellation flows.
+    """
+    snapshot = _snapshot_async_processes()
+    if not snapshot:
+        return 0
+
+    killed = 0
+    for item in snapshot:
+        process = item.get("process")
+        pid = int(item.get("pid") or 0)
+        label = item.get("label") or "subprocess"
+
+        # Fast path: kill through process handle when available.
+        try:
+            if process and process.returncode is None:
+                process.kill()
+                killed += 1
+                logger.debug(f"Emergency process.kill() for '{label}' (pid={pid})")
+        except Exception as kill_handle_error:
+            logger.warning(f"Emergency process.kill() failed for '{label}' (pid={pid}): {kill_handle_error}")
+
+        # Fallback path: kill process group/root pid directly.
+        try:
+            if pid > 0:
+                if os.name == "posix":
+                    try:
+                        pgid = os.getpgid(pid)
+                        os.killpg(pgid, signal.SIGKILL)
+                        logger.debug(f"Emergency SIGKILL process group for '{label}' (pid={pid}, pgid={pgid})")
+                    except Exception:
+                        os.kill(pid, signal.SIGKILL)
+                        logger.debug(f"Emergency SIGKILL process for '{label}' (pid={pid})")
+                else:
+                    os.kill(pid, signal.SIGKILL)
+                    logger.debug(f"Emergency SIGKILL process for '{label}' (pid={pid})")
+        except Exception as direct_kill_error:
+            logger.warning(f"Emergency direct kill failed for '{label}' (pid={pid}): {direct_kill_error}")
+
+        if not _is_pid_alive(pid):
+            if process:
+                _unregister_async_process(process)
+    return killed
+
+
+async def _terminate_all_registered_async_processes() -> int:
+    snapshot = _snapshot_async_processes()
+    if not snapshot:
+        return 0
+
+    terminated = 0
+    for item in snapshot:
+        process = item.get("process")
+        label = item.get("label") or "subprocess"
+        if process:
+            await _terminate_async_process(process, label)
+            terminated += 1
+    return terminated
 
 def generate_preview_session_id():
     """Generates a unique preview session ID."""
@@ -340,7 +821,13 @@ def set_processing_status(message: Union[str, None]):
     
     if message:
         # For recurring high-frequency updates, draw in-place
-        if message.startswith("Processing:") or message.startswith("Downloading:") or message.startswith("Merging") or message.startswith("Uploading:"):
+        if (
+            message.startswith("Processing:") or
+            message.startswith("Downloading:") or
+            message.startswith("Merging") or
+            message.startswith("Uploading:") or
+            message.startswith("📊 Benchmark")
+        ):
             sys.stdout.write(f"\r\033[K\033[1;36mProgress:\033[0m {message}")
             sys.stdout.flush()
         else:
@@ -361,23 +848,67 @@ def _status_indicates_processing_complete(status_message: str) -> bool:
     )
     return any(marker in normalized for marker in completion_markers)
 
-def get_status_payload() -> dict:
+
+def _format_eta_seconds(eta_seconds: Optional[int]) -> str:
+    """Formats ETA seconds into a compact human-readable string."""
+    if eta_seconds is None:
+        return ""
+    try:
+        total = max(0, int(eta_seconds))
+    except Exception:
+        return ""
+
+    minutes, seconds = divmod(total, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours > 0:
+        return f"{hours}h {minutes}m {seconds}s"
+    if minutes > 0:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"
+
+def get_status_payload(requester: Optional[Dict[str, Any]] = None) -> dict:
     """Builds a consistent status payload for REST and SSE consumers."""
     with _status_lock:
         status_message = _current_processing_status
         status_counter = _status_update_counter
 
+    active_job = _snapshot_active_processing_job()
+    requester_info = requester or {}
+    with _benchmark_lock:
+        benchmark_progress = dict(_benchmark_progress)
+        benchmark_in_progress = bool(_benchmark_in_progress)
+
     is_processing_complete = _status_indicates_processing_complete(status_message if status_message is not None else "")
+
+    benchmark_one_line = ""
+    if benchmark_in_progress:
+        benchmark_one_line = (
+            f"Benchmark {benchmark_progress.get('progressPct', 0)}% | "
+            f"Stage: {benchmark_progress.get('stage', 'running')}"
+        )
+        detail = (benchmark_progress.get("detail") or "").strip()
+        if detail:
+            benchmark_one_line += f" | {detail}"
+        eta_text = _format_eta_seconds(benchmark_progress.get("etaSeconds"))
+        if eta_text:
+            benchmark_one_line += f" | ETA: {eta_text}"
 
     return {
         "status": status_message if status_message is not None else "",
         "statusCounter": status_counter,
         "processingComplete": is_processing_complete,
         "galleryRefreshSuggested": is_processing_complete,
+        "processingActive": active_job.get("isActive", False),
+        "activeProcessingJobId": active_job.get("jobId", ""),
+        "cancelRequested": active_job.get("cancelRequested", False),
+        "processingStartedAt": active_job.get("startedAt", 0),
+        "canCancelActiveJob": _can_requester_cancel_active_job(active_job, requester_info),
         "frameRestrictionEnabled": FRAME_RESTRICTION_ENABLED,
         "frameRestrictionValue": FRAME_RESTRICTION_VALUE,
         "benchmarkingEnabled": is_benchmarking_enabled(),
-        "benchmarkInProgress": _benchmark_in_progress
+        "benchmarkInProgress": benchmark_in_progress,
+        "benchmarkProgress": benchmark_progress,
+        "benchmarkStatusLine": benchmark_one_line,
     }
 
 def reset_status_after_delay(delay_seconds: int = 5):
@@ -560,15 +1091,20 @@ async def get_video_frame_count(video_path: str) -> Union[int, None]:
         process = await asyncio.create_subprocess_exec(
             *args,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
+            **_start_new_session_kwargs()
         )
+        _register_async_process(process, "ffprobe-frame-count")
         try:
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=FFPROBE_TIMEOUT_SECONDS)
         except asyncio.TimeoutError:
             logger.error(f"FFprobe command timed out after {FFPROBE_TIMEOUT_SECONDS} seconds for {video_path}. Terminating process.")
             process.kill()
             await process.wait()
+            _unregister_async_process(process)
             return -1, "", "timeout"
+        finally:
+            _unregister_async_process(process)
         return process.returncode, stdout.decode('utf-8', errors='ignore').strip(), stderr.decode('utf-8', errors='ignore').strip()
 
     try:
@@ -649,6 +1185,54 @@ async def get_video_frame_count(video_path: str) -> Union[int, None]:
 
 # --- Codec Compatibility Check and Transcode ---
 
+async def _terminate_async_process(process: asyncio.subprocess.Process, label: str) -> None:
+    """Best-effort graceful shutdown for subprocesses used by processing jobs."""
+    if not process:
+        return
+    try:
+        if process.returncode is not None:
+            _unregister_async_process(process)
+            return
+        pid = process.pid or 0
+        if os.name == "posix" and pid > 0:
+            try:
+                pgid = os.getpgid(pid)
+                logger.debug(f"Terminating active subprocess group '{label}' (pid={pid}, pgid={pgid})")
+                os.killpg(pgid, signal.SIGTERM)
+            except ProcessLookupError:
+                _unregister_async_process(process)
+                return
+            except Exception:
+                logger.debug(f"Falling back to direct terminate for subprocess '{label}' (pid={pid})")
+                process.terminate()
+        else:
+            logger.debug(f"Terminating active subprocess '{label}' (pid={process.pid})")
+            process.terminate()
+        await asyncio.wait_for(process.wait(), timeout=2)
+    except Exception:
+        try:
+            if process.returncode is None:
+                pid = process.pid or 0
+                if os.name == "posix" and pid > 0:
+                    try:
+                        pgid = os.getpgid(pid)
+                        logger.debug(f"Force-killing subprocess group '{label}' (pid={pid}, pgid={pgid})")
+                        os.killpg(pgid, signal.SIGKILL)
+                    except Exception:
+                        logger.debug(f"Falling back to direct kill for subprocess '{label}' (pid={pid})")
+                        process.kill()
+                else:
+                    logger.debug(f"Force-killing active subprocess '{label}' (pid={process.pid})")
+                    process.kill()
+                await asyncio.wait_for(process.wait(), timeout=2)
+        except Exception as kill_error:
+            logger.warning(f"Failed to force-stop subprocess '{label}': {kill_error}")
+    finally:
+        if process.returncode is not None:
+            _unregister_async_process(process)
+        else:
+            logger.warning(f"Subprocess '{label}' (pid={process.pid}) still appears alive after termination attempts.")
+
 async def ensure_h264_codec(video_path: str, progress_message_obj=None) -> tuple[bool, str]:
     """
     Checks if the video uses a codec compatible with OpenCV (H.264).
@@ -668,9 +1252,17 @@ async def ensure_h264_codec(video_path: str, progress_message_obj=None) -> tuple
             video_path
         ]
         process = await asyncio.create_subprocess_exec(
-            *cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            *cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            **_start_new_session_kwargs()
         )
-        stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10)
+        _register_async_process(process, "ffprobe-codec")
+        try:
+            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10)
+        except asyncio.CancelledError:
+            await _terminate_async_process(process, "ffprobe-codec")
+            raise
+        finally:
+            _unregister_async_process(process)
         codec = stdout.decode('utf-8', errors='ignore').strip().lower()
         logger.info(f"Detected video codec: '{codec}' for {video_path}")
 
@@ -699,9 +1291,17 @@ async def ensure_h264_codec(video_path: str, progress_message_obj=None) -> tuple
             transcode_proc = await asyncio.create_subprocess_exec(
                 *transcode_cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stderr=subprocess.PIPE,
+                **_start_new_session_kwargs()
             )
-            _, stderr = await transcode_proc.communicate()
+            _register_async_process(transcode_proc, f"ffmpeg-transcode-{encoder}")
+            try:
+                _, stderr = await transcode_proc.communicate()
+            except asyncio.CancelledError:
+                await _terminate_async_process(transcode_proc, f"ffmpeg-transcode-{encoder}")
+                raise
+            finally:
+                _unregister_async_process(transcode_proc)
             if transcode_proc.returncode == 0:
                 # Replace original file with transcoded version
                 try:
@@ -888,9 +1488,17 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
         dry_run_process = await asyncio.create_subprocess_exec(
             *dry_run_command,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
+            **_start_new_session_kwargs()
         )
-        stdout, stderr = await dry_run_process.communicate()
+        _register_async_process(dry_run_process, "yt-dlp-dry-run")
+        try:
+            stdout, stderr = await dry_run_process.communicate()
+        except asyncio.CancelledError:
+            await _terminate_async_process(dry_run_process, "yt-dlp-dry-run")
+            raise
+        finally:
+            _unregister_async_process(dry_run_process)
         
         if dry_run_process.returncode != 0:
             error_msg = stderr.decode('utf-8', errors='ignore').strip()
@@ -939,8 +1547,10 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
         process = await asyncio.create_subprocess_exec(
             *command,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
+            **_start_new_session_kwargs()
         )
+        _register_async_process(process, "yt-dlp-download")
 
         stdout_task = asyncio.create_task(
             _stream_output_and_update_message(process.stdout, progress_message_obj, context, "yt-dlp_stdout", 'yt-dlp')
@@ -949,10 +1559,17 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
             _stream_output_and_update_message(process.stderr, progress_message_obj, context, "yt-dlp_stderr", 'yt-dlp')
         )
 
-        return_code = await process.wait()
-
-        await stdout_task
-        await stderr_task
+        try:
+            return_code = await process.wait()
+            await stdout_task
+            await stderr_task
+        except asyncio.CancelledError:
+            await _terminate_async_process(process, "yt-dlp-download")
+            stdout_task.cancel()
+            stderr_task.cancel()
+            raise
+        finally:
+            _unregister_async_process(process)
 
         if return_code == 0:
             logger.info(f"yt-dlp download finished successfully. Saved to: {actual_output_path}")
@@ -1036,8 +1653,10 @@ async def run_tracking_script_and_stream_output(
         process = await asyncio.create_subprocess_exec(
             *command,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
+            **_start_new_session_kwargs()
         )
+        _register_async_process(process, "ot.py")
 
         stdout_task = asyncio.create_task(
             _stream_output_and_update_message(process.stdout, progress_message_obj, context, "ot_stdout", 'general')
@@ -1046,10 +1665,17 @@ async def run_tracking_script_and_stream_output(
             _stream_output_and_update_message(process.stderr, progress_message_obj, context, "ot_stderr", 'tqdm')
         )
 
-        return_code = await process.wait()
-
-        await stdout_task
-        await stderr_task
+        try:
+            return_code = await process.wait()
+            await stdout_task
+            await stderr_task
+        except asyncio.CancelledError:
+            await _terminate_async_process(process, "ot.py")
+            stdout_task.cancel()
+            stderr_task.cancel()
+            raise
+        finally:
+            _unregister_async_process(process)
 
         if return_code == 0:
             logger.info("ot.py script finished successfully.")
@@ -1267,6 +1893,11 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
     )
 
     if not tracking_success:
+        cancel_snapshot = _snapshot_active_processing_job()
+        if cancel_snapshot.get("cancelRequested"):
+            set_processing_status("⛔ Processing cancelled. Server is ready for the next video.")
+            reset_status_after_delay(4)
+            return False
         set_processing_status("Object tracking failed.") # Update global status
         reset_status_after_delay() # Reset status after failure
         return False
@@ -1307,6 +1938,14 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
                 with _benchmark_lock:
                     global _benchmark_in_progress
                     _benchmark_in_progress = True
+                benchmark_run_id = _new_benchmark_run_id()
+                _set_benchmark_progress(
+                    run_id=benchmark_run_id,
+                    progress_pct=1,
+                    stage="queued",
+                    detail="Preparing benchmark run",
+                    eta_seconds=None,
+                )
                 benchmark_status_message = "📊 Running quality benchmark (VMAF/SSIM/PSNR)... New uploads blocked until complete."
                 set_processing_status(benchmark_status_message)
                 if progress_message_obj:
@@ -1315,6 +1954,45 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
                 async def _run_benchmark_background():
                     global _benchmark_in_progress
                     try:
+                        last_status_key = None
+                        last_status_emit_at = 0.0
+
+                        def _benchmark_progress_callback(progress_pct: int, stage: str, detail: str = "", eta_seconds: Optional[int] = None):
+                            nonlocal last_status_key, last_status_emit_at
+                            _set_benchmark_progress(
+                                run_id=benchmark_run_id,
+                                progress_pct=progress_pct,
+                                stage=stage,
+                                detail=detail,
+                                eta_seconds=eta_seconds,
+                            )
+
+                            eta_text = _format_eta_seconds(eta_seconds)
+                            detail_suffix = f" | {detail}" if detail else ""
+                            eta_suffix = f" | ETA: {eta_text}" if eta_text else ""
+                            status_message = f"📊 Benchmark {progress_pct}% | Stage: {stage}{detail_suffix}{eta_suffix}"
+
+                            # Keep ETA dynamic in payload, but avoid emitting every tiny ETA fluctuation.
+                            status_key = (int(progress_pct), str(stage), str(detail))
+                            now = time.monotonic()
+                            is_terminal_stage = str(stage).lower() in {"complete", "failed", "cancelled"}
+                            should_emit = (
+                                status_key != last_status_key and (
+                                    is_terminal_stage or
+                                    now - last_status_emit_at >= 1.5 or
+                                    progress_pct in (0, 100)
+                                )
+                            )
+
+                            # Heartbeat every 8 seconds during long unchanged segments.
+                            if (not should_emit) and (now - last_status_emit_at >= 8.0):
+                                should_emit = True
+
+                            if should_emit:
+                                set_processing_status(status_message)
+                                last_status_key = status_key
+                                last_status_emit_at = now
+
                         stats_path = f"{local_output_path}.stats.json"
                         benchmark_result = await run_production_benchmark(
                             original_video_path=local_input_path,
@@ -1324,6 +2002,7 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
                             commit_sha=commit_sha,
                             telemetry_path=telemetry_path if os.path.exists(telemetry_path) else None,
                             stats_path=stats_path if os.path.exists(stats_path) else None,
+                            progress_callback=_benchmark_progress_callback,
                         )
 
                         vmaf_value = benchmark_result.get("vmaf", benchmark_result.get("VMAF", "")) if isinstance(benchmark_result, dict) else ""
@@ -1341,15 +2020,36 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
 
                         set_processing_status("✅ Benchmark complete. Benchmark dashboard data updated.")
                         reset_status_after_delay(5)
+                    except asyncio.CancelledError:
+                        set_processing_status("⛔ Benchmark cancelled. Server is ready for the next video.")
+                        _set_benchmark_progress(
+                            run_id=benchmark_run_id,
+                            progress_pct=0,
+                            stage="cancelled",
+                            detail="Cancelled by user",
+                            eta_seconds=None,
+                        )
+                        reset_status_after_delay(4)
+                        raise
                     except Exception as benchmark_error:
                         logger.error(f"Production benchmark failed: {benchmark_error}", exc_info=True)
                         set_processing_status("⚠️ Benchmark failed. Core upload succeeded, check backend logs.")
+                        _set_benchmark_progress(
+                            run_id=benchmark_run_id,
+                            progress_pct=100,
+                            stage="failed",
+                            detail="Benchmark error",
+                            eta_seconds=None,
+                        )
                         reset_status_after_delay(8)
                     finally:
                         with _benchmark_lock:
                             _benchmark_in_progress = False
+                        _clear_active_benchmark_task(asyncio.current_task())
+                        _reset_benchmark_progress()
 
-                asyncio.get_running_loop().create_task(_run_benchmark_background())
+                benchmark_task = asyncio.get_running_loop().create_task(_run_benchmark_background())
+                _set_active_benchmark_task(benchmark_task)
             
             # --- Add tracking entry after successful GitHub update ---
             if commit_sha: # Only add if commit_sha is available
@@ -1540,7 +2240,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
     def _set_cors_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, HEAD') # Explicitly allow HEAD
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Forwarded-For, Authorization') # Added Authorization header
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Forwarded-For, Authorization, X-Client-Id') # Added Authorization and X-Client-Id headers
         self.send_header('Access-Control-Max-Age', '86400') # Cache preflight for 24 hours
 
     def do_OPTIONS(self):
@@ -1591,6 +2291,39 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(f"data: {event_payload}\n\n".encode('utf-8'))
         self.wfile.flush()
 
+    def _get_client_id(self) -> str:
+        header_value = self.headers.get('X-Client-Id', '')
+        query_params = parse_qs(urlparse(self.path).query)
+        query_value = query_params.get('client_id', [''])[0]
+        resolved = _sanitize_client_id(header_value or query_value)
+        if resolved:
+            return resolved
+
+        # Reject weak identity fallbacks (IP/User-Agent) because they can collide across users.
+        # A missing client id means owner-based cancel auth cannot be trusted for non-admins.
+        return ""
+
+    def _decode_optional_admin_payload(self) -> dict | None:
+        token = self._get_auth_token()
+        if not token:
+            return None
+        payload = self._decode_jwt(token)
+        if not payload:
+            return None
+        username = payload.get('username')
+        if username not in ADMIN_CREDENTIALS:
+            return None
+        return payload
+
+    def _get_request_actor(self) -> dict:
+        admin_payload = self._decode_optional_admin_payload()
+        username = admin_payload.get('username') if admin_payload else ''
+        return {
+            "clientId": self._get_client_id(),
+            "isAdmin": bool(admin_payload),
+            "username": username or "",
+        }
+
     def _stream_status_events(self):
         """Streams realtime status updates using Server-Sent Events."""
         self.send_response(200)
@@ -1602,12 +2335,14 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
         logger.debug("SSE status stream connected")
 
+        requester = self._get_request_actor()
+
         last_seen_counter = -1
         last_heartbeat = time.time()
 
         try:
             while True:
-                payload = get_status_payload()
+                payload = get_status_payload(requester)
                 current_counter = payload.get("statusCounter", -1)
 
                 if current_counter != last_seen_counter:
@@ -1953,6 +2688,14 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
                 client_ip = get_client_ip(self)
                 geolocation_info = get_geolocation_data(client_ip)
+                requester = self._get_request_actor()
+
+                if not requester.get("isAdmin") and not requester.get("clientId"):
+                    self.send_api_response(400, {
+                        "success": False,
+                        "message": "Missing client identity. Refresh the page and retry.",
+                    })
+                    return
 
                 roi_params = None
                 if str(payload.get('roi_enabled', '')).lower() == 'true':
@@ -1987,7 +2730,8 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         set_processing_status(message)
 
                 main_loop = self.server.main_asyncio_loop
-                processing_future = asyncio.run_coroutine_threadsafe(
+                job_id, _, schedule_error = _schedule_processing_job(
+                    main_loop,
                     process_video_unified(
                         assembled_input_path,
                         is_file_upload=True,
@@ -2000,11 +2744,32 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         allowed_classes=allowed_classes,
                         confidence_threshold=confidence_threshold
                     ),
-                    main_loop
+                    "complete_chunked_upload",
+                    owner_client_id=requester.get("clientId", ""),
+                    owner_username=requester.get("username", ""),
+                    owner_is_admin=requester.get("isAdmin", False),
                 )
-                processing_future.add_done_callback(lambda future: _log_scheduled_future_error(future, "complete_chunked_upload"))
 
-                self.send_api_response(200, {"success": True, "message": "Chunked upload assembled and processing initiated."})
+                if schedule_error:
+                    active_job_snapshot = _snapshot_active_processing_job()
+                    if os.path.exists(assembled_input_path):
+                        try:
+                            os.remove(assembled_input_path)
+                        except OSError:
+                            pass
+                    self.send_api_response(409, {
+                        "success": False,
+                        "message": schedule_error,
+                        "processingActive": True,
+                        "activeProcessingJobId": active_job_snapshot.get("jobId", "")
+                    })
+                    return
+
+                self.send_api_response(200, {
+                    "success": True,
+                    "message": "Chunked upload assembled and processing initiated.",
+                    "jobId": job_id
+                })
             except json.JSONDecodeError:
                 self.send_api_response(400, {"success": False, "message": "Invalid JSON payload."})
             except Exception as e:
@@ -2025,6 +2790,14 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 # Get client IP and geolocation data immediately
                 client_ip = get_client_ip(self)
                 geolocation_info = get_geolocation_data(client_ip)
+                requester = self._get_request_actor()
+
+                if not requester.get("isAdmin") and not requester.get("clientId"):
+                    self.send_api_response(400, {
+                        "message": "Missing client identity. Refresh the page and retry."
+                    })
+                    return
+
                 logger.info(f"Request from IP: {client_ip}, Geo: {geolocation_info}")
 
                 ctype, pdict = cgi.parse_header(self.headers.get('content-type'))
@@ -2144,7 +2917,8 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 else:
                     video_source = video_url
 
-                processing_future = asyncio.run_coroutine_threadsafe(
+                job_id, _, schedule_error = _schedule_processing_job(
+                    main_loop,
                     process_video_unified(
                         video_source,
                         is_file_upload=is_file_upload,
@@ -2157,11 +2931,25 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         allowed_classes=allowed_classes,
                         confidence_threshold=confidence_threshold
                     ),
-                    main_loop
+                    "process_web_video",
+                    owner_client_id=requester.get("clientId", ""),
+                    owner_username=requester.get("username", ""),
+                    owner_is_admin=requester.get("isAdmin", False),
                 )
-                processing_future.add_done_callback(lambda future: _log_scheduled_future_error(future, "process_web_video"))
 
-                self.send_api_response(200, {"message": "Processing initiated. Check GitHub Pages for updates."})
+                if schedule_error:
+                    active_job_snapshot = _snapshot_active_processing_job()
+                    self.send_api_response(409, {
+                        "message": schedule_error,
+                        "processingActive": True,
+                        "activeProcessingJobId": active_job_snapshot.get("jobId", "")
+                    })
+                    return
+
+                self.send_api_response(200, {
+                    "message": "Processing initiated. Check GitHub Pages for updates.",
+                    "jobId": job_id
+                })
 
             except Exception as e:
                 logger.error(f"Error handling web video processing: {e}", exc_info=True)
@@ -2430,6 +3218,103 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 logger.error(f"Error cancelling preview: {e}", exc_info=True)
                 self.send_api_response(500, {"success": False, "message": f"Server error: {e}"})
+
+        elif self.path == '/cancel_video_processing':
+            # Cancels active processing and benchmark tasks while keeping server runtime alive.
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+                data = json.loads(post_body.decode('utf-8') or '{}')
+                requested_job_id = (data.get('job_id') or "").strip() or None
+
+                active_job_snapshot = _snapshot_active_processing_job()
+                requester = self._get_request_actor()
+                tracked_before = _snapshot_async_processes()
+                logger.info(
+                    f"Cancel requested by client. requested_job_id={requested_job_id}, "
+                    f"active_job={active_job_snapshot.get('jobId')}, active={active_job_snapshot.get('isActive')}"
+                )
+                logger.debug(
+                    "Tracked subprocesses before cancel: "
+                    + ", ".join(
+                        [f"{item.get('label')} pid={item.get('pid')}" for item in tracked_before]
+                    ) if tracked_before else "Tracked subprocesses before cancel: <none>"
+                )
+
+                if active_job_snapshot.get("isActive") and not _can_requester_cancel_active_job(active_job_snapshot, requester):
+                    logger.warning(
+                        "Cancel denied: requester is not owner/admin. "
+                        f"requester_client_id={requester.get('clientId')}, requester_admin={requester.get('isAdmin')}, "
+                        f"owner_client_id={active_job_snapshot.get('ownerClientId')}, owner_admin={active_job_snapshot.get('ownerIsAdmin')}"
+                    )
+                    self.send_api_response(403, {
+                        "success": False,
+                        "message": "Only the job owner or an admin can cancel this processing job.",
+                        "processingActive": True,
+                        "activeProcessingJobId": active_job_snapshot.get("jobId", ""),
+                        "canCancelActiveJob": False,
+                    })
+                    return
+
+                emergency_kills = _emergency_kill_registered_processes_sync()
+
+                processing_cancel = _cancel_processing_job(requested_job_id)
+
+                benchmark_cancelled = _cancel_active_benchmark_task(self.server.main_asyncio_loop)
+
+                terminated_subprocesses_sync = _terminate_registered_async_processes_sync()
+
+                terminate_future = asyncio.run_coroutine_threadsafe(
+                    _terminate_all_registered_async_processes(),
+                    self.server.main_asyncio_loop
+                )
+                terminated_subprocesses_async = 0
+                try:
+                    terminated_subprocesses_async = int(terminate_future.result(timeout=4))
+                except Exception as terminate_error:
+                    logger.warning(f"Subprocess termination wait failed during cancel: {terminate_error}")
+                terminated_subprocesses = max(terminated_subprocesses_sync, terminated_subprocesses_async)
+                tracked_after = _snapshot_async_processes()
+                fallback_family_kills = 0
+                if tracked_after:
+                    fallback_family_kills = _force_kill_registered_process_families_sync()
+                    tracked_after = _snapshot_async_processes()
+                logger.debug(
+                    "Tracked subprocesses after cancel: "
+                    + ", ".join(
+                        [f"{item.get('label')} pid={item.get('pid')}" for item in tracked_after]
+                    ) if tracked_after else "Tracked subprocesses after cancel: <none>"
+                )
+                if fallback_family_kills:
+                    terminated_subprocesses = max(terminated_subprocesses, fallback_family_kills)
+                if emergency_kills:
+                    terminated_subprocesses = max(terminated_subprocesses, emergency_kills)
+
+                summary_job_id = processing_cancel.get("jobId") or active_job_snapshot.get("jobId") or requested_job_id or "unknown"
+                logger.info(
+                    f"[AISC] CANCEL OK | job={summary_job_id} | stopped={terminated_subprocesses} | ready=1"
+                )
+
+                if not processing_cancel.get("ok") and not benchmark_cancelled:
+                    self.send_api_response(404, {
+                        "success": False,
+                        "message": "No active processing or benchmark job found.",
+                        "terminatedSubprocesses": terminated_subprocesses,
+                    })
+                    return
+
+                self.send_api_response(200, {
+                    "success": True,
+                    "message": f"Processing cancelled for job {summary_job_id}. System is ready for the next video.",
+                    "processing": processing_cancel,
+                    "benchmarkCancelled": benchmark_cancelled,
+                    "terminatedSubprocesses": terminated_subprocesses,
+                })
+            except json.JSONDecodeError:
+                self.send_api_response(400, {"success": False, "message": "Invalid JSON payload."})
+            except Exception as e:
+                logger.error(f"Error cancelling active processing: {e}", exc_info=True)
+                self.send_api_response(500, {"success": False, "message": f"Server error: {e}"})
         
         elif self.path == '/delete_video': # New endpoint for video deletion (protected)
             admin_payload = self._authenticate_request()
@@ -2572,7 +3457,8 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_api_response(200, {
                     "message": f"Benchmarking {'enabled' if updated_state else 'disabled'}.",
                     "benchmarkingEnabled": updated_state,
-                    "benchmarkInProgress": _benchmark_in_progress
+                    "benchmarkInProgress": _benchmark_in_progress,
+                    "benchmarkProgress": dict(_benchmark_progress)
                 })
             except json.JSONDecodeError:
                 self.send_api_response(400, {"message": "Invalid JSON payload."})
@@ -2774,7 +3660,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         request_path = urlparse(self.path).path
 
         if request_path == '/status':
-            self.send_api_response(200, get_status_payload())
+            self.send_api_response(200, get_status_payload(self._get_request_actor()))
         elif request_path == '/events/status':
             self._stream_status_events()
         elif request_path == '/events/admin_auth':
@@ -2820,13 +3706,15 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         benchmark_payload["recordCount"] = len(loaded)
                 benchmark_payload["benchmarkInProgress"] = _benchmark_in_progress
                 benchmark_payload["benchmarkingEnabled"] = is_benchmarking_enabled()
+                benchmark_payload["benchmarkProgress"] = dict(_benchmark_progress)
                 self.send_api_response(200, benchmark_payload)
             except Exception as benchmark_read_error:
                 logger.error(f"Failed serving benchmark data: {benchmark_read_error}", exc_info=True)
                 self.send_api_response(500, {
                     "message": "Failed to load benchmark data.",
                     "benchmarkInProgress": _benchmark_in_progress,
-                    "benchmarkingEnabled": is_benchmarking_enabled()
+                    "benchmarkingEnabled": is_benchmarking_enabled(),
+                    "benchmarkProgress": dict(_benchmark_progress)
                 })
         elif request_path == '/benchmark_settings':
             admin_payload = self._authenticate_request()
@@ -2835,7 +3723,8 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
             self.send_api_response(200, {
                 "benchmarkingEnabled": is_benchmarking_enabled(),
-                "benchmarkInProgress": _benchmark_in_progress
+                "benchmarkInProgress": _benchmark_in_progress,
+                "benchmarkProgress": dict(_benchmark_progress)
             })
         elif request_path == '/benchmark_data.csv':
             admin_payload = self._authenticate_request()
@@ -2937,40 +3826,59 @@ def main():
     web_server_thread.start()
     logger.info(f"Web server thread started on port {WEB_SERVER_PORT}")
 
-    # Build app with longer timeouts (60s to tolerate long-running uploads)
-    app = (Application.builder()
-           .token(TELEGRAM_BOT_TOKEN)
-           .read_timeout(60)
-           .write_timeout(60)
-           .connect_timeout(60)
-           .pool_timeout(60)
-           .build())
+    def _build_telegram_application() -> Application:
+        # Build app with longer timeouts (60s to tolerate transient network delays)
+        app = (Application.builder()
+               .token(TELEGRAM_BOT_TOKEN)
+               .read_timeout(60)
+               .write_timeout(60)
+               .connect_timeout(60)
+               .pool_timeout(60)
+               .build())
 
-    # --- Telegram Error Handler ---
-    async def telegram_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Catches Telegram polling/network errors gracefully instead of logging raw tracebacks."""
-        from telegram.error import NetworkError, TimedOut
-        err = context.error
-        if isinstance(err, (NetworkError, TimedOut)):
-            logger.warning(f"Telegram polling network error (will retry): {type(err).__name__}: {err}")
-        else:
-            logger.error(f"Unhandled Telegram error: {err}", exc_info=context.error)
+        async def telegram_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+            """Catches Telegram polling/network errors gracefully instead of logging raw tracebacks."""
+            from telegram.error import NetworkError, TimedOut
+            err = context.error
+            if isinstance(err, (NetworkError, TimedOut)):
+                logger.warning(f"Telegram polling network error (will retry): {type(err).__name__}: {err}")
+            else:
+                logger.error(f"Unhandled Telegram error: {err}", exc_info=context.error)
 
-    app.add_error_handler(telegram_error_handler)
+        app.add_error_handler(telegram_error_handler)
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CommandHandler("track", track_command))
+        app.add_handler(CommandHandler("help", help_command))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_non_command_text))
+        app.add_handler(MessageHandler(filters.COMMAND, unknown_command))
+        return app
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("track", track_command))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_non_command_text))
-    app.add_handler(MessageHandler(filters.COMMAND, unknown_command))
+    first_start = True
+    retry_delay_seconds = 5
 
-    logger.info("Telegram Bot started. Listening for updates...")
-    
     try:
-        app.run_polling(drop_pending_updates=True)
-    except Exception as e:
-        logger.error(f"Bot error: {e}")
-        raise
+        while True:
+            app = _build_telegram_application()
+            logger.info("Telegram Bot started. Listening for updates...")
+            try:
+                app.run_polling(
+                    drop_pending_updates=first_start,
+                    bootstrap_retries=-1,
+                )
+                logger.info("Telegram polling exited normally.")
+                break
+            except KeyboardInterrupt:
+                logger.info("Telegram polling interrupted by user.")
+                break
+            except Exception as e:
+                logger.error(
+                    f"Telegram polling crashed ({type(e).__name__}: {e}). "
+                    f"Retrying in {retry_delay_seconds}s..."
+                )
+                time.sleep(retry_delay_seconds)
+                retry_delay_seconds = min(retry_delay_seconds * 2, 60)
+            finally:
+                first_start = False
     finally:
         try:
             web_asyncio_loop.call_soon_threadsafe(web_asyncio_loop.stop)
