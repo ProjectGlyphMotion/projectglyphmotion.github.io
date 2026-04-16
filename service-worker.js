@@ -2,8 +2,9 @@
 
 // Increment version on updates to trigger cache invalidation and fresh content fetching.
 // This is critical for ensuring users get the latest version of your PWA.
-const CACHE_NAME = 'glyphmotion-pwa-cache-v4.0.8'; // Bumped to force SW update and runtime cache policy refresh. (Changed to 4.0.1 to reflect minor update with bug fixes and improvements, and to ensure all users get the latest content without stale caches. Future updates should increment this version accordingly.)
+const CACHE_NAME = 'glyphmotion-pwa-cache-v4.0.9'; // Bumped to force SW update and runtime cache policy refresh. (Changed to 4.0.1 to reflect minor update with bug fixes and improvements, and to ensure all users get the latest content without stale caches. Future updates should increment this version accordingly.)
 const THUMBNAIL_CACHE_NAME = 'glyphmotion-thumbnail-cache-v3';
+const MODEL_CACHE_NAME = 'glyphmotion-model-cache-v1';
 const OFFLINE_URL = '/offline.html'; // Path to your custom offline page
 
 // List of URLs to cache when the service worker is installed.
@@ -13,6 +14,7 @@ const urlsToCache = [
     '/index.html',
     '/admin.html',
     '/admin_tracker.html',
+    '/playground.html',
     '/documentation.html',
     '/offline.html',
     '/manifest.json',
@@ -76,6 +78,10 @@ self.addEventListener('activate', (event) => {
                         console.log('[Service Worker] Deleting old thumbnail cache:', cacheName);
                         return caches.delete(cacheName);
                     }
+                    if (cacheName.startsWith('glyphmotion-model-cache-') && cacheName !== MODEL_CACHE_NAME) {
+                        console.log('[Service Worker] Deleting old model cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
                     return null;
                 })
             );
@@ -102,6 +108,44 @@ self.addEventListener('fetch', (event) => {
     }
 
     const requestUrl = new URL(event.request.url);
+    const isTensorflowModelAsset = (
+        (requestUrl.hostname === 'cdn.jsdelivr.net' && (
+            requestUrl.pathname.includes('/@tensorflow/') ||
+            requestUrl.pathname.includes('/@tensorflow-models/coco-ssd')
+        )) ||
+        (requestUrl.hostname === 'storage.googleapis.com' && requestUrl.pathname.includes('/tfjs-models/'))
+    );
+
+    // Cache model/runtime assets aggressively so repeat visits avoid re-downloading heavy model files.
+    if (isTensorflowModelAsset) {
+        event.respondWith(
+            caches.open(MODEL_CACHE_NAME).then((modelCache) => {
+                return modelCache.match(event.request).then((cachedModelResponse) => {
+                    if (cachedModelResponse) {
+                        return cachedModelResponse;
+                    }
+
+                    return fetch(event.request)
+                        .then((networkResponse) => {
+                            if (networkResponse && (
+                                networkResponse.ok ||
+                                networkResponse.type === 'opaque' ||
+                                networkResponse.type === 'cors' ||
+                                networkResponse.type === 'opaqueredirect'
+                            )) {
+                                modelCache.put(event.request, networkResponse.clone());
+                            }
+                            return networkResponse;
+                        })
+                        .catch(() => {
+                            return modelCache.match(event.request).then((fallback) => fallback || Response.error());
+                        });
+                });
+            })
+        );
+        return;
+    }
+
     const isDriveThumbnailRequest =
         event.request.destination === 'image' && (
             (requestUrl.hostname === 'drive.google.com' && requestUrl.pathname === '/thumbnail') ||

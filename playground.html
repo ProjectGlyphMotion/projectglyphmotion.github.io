@@ -156,6 +156,48 @@
             border: 1px solid rgba(255, 255, 255, 0.06);
         }
 
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.73rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.36rem 0.62rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(10,10,14,0.72);
+            color: #d4d4d8;
+            margin-top: 0.55rem;
+            max-width: calc(100vw - 2rem);
+        }
+        .status-chip .dot {
+            width: 0.56rem;
+            height: 0.56rem;
+            border-radius: 9999px;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 0 rgba(0,0,0,0);
+        }
+        .status-chip.online {
+            color: #86efac;
+            border-color: rgba(134,239,172,0.42);
+            background: rgba(22,101,52,0.18);
+        }
+        .status-chip.online .dot {
+            background: #22c55e;
+            box-shadow: 0 0 14px -2px rgba(34,197,94,0.85);
+        }
+        .status-chip.offline {
+            color: #fca5a5;
+            border-color: rgba(252,165,165,0.4);
+            background: rgba(127,29,29,0.2);
+        }
+        .status-chip.offline .dot {
+            background: #ef4444;
+            box-shadow: 0 0 14px -2px rgba(239,68,68,0.9);
+        }
+
         .btn {
             background: linear-gradient(180deg, rgba(39, 39, 42, 0.8) 0%, rgba(24, 24, 27, 0.9) 100%);
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -356,7 +398,8 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: var(--video-mirror, scaleX(-1)); /* Mirror for selfie cam, controllable */
+            transform: scaleX(-1);
+            transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
         }
         
         canvas#overlay {
@@ -366,13 +409,30 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
-            transform: var(--video-mirror, scaleX(-1)); /* Mirror to match video */
+            transform: none;
         }
         
         /* No mirror for rear camera or portrait */
         #camContainer.no-mirror video#webcam,
         #camContainer.no-mirror canvas#overlay {
             transform: none;
+        }
+
+        .invert-toggle-btn.active {
+            border-color: rgba(245, 158, 11, 0.55);
+            color: #fbbf24;
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.16) 0%, rgba(217, 119, 6, 0.2) 100%);
+            box-shadow: 0 0 18px -8px rgba(245, 158, 11, 0.6);
+        }
+
+        #camContainer.invert-anim {
+            animation: invertPulse 420ms ease;
+        }
+
+        @keyframes invertPulse {
+            0% { filter: brightness(1); box-shadow: 0 0 40px rgba(0,0,0,0.8), 0 0 20px rgba(245, 158, 11, 0.15); }
+            45% { filter: brightness(1.2); box-shadow: 0 0 44px rgba(0,0,0,0.85), 0 0 28px rgba(245, 158, 11, 0.45); }
+            100% { filter: brightness(1); box-shadow: 0 0 40px rgba(0,0,0,0.8), 0 0 20px rgba(245, 158, 11, 0.15); }
         }
         
         .cam-controls {
@@ -514,6 +574,11 @@
             cursor: pointer;
             min-height: 80px;
         }
+        .file-input-wrapper.drag-active .file-input-display {
+            border-color: rgba(245, 158, 11, 0.75);
+            background: rgba(245, 158, 11, 0.14);
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2) inset;
+        }
         .file-input-display:hover {
             border-color: rgba(245, 158, 11, 0.4);
             background: rgba(18, 18, 24, 0.9);
@@ -529,11 +594,48 @@
         .file-input-text .subtitle { font-size: 0.75rem; color: rgba(255, 255, 255, 0.5); margin-top: 0.25rem; }
         .file-name { font-size: 0.85rem; color: #34D399; margin-top: 0.5rem; }
 
+        .class-filter-input {
+            background: #0f1015;
+            border: 1px solid rgba(245, 158, 11, 0.28);
+            color: #e4e4e7;
+            padding: 0.62rem 0.74rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            transition: all 0.2s ease;
+        }
+        .class-filter-input::placeholder {
+            color: rgba(245, 158, 11, 0.68);
+        }
+        .class-filter-input:focus {
+            outline: none;
+            border-color: rgba(245, 158, 11, 0.7);
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+        }
+
+        .class-toolbar {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(14,14,18,0.5);
+            border-radius: 0.65rem;
+            padding: 0.5rem 0.6rem;
+            margin-bottom: 0.55rem;
+        }
+        .class-toolbar .title {
+            color: #f4f4f5;
+            font-size: 0.84rem;
+            font-weight: 600;
+        }
+        .class-toolbar .action-btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+        }
+
         .checkbox-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
             gap: 0.5rem;
-            max-height: 220px;
+            max-height: 320px;
             overflow-y: auto;
             padding: 1rem;
             background: #070709;
@@ -556,25 +658,29 @@
         }
         .checkbox-item label {
             width: 100%;
-            padding: 0.5rem;
+            padding: 0.58rem 0.62rem;
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 0.5rem;
-            text-align: center;
-            font-size: 0.75rem;
+            text-align: left;
+            font-size: 0.78rem;
+            line-height: 1.25;
             font-family: 'JetBrains Mono', monospace;
-            color: #71717a;
+            color: #c4c7cf;
             transition: all 0.2s ease;
             cursor: pointer;
             user-select: none;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
+            min-height: 2.2rem;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
         .checkbox-item label:hover {
-            background: rgba(255, 255, 255, 0.06);
-            border-color: rgba(255, 255, 255, 0.2);
-            color: #a1a1aa;
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.28);
+            color: #f4f4f5;
         }
         .checkbox-item input:checked + label {
             background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.2) 100%);
@@ -582,6 +688,46 @@
             color: #fbbf24;
             box-shadow: 0 0 10px rgba(245, 158, 11, 0.1);
             text-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+        }
+
+        @media (max-width: 1024px) {
+            .checkbox-grid {
+                grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+                max-height: 300px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .status-chip {
+                font-size: 0.68rem;
+                letter-spacing: 0.04em;
+                padding: 0.3rem 0.52rem;
+            }
+            .checkbox-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.42rem;
+                padding: 0.7rem;
+                max-height: 270px;
+            }
+            .checkbox-item label {
+                font-size: 0.72rem;
+                padding: 0.5rem;
+                min-height: 2rem;
+            }
+            .file-input-display {
+                padding: 0.95rem 1rem;
+                min-height: 72px;
+                gap: 0.7rem;
+            }
+            .file-input-display i {
+                font-size: 1.15rem;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .checkbox-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         /* Slider Styling */
@@ -656,6 +802,18 @@
         }
         .footer a { color: #FDA136; text-decoration: none; }
         .footer a:hover { text-decoration: underline; }
+
+        @media (max-width: 640px) {
+            .footer-shell {
+                max-width: calc(100% - 1rem);
+                padding: 0.5rem 0.7rem;
+                gap: 0.45rem;
+            }
+            .footer-shell p,
+            .footer-shell a {
+                font-size: 0.72rem;
+            }
+        }
     </style>
 
     <script>
@@ -700,6 +858,10 @@
                 <p class="text-slate-400 text-xs sm:text-sm max-w-xs sm:max-w-md mx-auto leading-relaxed font-mono tracking-wide">
                     Experimental AI features & advanced tracking configurations
                 </p>
+                <div id="backendStatusChip" class="status-chip offline" aria-live="polite">
+                    <span class="dot"></span>
+                    <span id="backendStatusText">Backend Offline</span>
+                </div>
             </div>
             
         </header>
@@ -789,6 +951,11 @@
                     <button id="stopCamBtn" class="btn btn-secondary">
                         <i class="fas fa-power-off"></i> Stop
                     </button>
+
+                    <!-- Manual Mirror Toggle -->
+                    <button id="invertFeedBtn" class="btn btn-secondary invert-toggle-btn" type="button" title="Toggle mirrored preview">
+                        <i class="fas fa-people-arrows"></i> Mirror: ON
+                    </button>
                 </div>
                 
                 <!-- Mobile-only buttons -->
@@ -853,16 +1020,19 @@
 
                     <!-- Right Column: Class Selection -->
                     <div>
-                        <div class="flex justify-between items-center mb-2">
-                            <label class="block text-sm font-medium text-slate-300">Objects to Track</label>
-                            <div class="space-x-3 text-xs">
-                                <button type="button" id="selectAllBtn" class="text-orange-400 hover:text-orange-300 transition">Select All</button>
-                                <span class="text-slate-600">|</span>
-                                <button type="button" id="clearAllBtn" class="text-slate-400 hover:text-slate-300 transition">Clear All</button>
+                        <div class="class-toolbar">
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-2">
+                                <label class="title">Objects to Track</label>
+                                <div class="space-x-3 text-xs">
+                                    <button type="button" id="selectAllBtn" class="action-btn text-orange-300 hover:text-orange-200 transition">Select All</button>
+                                    <span class="text-slate-600">|</span>
+                                    <button type="button" id="clearAllBtn" class="action-btn text-slate-300 hover:text-slate-100 transition">Clear All</button>
+                                </div>
                             </div>
+                            <input type="text" id="classFilterInput" class="class-filter-input" placeholder="Filter classes (e.g. person, car, bottle)...">
                         </div>
                         <div id="classGrid" class="checkbox-grid"></div>
-                        <p class="text-xs text-slate-500 mt-2"><span id="selectedCount">80</span> classes selected</p>
+                        <p class="text-xs text-slate-500 mt-2"><span id="selectedCount">80</span> classes selected • <span id="visibleClassCount">80</span> visible</p>
                     </div>
                 </div>
 
@@ -879,13 +1049,11 @@
     </div>
     
     <footer class="relative z-10 pb-8 pt-4 mt-8">
-        <div class="max-w-max mx-auto px-6 py-3 rounded-full bg-surface/80 backdrop-blur-md border border-zinc-800/60 shadow-[0_0_20px_rgba(0,0,0,0.5)] flex flex-wrap items-center justify-center gap-3 transition-all hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)]">
+        <div class="footer-shell max-w-max mx-auto px-6 py-3 rounded-full bg-surface/80 backdrop-blur-md border border-zinc-800/60 shadow-[0_0_20px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 transition-all hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)]">
             <i class="fas fa-terminal text-amber-500 text-sm"></i>
             <p class="text-zinc-400 text-sm font-mono tracking-wide">
-                Made with ❤️ by <span class="text-zinc-200 font-semibold">Sayan & Shitij</span>
+                Maintained by <span class="text-zinc-200 font-semibold">Project GlyphMotion</span>
             </p>
-            <span class="text-zinc-600 hidden sm:inline">|</span>
-            <a href="index.html" class="text-amber-500/80 hover:text-amber-400 text-sm font-mono tracking-wide transition-colors">Return to Dashboard</a>
         </div>
     </footer>
 
@@ -922,6 +1090,7 @@
         const switchCameraBtn = document.getElementById('switchCameraBtn');
         const recordBtn = document.getElementById('recordBtn');
         const stopRecordBtn = document.getElementById('stopRecordBtn');
+        const invertFeedBtn = document.getElementById('invertFeedBtn');
         const recordingIndicator = document.getElementById('recordingIndicator');
         const recordingTimeEl = document.getElementById('recordingTime');
         
@@ -945,58 +1114,172 @@
         let isRecording = false;
         let recordingStartTime = null;
         let recordingInterval = null;
+        const MIRROR_PREF_KEY = 'neuralCamMirrorFeedV1';
+        let tfBackendReadyPromise = null;
+        let modelLoadPromise = null;
+        let modelWarmupComplete = false;
+        let modelPreloadScheduled = false;
+        if (localStorage.getItem(MIRROR_PREF_KEY) === null) {
+            localStorage.setItem(MIRROR_PREF_KEY, 'on');
+        }
+        let manualVideoMirror = localStorage.getItem(MIRROR_PREF_KEY) !== 'off';
+
+        function isFeedMirrored() {
+            return manualVideoMirror;
+        }
+
+        function updateInvertButtonState() {
+            if (!invertFeedBtn) return;
+            invertFeedBtn.classList.toggle('active', isFeedMirrored());
+            invertFeedBtn.innerHTML = `<i class="fas fa-people-arrows"></i> Mirror: ${isFeedMirrored() ? 'ON' : 'OFF'}`;
+        }
+
+        function applyVideoMirrorPreference(animate = false) {
+            const camContainerEl = document.getElementById('camContainer');
+            if (!camContainerEl) return;
+
+            const mirrorEnabled = isFeedMirrored();
+            video.style.setProperty('transform', mirrorEnabled ? 'scaleX(-1)' : 'none', 'important');
+            canvas.style.setProperty('transform', 'none', 'important');
+
+            if (mirrorEnabled) {
+                camContainerEl.classList.remove('no-mirror');
+            } else {
+                camContainerEl.classList.add('no-mirror');
+            }
+
+            if (animate) {
+                camContainerEl.classList.remove('invert-anim');
+                void camContainerEl.offsetWidth;
+                camContainerEl.classList.add('invert-anim');
+                setTimeout(() => camContainerEl.classList.remove('invert-anim'), 460);
+            }
+
+            updateInvertButtonState();
+        }
         
         // FPS calculation
         let frameCount = 0;
         let lastFpsTime = performance.now();
         let currentFps = 0;
 
-        async function loadModel() {
-            camStatus.innerHTML = '<div class="spinner"></div> Initializing TensorFlow.js...';
-            startCamBtn.disabled = true;
-            try {
-                // Use WebGL only - WebGPU is unstable on Linux/NVIDIA
-                // Set WebGL optimizations
+        function setCamLoadingStatus(message) {
+            camStatus.innerHTML = `<div class="spinner"></div> ${message}`;
+        }
+
+        function updateBackendLabelFromTf() {
+            const backend = tf.getBackend();
+            let gpuName = backend.toUpperCase();
+            if (window.detectedGPU) {
+                gpuName = window.detectedGPU
+                    .replace('ANGLE (', '')
+                    .replace(')', '')
+                    .replace('Direct3D11 vs_5_0 ps_5_0', '')
+                    .replace('NVIDIA ', '')
+                    .replace('GeForce ', '')
+                    .replace(', or similar', '')
+                    .replace('Mesa Intel', 'Intel')
+                    .replace('Mesa ', '')
+                    .trim();
+                if (gpuName.length > 18) gpuName = gpuName.substring(0, 16) + '...';
+            }
+            document.getElementById('tfBackend').textContent = gpuName;
+            document.getElementById('tfBackend').title = `Backend: ${backend}\nGPU: ${window.detectedGPU || 'Unknown'}`;
+            console.log('[TF.js] Using backend:', backend, '| GPU:', window.detectedGPU);
+        }
+
+        async function ensureTfBackendReady(showUi = false) {
+            if (tfBackendReadyPromise) return tfBackendReadyPromise;
+
+            tfBackendReadyPromise = (async () => {
+                if (showUi) setCamLoadingStatus('Initializing TensorFlow.js...');
+
+                // Use WebGL only - WebGPU is unstable on Linux/NVIDIA.
                 tf.env().set('WEBGL_FORCE_F16_TEXTURES', false);
                 tf.env().set('WEBGL_VERSION', 2);
                 tf.env().set('WEBGL_CPU_FORWARD', false);
                 tf.env().set('WEBGL_PACK', true);
-                
+
                 await tf.setBackend('webgl');
                 await tf.ready();
-                
-                const backend = tf.getBackend();
-                
-                // Get actual GPU name
-                let gpuName = backend.toUpperCase();
-                if (window.detectedGPU) {
-                    gpuName = window.detectedGPU
-                        .replace('ANGLE (', '')
-                        .replace(')', '')
-                        .replace('Direct3D11 vs_5_0 ps_5_0', '')
-                        .replace('NVIDIA ', '')
-                        .replace('GeForce ', '')
-                        .replace(', or similar', '')
-                        .replace('Mesa Intel', 'Intel')
-                        .replace('Mesa ', '')
-                        .trim();
-                    if (gpuName.length > 18) gpuName = gpuName.substring(0, 16) + '...';
-                }
-                
-                document.getElementById('tfBackend').textContent = gpuName;
-                document.getElementById('tfBackend').title = `Backend: ${backend}\nGPU: ${window.detectedGPU || 'Unknown'}`;
-                console.log('[TF.js] Using backend:', backend, '| GPU:', window.detectedGPU);
-                
-                camStatus.innerHTML = '<div class="spinner"></div> Loading AI Model...';
-                
-                // Use lite model for faster loading and better stability
-                model = await cocoSsd.load({ 
-                    base: 'lite_mobilenet_v2'  // Lighter model = faster & more stable
+                updateBackendLabelFromTf();
+                return tf.getBackend();
+            })().catch((err) => {
+                tfBackendReadyPromise = null;
+                throw err;
+            });
+
+            return tfBackendReadyPromise;
+        }
+
+        async function warmupModelOnce() {
+            if (modelWarmupComplete || !model) return;
+            const warmupCanvas = document.createElement('canvas');
+            warmupCanvas.width = 64;
+            warmupCanvas.height = 64;
+            const warmupCtx = warmupCanvas.getContext('2d');
+            if (warmupCtx) {
+                warmupCtx.fillStyle = '#101010';
+                warmupCtx.fillRect(0, 0, warmupCanvas.width, warmupCanvas.height);
+            }
+            try {
+                await model.detect(warmupCanvas);
+                modelWarmupComplete = true;
+            } catch (warmErr) {
+                console.warn('[NeuralCam] Warmup failed:', warmErr);
+            }
+        }
+
+        function ensureModelLoaded({ preload = false } = {}) {
+            if (model) return Promise.resolve(model);
+            if (modelLoadPromise) return modelLoadPromise;
+
+            modelLoadPromise = (async () => {
+                await ensureTfBackendReady(!preload);
+                if (!preload) setCamLoadingStatus('Loading AI model...');
+
+                // Use lite model for faster loading and better stability.
+                model = await cocoSsd.load({
+                    base: 'lite_mobilenet_v2'
                 });
-                
-                camStatus.innerText = "Model loaded! Initializing camera...";
+
+                if (!preload) setCamLoadingStatus('Warming up model kernels...');
+                await warmupModelOnce();
+                return model;
+            })().catch((err) => {
+                model = null;
+                modelLoadPromise = null;
+                throw err;
+            });
+
+            return modelLoadPromise;
+        }
+
+        function scheduleModelPreload() {
+            if (modelPreloadScheduled || model || modelLoadPromise) return;
+            modelPreloadScheduled = true;
+            const preloadTask = () => {
+                ensureModelLoaded({ preload: true }).catch((err) => {
+                    console.warn('[NeuralCam] Background model preload failed:', err);
+                    modelPreloadScheduled = false;
+                });
+            };
+
+            if (typeof window.requestIdleCallback === 'function') {
+                window.requestIdleCallback(preloadTask, { timeout: 2500 });
+            } else {
+                setTimeout(preloadTask, 900);
+            }
+        }
+
+        async function loadModel() {
+            startCamBtn.disabled = true;
+            try {
+                setCamLoadingStatus('Preparing AI runtime...');
+                await ensureModelLoaded({ preload: false });
+                setCamLoadingStatus('Model ready. Initializing camera...');
                 await enumerateCameras();
-                startWebcam();
+                await startWebcam();
             } catch (err) {
                 camStatus.innerHTML = `<span class="text-red-400">Error: ${err.message}</span>`;
                 startCamBtn.disabled = false;
@@ -1101,6 +1384,8 @@
                     const vh = video.videoHeight;
                     canvas.width = vw;
                     canvas.height = vh;
+
+                    applyVideoMirrorPreference(false);
                     
                     // Detect portrait mode (height > width)
                     const isPortrait = vh > vw;
@@ -1108,17 +1393,11 @@
                     
                     if (isPortrait) {
                         camContainer.classList.add('portrait-mode');
-                        camContainer.classList.add('no-mirror'); // No mirror for portrait
                     } else {
                         camContainer.classList.remove('portrait-mode');
-                        // Mirror only for front/selfie camera in landscape
-                        if (currentFacingMode === 'user' || 
-                            (currentStream.getVideoTracks()[0]?.label?.toLowerCase().includes('front'))) {
-                            camContainer.classList.remove('no-mirror');
-                        } else {
-                            camContainer.classList.add('no-mirror'); // No mirror for rear camera
-                        }
                     }
+
+                    if (!isFeedMirrored()) camContainer.classList.add('no-mirror');
                     
                     // Display resolution
                     document.getElementById('resValue').textContent = `${vw}x${vh}`;
@@ -1244,6 +1523,8 @@
                 if (prediction.score < 0.3) return; // Skip very faded predictions
                 
                 const [x, y, width, height] = prediction.bbox;
+                // Mirror bbox X only when feed is mirrored.
+                const drawX = isFeedMirrored() ? (canvas.width - x - width) : x;
                 
                 // Color based on class
                 const hue = prediction.class.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360;
@@ -1260,15 +1541,15 @@
                 // Rounded rectangle with scaled radius
                 const radius = Math.max(4, Math.round(8 * scaleFactor));
                 ctx.beginPath();
-                ctx.moveTo(x + radius, y);
-                ctx.lineTo(x + width - radius, y);
-                ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-                ctx.lineTo(x + width, y + height - radius);
-                ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-                ctx.lineTo(x + radius, y + height);
-                ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-                ctx.lineTo(x, y + radius);
-                ctx.quadraticCurveTo(x, y, x + radius, y);
+                ctx.moveTo(drawX + radius, y);
+                ctx.lineTo(drawX + width - radius, y);
+                ctx.quadraticCurveTo(drawX + width, y, drawX + width, y + radius);
+                ctx.lineTo(drawX + width, y + height - radius);
+                ctx.quadraticCurveTo(drawX + width, y + height, drawX + width - radius, y + height);
+                ctx.lineTo(drawX + radius, y + height);
+                ctx.quadraticCurveTo(drawX, y + height, drawX, y + height - radius);
+                ctx.lineTo(drawX, y + radius);
+                ctx.quadraticCurveTo(drawX, y, drawX + radius, y);
                 ctx.closePath();
                 ctx.stroke();
                 
@@ -1283,25 +1564,11 @@
                 // Label background
                 ctx.fillStyle = bgColor;
                 ctx.beginPath();
-                ctx.roundRect(x, labelY, textWidth + 12, labelHeight, 4);
+                ctx.roundRect(drawX, labelY, textWidth + 12, labelHeight, 4);
                 ctx.fill();
                 
-                // Check if we're in no-mirror mode (rear camera or portrait)
-                const camContainer = document.getElementById('camContainer');
-                const isMirrored = !camContainer.classList.contains('no-mirror');
-                
                 ctx.fillStyle = '#fff';
-                if (isMirrored) {
-                    // Counter the CSS scaleX(-1) so text is readable
-                    ctx.save();
-                    ctx.scale(-1, 1);
-                    const flippedX = -(x + 6 + textWidth);
-                    ctx.fillText(text, flippedX, labelY + fontSize + 2);
-                    ctx.restore();
-                } else {
-                    // No mirroring, draw text normally
-                    ctx.fillText(text, x + 6, labelY + fontSize + 2);
-                }
+                ctx.fillText(text, drawX + 6, labelY + fontSize + 2);
             });
 
             requestAnimationFrame(predictFrame);
@@ -1354,7 +1621,17 @@
             // Draw loop for recording
             function drawRecordingFrame() {
                 if (!isRecording) return;
-                recordCtx.drawImage(video, 0, 0);
+                recordCtx.clearRect(0, 0, recordCanvas.width, recordCanvas.height);
+                if (isFeedMirrored()) {
+                    recordCtx.save();
+                    recordCtx.translate(recordCanvas.width, 0);
+                    recordCtx.scale(-1, 1);
+                    recordCtx.drawImage(video, 0, 0);
+                    recordCtx.restore();
+                } else {
+                    recordCtx.drawImage(video, 0, 0);
+                }
+                // Overlay is drawn in final screen coordinates already.
                 recordCtx.drawImage(canvas, 0, 0);
                 requestAnimationFrame(drawRecordingFrame);
             }
@@ -1399,6 +1676,11 @@
         switchCameraBtn.addEventListener('click', switchCamera);
         recordBtn.addEventListener('click', startRecording);
         stopRecordBtn.addEventListener('click', stopRecording);
+        invertFeedBtn?.addEventListener('click', () => {
+            manualVideoMirror = !manualVideoMirror;
+            localStorage.setItem(MIRROR_PREF_KEY, manualVideoMirror ? 'on' : 'off');
+            applyVideoMirrorPreference(true);
+        });
         
         cameraSelect.addEventListener('change', (e) => {
             if (e.target.value && isCamRunning) {
@@ -1477,6 +1759,30 @@
         const fsRecordBtn = document.getElementById('fsRecordBtn');
         const fsSwitchCamBtn = document.getElementById('fsSwitchCamBtn');
         const fsExitBtn = document.getElementById('fsExitBtn');
+
+        function enterFullscreen() {
+            if (isFullscreen) return;
+            isFullscreen = true;
+            camContainer.classList.add('fullscreen-landscape');
+            fullscreenControls?.classList.remove('hidden');
+
+            // Best effort native fullscreen; UI class fallback always works.
+            const el = camContainer;
+            if (el && document.fullscreenElement !== el) {
+                el.requestFullscreen?.().catch(() => {});
+            }
+        }
+
+        function exitFullscreen() {
+            if (!isFullscreen) return;
+            isFullscreen = false;
+            camContainer.classList.remove('fullscreen-landscape');
+            fullscreenControls?.classList.add('hidden');
+
+            if (document.fullscreenElement) {
+                document.exitFullscreen?.().catch(() => {});
+            }
+        }
         
         // Mobile camera buttons
         if (rearCamBtn) {
@@ -1593,6 +1899,8 @@
                     const vh = video.videoHeight;
                     canvas.width = vw;
                     canvas.height = vh;
+
+                    applyVideoMirrorPreference(false);
                     
                     const camContainer = document.getElementById('camContainer');
                     const videoIsPortrait = vh > vw;
@@ -1602,13 +1910,8 @@
                     } else {
                         camContainer.classList.remove('portrait-mode');
                     }
-                    
-                    // Mirror only for selfie camera
-                    if (currentFacingMode === 'user') {
-                        camContainer.classList.remove('no-mirror');
-                    } else {
-                        camContainer.classList.add('no-mirror');
-                    }
+
+                    if (!isFeedMirrored()) camContainer.classList.add('no-mirror');
                     
                     document.getElementById('resValue').textContent = `${vw}x${vh}`;
                     
@@ -1644,13 +1947,22 @@
         const processBtn = document.getElementById('processBtn');
         const videoFileInput = document.getElementById('videoFile');
         const fileInputDisplay = document.getElementById('fileInputDisplay');
+        const fileInputWrapper = document.querySelector('.file-input-wrapper');
         const fileNameDisplay = document.getElementById('fileName');
         const selectedCountEl = document.getElementById('selectedCount');
+        const visibleClassCountEl = document.getElementById('visibleClassCount');
+        const classFilterInput = document.getElementById('classFilterInput');
+        const backendStatusChip = document.getElementById('backendStatusChip');
+        const backendStatusText = document.getElementById('backendStatusText');
+        let backendStatusEventSource = null;
+        let backendStatusPollTimer = null;
+        let backendStatusReconnectTimer = null;
 
         // Populate Checkboxes
         COCO_CLASSES.forEach(cls => {
             const div = document.createElement('div');
             div.className = 'checkbox-item';
+            div.dataset.class = cls.toLowerCase();
             const id = `class_${cls.replace(/\s/g, '_')}`;
             div.innerHTML = `<input type="checkbox" id="${id}" value="${cls}" checked> <label for="${id}">${cls}</label>`;
             classGrid.appendChild(div);
@@ -1659,6 +1971,94 @@
         function updateSelectedCount() {
             const count = classGrid.querySelectorAll('input:checked').length;
             selectedCountEl.textContent = count;
+        }
+
+        function updateVisibleCount() {
+            const visible = Array.from(classGrid.querySelectorAll('.checkbox-item')).filter((item) => item.style.display !== 'none').length;
+            if (visibleClassCountEl) visibleClassCountEl.textContent = visible;
+        }
+
+        function filterClassGrid(term) {
+            const normalized = String(term || '').trim().toLowerCase();
+            classGrid.querySelectorAll('.checkbox-item').forEach((item) => {
+                const cls = item.dataset.class || '';
+                item.style.display = !normalized || cls.includes(normalized) ? 'inline-flex' : 'none';
+            });
+            updateVisibleCount();
+        }
+
+        function applySelectedFile(file) {
+            if (!file) {
+                fileNameDisplay.classList.add('hidden');
+                fileNameDisplay.textContent = '';
+                return;
+            }
+
+            if (!String(file.type || '').startsWith('video/')) {
+                showStatus('Please drop/select a valid video file.', 'error');
+                return;
+            }
+
+            fileNameDisplay.textContent = `Selected: ${file.name}`;
+            fileNameDisplay.classList.remove('hidden');
+        }
+
+        function setupDragAndDropUpload() {
+            if (!fileInputWrapper || !fileInputDisplay || !videoFileInput) return;
+
+            let dragDepth = 0;
+
+            const activate = () => fileInputWrapper.classList.add('drag-active');
+            const deactivate = () => fileInputWrapper.classList.remove('drag-active');
+
+            ['dragenter', 'dragover'].forEach((eventName) => {
+                fileInputWrapper.addEventListener(eventName, (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    dragDepth += 1;
+                    activate();
+                });
+            });
+
+            ['dragleave', 'dragend'].forEach((eventName) => {
+                fileInputWrapper.addEventListener(eventName, (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    dragDepth = Math.max(0, dragDepth - 1);
+                    if (dragDepth === 0) deactivate();
+                });
+            });
+
+            fileInputWrapper.addEventListener('drop', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                dragDepth = 0;
+                deactivate();
+
+                const files = event.dataTransfer?.files;
+                if (!files || files.length === 0) return;
+                const droppedFile = files[0];
+
+                try {
+                    const dt = new DataTransfer();
+                    dt.items.add(droppedFile);
+                    videoFileInput.files = dt.files;
+                } catch (_) {
+                    // If browser blocks FileList assignment, manual picker still works.
+                }
+
+                applySelectedFile(droppedFile);
+            });
+
+            document.addEventListener('dragover', (event) => {
+                event.preventDefault();
+            });
+
+            document.addEventListener('drop', (event) => {
+                if (!fileInputWrapper.contains(event.target)) {
+                    event.preventDefault();
+                }
+            });
         }
         
         classGrid.addEventListener('change', updateSelectedCount);
@@ -1677,29 +2077,122 @@
             updateSelectedCount();
         });
 
+        classFilterInput.addEventListener('input', (e) => {
+            filterClassGrid(e.target.value || '');
+        });
+
         confSlider.addEventListener('input', (e) => {
             confValue.innerText = e.target.value;
         });
         
         // File input display
         videoFileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                fileNameDisplay.textContent = `Selected: ${file.name}`;
-                fileNameDisplay.classList.remove('hidden');
-            } else {
-                fileNameDisplay.classList.add('hidden');
-            }
+            applySelectedFile(e.target.files[0]);
         });
+
+        setupDragAndDropUpload();
+        filterClassGrid('');
+        updateInvertButtonState();
 
         // Backend URL Logic
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const BASE_URL = isLocal ? 'http://localhost:5000' : 'https://backend.projectglyphmotion.studio';
+        const STATUS_ENDPOINT = `${BASE_URL}/status`;
+        const STATUS_EVENTS_ENDPOINT = `${BASE_URL}/events/status`;
         const UPLOAD_REQUEST_TIMEOUT_MS = 8 * 60 * 1000;
         const CHUNK_UPLOAD_THRESHOLD_BYTES = 48 * 1024 * 1024;
         const CHUNK_SIZE_BYTES = 16 * 1024 * 1024;
         const CHUNK_UPLOAD_ENDPOINT = `${BASE_URL}/upload_chunk`;
         const COMPLETE_CHUNK_UPLOAD_ENDPOINT = `${BASE_URL}/complete_chunked_upload`;
+
+        function setBackendChip(isOnline, detailText = '') {
+            if (!backendStatusChip || !backendStatusText) return;
+            backendStatusChip.classList.remove('online', 'offline');
+            backendStatusChip.classList.add(isOnline ? 'online' : 'offline');
+            const base = isOnline ? 'Backend Online' : 'Backend Offline';
+            backendStatusText.textContent = detailText ? `${base} • ${detailText}` : base;
+        }
+
+        async function pollBackendStatus() {
+            try {
+                const res = await fetch(STATUS_ENDPOINT, { method: 'GET', cache: 'no-store' });
+                if (res.ok) {
+                    setBackendChip(true, 'HTTP');
+                } else {
+                    setBackendChip(false, `HTTP ${res.status}`);
+                }
+            } catch (_) {
+                setBackendChip(false, 'No response');
+            }
+        }
+
+        function startBackendStatusPolling() {
+            if (backendStatusPollTimer) return;
+            pollBackendStatus();
+            backendStatusPollTimer = setInterval(pollBackendStatus, 20000);
+        }
+
+        function stopBackendStatusPolling() {
+            if (!backendStatusPollTimer) return;
+            clearInterval(backendStatusPollTimer);
+            backendStatusPollTimer = null;
+        }
+
+        function scheduleBackendStatusReconnect() {
+            if (backendStatusReconnectTimer) return;
+            backendStatusReconnectTimer = setTimeout(() => {
+                backendStatusReconnectTimer = null;
+                connectBackendStatusSSE();
+            }, 3500);
+        }
+
+        function connectBackendStatusSSE() {
+            try {
+                if (backendStatusEventSource) {
+                    backendStatusEventSource.close();
+                    backendStatusEventSource = null;
+                }
+
+                backendStatusEventSource = new EventSource(STATUS_EVENTS_ENDPOINT);
+                backendStatusEventSource.onopen = () => {
+                    stopBackendStatusPolling();
+                    setBackendChip(true, 'SSE live');
+                };
+
+                backendStatusEventSource.onmessage = () => {
+                    setBackendChip(true, 'SSE live');
+                };
+
+                backendStatusEventSource.addEventListener('status', (event) => {
+                    try {
+                        const payload = JSON.parse(event.data || '{}');
+                        if (payload && typeof payload === 'object') {
+                            setBackendChip(true, payload.status || 'SSE live');
+                            return;
+                        }
+                    } catch (_) {}
+                    setBackendChip(true, 'SSE live');
+                });
+
+                backendStatusEventSource.onerror = () => {
+                    if (backendStatusEventSource) {
+                        backendStatusEventSource.close();
+                        backendStatusEventSource = null;
+                    }
+                    setBackendChip(false, 'Reconnecting');
+                    startBackendStatusPolling();
+                    scheduleBackendStatusReconnect();
+                };
+            } catch (_) {
+                setBackendChip(false, 'Polling');
+                startBackendStatusPolling();
+                scheduleBackendStatusReconnect();
+            }
+        }
+
+        setBackendChip(false, 'Connecting');
+        connectBackendStatusSSE();
+        scheduleModelPreload();
 
         function formatBytes(bytes) {
             if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
