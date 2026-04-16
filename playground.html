@@ -1044,6 +1044,7 @@
                 </div>
                 
                 <div id="statusMessage" class="status-msg info hidden"></div>
+                <div id="liveProgressMessage" class="status-msg info mt-3">Live backend status: connecting...</div>
             </form>
         </div>
     </div>
@@ -1944,6 +1945,7 @@
         const confValue = document.getElementById('confValue');
         const studioForm = document.getElementById('studioForm');
         const statusMessage = document.getElementById('statusMessage');
+        const liveProgressMessage = document.getElementById('liveProgressMessage');
         const processBtn = document.getElementById('processBtn');
         const videoFileInput = document.getElementById('videoFile');
         const fileInputDisplay = document.getElementById('fileInputDisplay');
@@ -1957,6 +1959,103 @@
         let backendStatusEventSource = null;
         let backendStatusPollTimer = null;
         let backendStatusReconnectTimer = null;
+        let studioProcessingWatchEnabled = false;
+        let lastStudioStatusCounter = -1;
+        let studioProgressPollTimer = null;
+        const CLIENT_ID_STORAGE_KEY = 'glyphmotionPlaygroundClientIdV1';
+        const CLIENT_ID_COOKIE_KEY = 'glyphmotion_playground_client_id';
+
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, (ch) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[ch]));
+        }
+
+        function normalizeClientId(rawValue) {
+            const candidate = String(rawValue || '').trim();
+            if (!candidate) return '';
+            return /^[A-Za-z0-9._-]{6,96}$/.test(candidate) ? candidate : '';
+        }
+
+        function readCookie(name) {
+            const escapedName = String(name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const match = document.cookie.match(new RegExp(`(?:^|; )${escapedName}=([^;]*)`));
+            return match ? decodeURIComponent(match[1]) : '';
+        }
+
+        function writeCookie(name, value) {
+            const oneYearSeconds = 60 * 60 * 24 * 365;
+            const secureFlag = location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${oneYearSeconds}; Path=/; SameSite=Lax${secureFlag}`;
+        }
+
+        function createClientId() {
+            const nowPart = Date.now().toString(36);
+            const randPart = Math.random().toString(36).slice(2, 14);
+            let strongPart = '';
+            if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+                const bytes = new Uint8Array(8);
+                window.crypto.getRandomValues(bytes);
+                strongPart = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+            }
+            return `web_${nowPart}_${strongPart || randPart}`;
+        }
+
+        function getStableClientId() {
+            let fromStorage = '';
+            let fromCookie = '';
+
+            try {
+                fromStorage = normalizeClientId(localStorage.getItem(CLIENT_ID_STORAGE_KEY));
+            } catch (_) {
+                fromStorage = '';
+            }
+
+            try {
+                fromCookie = normalizeClientId(readCookie(CLIENT_ID_COOKIE_KEY));
+            } catch (_) {
+                fromCookie = '';
+            }
+
+            const resolved = fromStorage || fromCookie || createClientId();
+
+            try {
+                if (fromStorage !== resolved) {
+                    localStorage.setItem(CLIENT_ID_STORAGE_KEY, resolved);
+                }
+            } catch (_) {}
+
+            try {
+                if (fromCookie !== resolved) {
+                    writeCookie(CLIENT_ID_COOKIE_KEY, resolved);
+                }
+            } catch (_) {}
+
+            return resolved;
+        }
+
+        const CLIENT_ID = getStableClientId();
+
+        function buildClientHeaders(extra = {}) {
+            return {
+                ...extra,
+                'X-Client-Id': CLIENT_ID
+            };
+        }
+
+        function appendClientIdToUrl(url) {
+            const separator = url.includes('?') ? '&' : '?';
+            return `${url}${separator}client_id=${encodeURIComponent(CLIENT_ID)}`;
+        }
+
+        function buildClientStatusUrl(url) {
+            const separator = url.includes('?') ? '&' : '?';
+            return `${url}${separator}client_id=${encodeURIComponent(CLIENT_ID)}`;
+        }
 
         // Populate Checkboxes
         COCO_CLASSES.forEach(cls => {
@@ -2113,11 +2212,81 @@
             backendStatusText.textContent = detailText ? `${base} • ${detailText}` : base;
         }
 
+        function renderAlwaysOnStudioProgress(payload) {
+            if (!liveProgressMessage) return;
+
+            const statusLine = String(payload?.status || '').trim();
+            const isActive = Boolean(payload?.processingActive) || Boolean(payload?.benchmarkInProgress);
+            const displayLine = statusLine || (isActive ? 'Processing...' : 'Server ready for new uploads.');
+            const escapedLine = escapeHtml(displayLine);
+
+            liveProgressMessage.innerHTML = `<strong>Live backend status:</strong> <span class="font-mono text-xs sm:text-sm">${escapedLine}</span> <a href="index.html" class="underline font-bold">Dashboard</a>`;
+            liveProgressMessage.className = `status-msg ${isActive ? 'info' : 'success'} mt-3`;
+        }
+
+        function maybeRenderStudioProgressFromPayload(payload) {
+            if (!studioProcessingWatchEnabled || !payload || typeof payload !== 'object') return;
+            const incomingCounter = Number(payload.statusCounter);
+            if (Number.isFinite(incomingCounter) && incomingCounter === lastStudioStatusCounter) return;
+
+            const statusLine = String(payload.status || '').trim();
+            const isActive = Boolean(payload.processingActive) || Boolean(payload.benchmarkInProgress);
+
+            if (!isActive && !statusLine) return;
+
+            if (Number.isFinite(incomingCounter)) {
+                lastStudioStatusCounter = incomingCounter;
+            }
+
+            const escapedLine = escapeHtml(statusLine || (isActive ? 'Processing...' : 'Waiting for status update...'));
+            showStatus(
+                `🚀 Processing started!<br><span class="font-mono text-xs sm:text-sm">${escapedLine}</span><br><a href="index.html" class="underline font-bold">Go to Dashboard</a> to monitor progress.`,
+                isActive ? 'info' : 'success'
+            );
+
+            if (!isActive && Boolean(payload.processingComplete)) {
+                studioProcessingWatchEnabled = false;
+            }
+        }
+
+        async function fetchStudioProgressSnapshot() {
+            try {
+                const response = await fetch(buildClientStatusUrl(STATUS_ENDPOINT), {
+                    method: 'GET',
+                    cache: 'no-store'
+                });
+                if (!response.ok) return;
+                const payload = await response.json().catch(() => null);
+                renderAlwaysOnStudioProgress(payload);
+                maybeRenderStudioProgressFromPayload(payload);
+            } catch (_) {
+                // Ignore transient network hiccups; SSE or next poll tick can recover.
+            }
+        }
+
+        function startStudioProgressPolling() {
+            if (studioProgressPollTimer) return;
+            fetchStudioProgressSnapshot();
+            studioProgressPollTimer = setInterval(fetchStudioProgressSnapshot, 1200);
+        }
+
+        function stopStudioProgressPolling() {
+            if (!studioProgressPollTimer) return;
+            clearInterval(studioProgressPollTimer);
+            studioProgressPollTimer = null;
+        }
+
         async function pollBackendStatus() {
             try {
-                const res = await fetch(STATUS_ENDPOINT, { method: 'GET', cache: 'no-store' });
+                const res = await fetch(buildClientStatusUrl(STATUS_ENDPOINT), {
+                    method: 'GET',
+                    cache: 'no-store'
+                });
                 if (res.ok) {
-                    setBackendChip(true, 'HTTP');
+                    const payload = await res.json().catch(() => null);
+                    renderAlwaysOnStudioProgress(payload);
+                    maybeRenderStudioProgressFromPayload(payload);
+                    setBackendChip(true, 'HTTP live');
                 } else {
                     setBackendChip(false, `HTTP ${res.status}`);
                 }
@@ -2129,7 +2298,7 @@
         function startBackendStatusPolling() {
             if (backendStatusPollTimer) return;
             pollBackendStatus();
-            backendStatusPollTimer = setInterval(pollBackendStatus, 20000);
+            backendStatusPollTimer = setInterval(pollBackendStatus, 5000);
         }
 
         function stopBackendStatusPolling() {
@@ -2143,7 +2312,7 @@
             backendStatusReconnectTimer = setTimeout(() => {
                 backendStatusReconnectTimer = null;
                 connectBackendStatusSSE();
-            }, 3500);
+            }, 45000);
         }
 
         function connectBackendStatusSSE() {
@@ -2153,7 +2322,7 @@
                     backendStatusEventSource = null;
                 }
 
-                backendStatusEventSource = new EventSource(STATUS_EVENTS_ENDPOINT);
+                backendStatusEventSource = new EventSource(appendClientIdToUrl(STATUS_EVENTS_ENDPOINT));
                 backendStatusEventSource.onopen = () => {
                     stopBackendStatusPolling();
                     setBackendChip(true, 'SSE live');
@@ -2166,8 +2335,10 @@
                 backendStatusEventSource.addEventListener('status', (event) => {
                     try {
                         const payload = JSON.parse(event.data || '{}');
+                        renderAlwaysOnStudioProgress(payload);
+                        maybeRenderStudioProgressFromPayload(payload);
                         if (payload && typeof payload === 'object') {
-                            setBackendChip(true, payload.status || 'SSE live');
+                            setBackendChip(true, 'SSE live');
                             return;
                         }
                     } catch (_) {}
@@ -2179,19 +2350,23 @@
                         backendStatusEventSource.close();
                         backendStatusEventSource = null;
                     }
-                    setBackendChip(false, 'Reconnecting');
+                    setBackendChip(true, 'HTTP fallback');
                     startBackendStatusPolling();
+                    pollBackendStatus();
                     scheduleBackendStatusReconnect();
                 };
             } catch (_) {
-                setBackendChip(false, 'Polling');
+                setBackendChip(true, 'HTTP fallback');
                 startBackendStatusPolling();
+                pollBackendStatus();
                 scheduleBackendStatusReconnect();
             }
         }
 
         setBackendChip(false, 'Connecting');
+        startBackendStatusPolling();
         connectBackendStatusSSE();
+        startStudioProgressPolling();
         scheduleModelPreload();
 
         function formatBytes(bytes) {
@@ -2210,7 +2385,7 @@
             try {
                 const pingController = new AbortController();
                 const pingTimer = setTimeout(() => pingController.abort(), 5000);
-                const response = await fetch(`${BASE_URL}/status`, {
+                const response = await fetch(buildClientStatusUrl(`${BASE_URL}/status`), {
                     method: 'GET',
                     signal: pingController.signal
                 });
@@ -2242,6 +2417,7 @@
                 const chunkResponse = await fetch(CHUNK_UPLOAD_ENDPOINT, {
                     method: 'POST',
                     body: chunkForm,
+                    headers: buildClientHeaders(),
                     signal: chunkController.signal
                 });
                 clearTimeout(chunkTimer);
@@ -2259,9 +2435,9 @@
             const completeTimer = setTimeout(() => completeController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
             const completeResponse = await fetch(COMPLETE_CHUNK_UPLOAD_ENDPOINT, {
                 method: 'POST',
-                headers: {
+                headers: buildClientHeaders({
                     'Content-Type': 'application/json'
-                },
+                }),
                 body: JSON.stringify({
                     upload_id: uploadId,
                     allowed_classes: selectedClasses,
@@ -2325,19 +2501,25 @@
                     response = await fetch(`${BASE_URL}/process_web_video`, {
                         method: 'POST',
                         body: formData,
+                        headers: buildClientHeaders(),
                         signal: uploadController.signal
                     });
                     clearTimeout(uploadTimer);
                 }
                 
                 if (response.ok) {
-                    showStatus('🚀 Processing started! <a href="index.html" class="underline font-bold">Go to Dashboard</a> to monitor progress.', 'success');
+                    studioProcessingWatchEnabled = true;
+                    lastStudioStatusCounter = -1;
+                    startStudioProgressPolling();
+                    showStatus('🚀 Processing started! Waiting for live backend progress... <a href="index.html" class="underline font-bold">Go to Dashboard</a> to monitor progress.', 'info');
                 } else {
                     const data = await response.json().catch(() => ({}));
+                    studioProcessingWatchEnabled = false;
                     showStatus(data.message || 'Server error occurred.', 'error');
                 }
             } catch (err) {
                 const fileHint = videoFile ? ` File size: ${formatBytes(videoFile.size)}.` : '';
+                studioProcessingWatchEnabled = false;
                 showStatus('Network error before backend accepted upload. Usually backend unreachable, unstable connection, or proxy size/time limits.' + fileHint, 'error');
             } finally {
                 processBtn.disabled = false;
