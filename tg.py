@@ -23,6 +23,7 @@ import base64  # For encoding preview images
 import uuid  # For generating unique session IDs
 import shutil  # For moving cached preview files
 import mimetypes
+import atexit
 from urllib.parse import urlparse, parse_qs
 
 # Import the gh.py script
@@ -39,11 +40,16 @@ USE_GITHUB_PAGES = True  # Switch to enable/disable GitHub Pages integration (se
 OUTPUT_SUBDIRECTORY = "output"
 INPUT_SUBDIRECTORY = "input"
 WEB_SERVER_PORT = 5000 # Port for the local web server
-TRACKING_DATA_FILE = 'tracking_data.json' # New file to store tracking data
+TRACKING_SUBDIRECTORY = "tracking"
+LEGACY_TRACKING_DATA_FILE = 'tracking_data.json'
+TRACKING_DATA_FILE = os.path.join(TRACKING_SUBDIRECTORY, 'tracking_data.json')
+UPTIME_DATA_FILE = os.path.join(TRACKING_SUBDIRECTORY, 'uptime_data.json')
+UPTIME_MAX_EVENTS = 200000
+UPTIME_HEARTBEAT_INTERVAL_SECONDS = 5
 
 # Frame Restriction Configuration
 FRAME_RESTRICTION_ENABLED = True # Set to True to enable frame count restriction
-FRAME_RESTRICTION_VALUE = 15000 # Max allowed frames for video processing
+FRAME_RESTRICTION_VALUE = 20000 # Max allowed frames for video processing
 FFPROBE_TIMEOUT_SECONDS = 10 # Timeout for ffprobe command in seconds
 
 # JWT Secret Key (VERY IMPORTANT: Replace with a strong, random key in production!)
@@ -77,6 +83,7 @@ os.makedirs(OUTPUT_SUBDIRECTORY, exist_ok=True)
 os.makedirs(INPUT_SUBDIRECTORY, exist_ok=True)
 os.makedirs(PREVIEW_SUBDIRECTORY, exist_ok=True)
 os.makedirs(CHUNK_UPLOAD_SUBDIRECTORY, exist_ok=True)
+os.makedirs(TRACKING_SUBDIRECTORY, exist_ok=True)
 
 # --- Logging ---
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -91,11 +98,39 @@ _current_processing_status: Union[str, None] = None # Start with None, so fronte
 _status_lock = threading.Lock() # To protect _current_processing_status from race conditions
 _tracking_data: list = [] # List to hold processed video tracking data
 _tracking_data_lock = threading.Lock() # To protect _tracking_data from race conditions
+_uptime_data: dict = {}
+_uptime_data_lock = threading.Lock()
+_uptime_monitor_stop_event = threading.Event()
+_uptime_monitor_thread: Optional[threading.Thread] = None
+_admin_tracker_landing_sessions: Dict[str, float] = {}
+_admin_tracker_landing_sessions_lock = threading.Lock()
 
 # List to keep track of invalidated JWTs (for immediate logout)
 # In a real-world app, this would be a persistent store like a database or Redis.
 _invalidated_tokens = set()
 _token_invalidation_lock = threading.Lock()
+
+
+def _record_admin_tracker_landing_once(session_id: str, admin_username: str, source_ip: str) -> bool:
+    """Returns True only the first time a landing session ID is seen."""
+    clean_session = (session_id or '').strip()
+    if not clean_session:
+        return False
+
+    now = time.time()
+    cutoff = now - 86400
+    with _admin_tracker_landing_sessions_lock:
+        stale_keys = [k for k, ts in _admin_tracker_landing_sessions.items() if ts < cutoff]
+        for stale_key in stale_keys:
+            _admin_tracker_landing_sessions.pop(stale_key, None)
+
+        if clean_session in _admin_tracker_landing_sessions:
+            return False
+
+        _admin_tracker_landing_sessions[clean_session] = now
+
+    logger.info(f"Admin landed on tracker page: {admin_username} ({source_ip})")
+    return True
 
 # --- Preview Session Management ---
 # Stores preview sessions: {session_id: {'video_path': str, 'created_at': float, 'used': bool}}
@@ -933,13 +968,237 @@ def reset_status_after_delay(delay_seconds: int = 5):
     timer.daemon = True  # Ensure timer runs even if main thread state changes
     timer.start()
 
+
+def _default_uptime_data() -> dict:
+    return {
+        "version": 1,
+        "currentStatus": "off",
+        "lastHeartbeatTs": 0,
+        "updatedAt": 0,
+        "events": [],
+        "sessions": [],
+    }
+
+
+def _sanitize_uptime_status(status: Any) -> str:
+    s = str(status or '').strip().lower()
+    return 'on' if s in ('on', 'connected', 'live') else 'off'
+
+
+def _rebuild_uptime_sessions_from_events_locked(now_ts: Optional[int] = None) -> None:
+    now_value = float(now_ts if now_ts is not None else time.time())
+    events = _uptime_data.get("events", [])
+    sessions = []
+    active_session = None
+
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        status = _sanitize_uptime_status(event.get("status"))
+        ts = float(event.get("ts", 0) or 0)
+        reason = str(event.get("reason", "") or "")
+
+        if status == "on":
+            if active_session is None:
+                active_session = {"startTs": ts, "endTs": None, "startReason": reason}
+            else:
+                # Back-to-back ON events can happen after reconnect/recovery; keep earliest open start.
+                if ts < float(active_session.get("startTs", ts)):
+                    active_session["startTs"] = ts
+                if reason and not active_session.get("startReason"):
+                    active_session["startReason"] = reason
+        else:
+            if active_session is not None:
+                active_session["endTs"] = ts
+                active_session["endReason"] = reason
+                sessions.append(active_session)
+                active_session = None
+
+    if active_session is not None:
+        sessions.append(active_session)
+
+    _uptime_data["sessions"] = sessions
+    _uptime_data["lastHeartbeatTs"] = float(_uptime_data.get("lastHeartbeatTs", now_value) or now_value)
+    _uptime_data["updatedAt"] = float(_uptime_data.get("updatedAt", now_value) or now_value)
+
+
+def _repair_uptime_data_locked(now_ts: Optional[int] = None) -> None:
+    now_value = float(now_ts if now_ts is not None else time.time())
+
+    raw_events = _uptime_data.get("events", [])
+    cleaned_events = []
+    if isinstance(raw_events, list):
+        for item in raw_events:
+            if not isinstance(item, dict):
+                continue
+            ts_raw = item.get("ts", 0)
+            try:
+                ts = float(ts_raw or 0)
+            except Exception:
+                continue
+            if ts <= 0:
+                continue
+            cleaned_events.append({
+                "ts": ts,
+                "status": _sanitize_uptime_status(item.get("status")),
+                "reason": str(item.get("reason", "") or "")
+            })
+
+    cleaned_events.sort(key=lambda e: e["ts"])
+
+    # Keep all event transitions (no dedupe) so rapid restart tests remain visible and truthful.
+    _uptime_data["events"] = cleaned_events
+    _uptime_data["version"] = 1
+
+    if cleaned_events:
+        _uptime_data["currentStatus"] = cleaned_events[-1]["status"]
+        _uptime_data["updatedAt"] = cleaned_events[-1]["ts"]
+    else:
+        _uptime_data["currentStatus"] = "off"
+        _uptime_data["updatedAt"] = now_value
+
+    _uptime_data["lastHeartbeatTs"] = float(_uptime_data.get("lastHeartbeatTs", now_value) or now_value)
+    _rebuild_uptime_sessions_from_events_locked(now_ts=now_value)
+
+
+def _safe_uptime_snapshot_locked() -> dict:
+    return json.loads(json.dumps(_uptime_data, ensure_ascii=False))
+
+
+def _save_uptime_data_locked() -> None:
+    try:
+        with open(UPTIME_DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(_uptime_data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error(f"Error saving {UPTIME_DATA_FILE}: {e}")
+
+
+def _close_open_sessions_locked(end_ts: int, end_reason: str) -> None:
+    sessions = _uptime_data.get("sessions", [])
+    for session in reversed(sessions):
+        if session.get("endTs") is None:
+            session["endTs"] = float(end_ts)
+            session["endReason"] = end_reason
+            break
+
+
+def _append_uptime_event_locked(status: str, reason: str, event_ts: Optional[int] = None) -> None:
+    ts = float(event_ts if event_ts is not None else time.time())
+    status = _sanitize_uptime_status(status)
+    events = _uptime_data.setdefault("events", [])
+    sessions = _uptime_data.setdefault("sessions", [])
+
+    events.append({"ts": ts, "status": status, "reason": reason})
+    if len(events) > UPTIME_MAX_EVENTS:
+        del events[:-UPTIME_MAX_EVENTS]
+
+    if status == "on":
+        sessions.append({"startTs": ts, "endTs": None, "startReason": reason})
+    elif status == "off":
+        _close_open_sessions_locked(ts, reason)
+
+    _uptime_data["currentStatus"] = status
+    _uptime_data["updatedAt"] = ts
+    _uptime_data["lastHeartbeatTs"] = ts
+
+
+def _write_uptime_event(status: str, reason: str, event_ts: Optional[int] = None) -> None:
+    with _uptime_data_lock:
+        _append_uptime_event_locked(status=status, reason=reason, event_ts=event_ts)
+        _save_uptime_data_locked()
+
+
+def _touch_uptime_heartbeat() -> None:
+    with _uptime_data_lock:
+        now_ts = float(time.time())
+        # Self-heal stale OFF state while process is alive (prevents lingering red timeline after recovery).
+        if _sanitize_uptime_status(_uptime_data.get("currentStatus")) != "on":
+            _append_uptime_event_locked(status="on", reason="heartbeat_recover", event_ts=now_ts)
+
+        _uptime_data["lastHeartbeatTs"] = now_ts
+        _uptime_data["updatedAt"] = now_ts
+        _repair_uptime_data_locked(now_ts=now_ts)
+        _save_uptime_data_locked()
+
+
+def _run_uptime_monitor() -> None:
+    logger.info("Uptime monitor thread started")
+    while not _uptime_monitor_stop_event.wait(UPTIME_HEARTBEAT_INTERVAL_SECONDS):
+        _touch_uptime_heartbeat()
+    logger.info("Uptime monitor thread stopped")
+
+
+def start_uptime_monitor() -> None:
+    global _uptime_monitor_thread
+    if _uptime_monitor_thread and _uptime_monitor_thread.is_alive():
+        return
+    _uptime_monitor_stop_event.clear()
+    _uptime_monitor_thread = threading.Thread(target=_run_uptime_monitor, daemon=True)
+    _uptime_monitor_thread.start()
+
+
+def stop_uptime_monitor() -> None:
+    _uptime_monitor_stop_event.set()
+
+
+def load_uptime_data() -> None:
+    global _uptime_data
+    loaded = _default_uptime_data()
+
+    if os.path.exists(UPTIME_DATA_FILE):
+        try:
+            with open(UPTIME_DATA_FILE, 'r', encoding='utf-8') as f:
+                parsed = json.load(f)
+            if isinstance(parsed, dict):
+                loaded["events"] = parsed.get("events", []) if isinstance(parsed.get("events"), list) else []
+                loaded["sessions"] = parsed.get("sessions", []) if isinstance(parsed.get("sessions"), list) else []
+                loaded["currentStatus"] = str(parsed.get("currentStatus", "off") or "off")
+                loaded["lastHeartbeatTs"] = float(parsed.get("lastHeartbeatTs", 0) or 0)
+                loaded["updatedAt"] = float(parsed.get("updatedAt", 0) or 0)
+        except Exception as e:
+            logger.error(f"Error loading {UPTIME_DATA_FILE}: {e}. Starting with default uptime data.")
+
+    with _uptime_data_lock:
+        _uptime_data = loaded
+        now_ts = float(time.time())
+        _repair_uptime_data_locked(now_ts=now_ts)
+        if _uptime_data.get("currentStatus") == "on":
+            _append_uptime_event_locked(status="off", reason="ungraceful_restart", event_ts=now_ts)
+        _append_uptime_event_locked(status="on", reason="startup", event_ts=now_ts)
+        _repair_uptime_data_locked(now_ts=now_ts)
+        _save_uptime_data_locked()
+
+
+def mark_uptime_shutdown(reason: str = "shutdown") -> None:
+    try:
+        _write_uptime_event(status="off", reason=reason)
+    except Exception as e:
+        logger.warning(f"Failed to mark uptime shutdown: {e}")
+
+
+def get_uptime_payload() -> dict:
+    with _uptime_data_lock:
+        _repair_uptime_data_locked()
+        data = _safe_uptime_snapshot_locked()
+    return {"uptimeData": data}
+
+
+def migrate_tracking_data_file_if_needed() -> None:
+    if os.path.exists(LEGACY_TRACKING_DATA_FILE) and not os.path.exists(TRACKING_DATA_FILE):
+        try:
+            shutil.move(LEGACY_TRACKING_DATA_FILE, TRACKING_DATA_FILE)
+            logger.info(f"Migrated {LEGACY_TRACKING_DATA_FILE} -> {TRACKING_DATA_FILE}")
+        except Exception as e:
+            logger.warning(f"Could not migrate tracking data file: {e}")
+
 def load_tracking_data():
     """Loads tracking data from the JSON file on startup."""
     global _tracking_data
+    migrate_tracking_data_file_if_needed()
     if os.path.exists(TRACKING_DATA_FILE):
         with _tracking_data_lock:
             try:
-                with open(TRACKING_DATA_FILE, 'r') as f:
+                with open(TRACKING_DATA_FILE, 'r', encoding='utf-8') as f:
                     _tracking_data = json.load(f)
                 logger.info(f"Loaded {len(_tracking_data)} entries from {TRACKING_DATA_FILE}")
             except json.JSONDecodeError as e:
@@ -956,7 +1215,7 @@ def save_tracking_data():
     """Saves tracking data to the JSON file."""
     with _tracking_data_lock:
         try:
-            with open(TRACKING_DATA_FILE, 'w') as f:
+            with open(TRACKING_DATA_FILE, 'w', encoding='utf-8') as f:
                 json.dump(_tracking_data, f, indent=4)
             logger.info(f"Saved {len(_tracking_data)} entries to {TRACKING_DATA_FILE}")
         except Exception as e:
@@ -2193,8 +2452,17 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         """
         request_path = urlparse(self.path).path
 
-        # Filter out high-frequency health/status/event endpoints to reduce log verbosity
-        if request_path in ('/status', '/events/status', '/events/admin_tracker_data', '/events/admin_auth') and (self.command == 'GET' or self.command == 'HEAD'):
+        # Filter out high-frequency health/status/event and polling endpoints to reduce log verbosity.
+        if request_path in (
+            '/status',
+            '/events/status',
+            '/events/admin_tracker_data',
+            '/events/admin_auth',
+            '/events/admin_uptime_data',
+            '/admin_tracker_data',
+            '/admin_uptime_data',
+            '/admin_tracker_land',
+        ) and (self.command == 'GET' or self.command == 'HEAD' or self.command == 'POST'):
             return
 
         # Chunk uploads are high-frequency; suppress per-chunk request lines to avoid log spam.
@@ -2217,9 +2485,6 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 # An error code has been sent, just exit
                 return
             
-            # Log the request here, after parsing it
-            self.log_request() # This will log the method and path
-
             mname = 'do_' + self.command
             if not hasattr(self, mname):
                 self.send_error(
@@ -2397,6 +2662,54 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             logger.warning(f"SSE admin tracker stream error for {admin_username}: {e}")
 
+    def _stream_admin_uptime_events(self, admin_username: str):
+        """Streams realtime admin uptime updates using Server-Sent Events."""
+        self.send_response(200)
+        self.send_header('Content-type', 'text/event-stream')
+        self.send_header('Cache-Control', 'no-cache, no-transform')
+        self.send_header('Connection', 'keep-alive')
+        self._set_cors_headers()
+        self.end_headers()
+
+        logger.debug(f"SSE admin uptime stream connected for admin: {admin_username}")
+
+        last_signature = None
+        last_heartbeat = time.time()
+
+        try:
+            while True:
+                payload = get_uptime_payload()
+                uptime_data = payload.get("uptimeData", {}) if isinstance(payload, dict) else {}
+                events = uptime_data.get("events", []) if isinstance(uptime_data, dict) else []
+                sessions = uptime_data.get("sessions", []) if isinstance(uptime_data, dict) else []
+                last_event = events[-1] if isinstance(events, list) and events else {}
+                last_session = sessions[-1] if isinstance(sessions, list) and sessions else {}
+                signature_payload = {
+                    "currentStatus": uptime_data.get("currentStatus", ""),
+                    "eventCount": len(events) if isinstance(events, list) else 0,
+                    "sessionCount": len(sessions) if isinstance(sessions, list) else 0,
+                    "lastEventTs": last_event.get("ts", 0) if isinstance(last_event, dict) else 0,
+                    "lastEventStatus": last_event.get("status", "") if isinstance(last_event, dict) else "",
+                    "lastSessionStart": last_session.get("startTs", 0) if isinstance(last_session, dict) else 0,
+                    "lastSessionEnd": last_session.get("endTs", None) if isinstance(last_session, dict) else None,
+                }
+                current_signature = json.dumps(signature_payload, ensure_ascii=False, sort_keys=True)
+
+                if current_signature != last_signature:
+                    self._send_sse_event("uptimeData", payload)
+                    last_signature = current_signature
+
+                now = time.time()
+                if now - last_heartbeat >= 20:
+                    self._send_sse_event("heartbeat", {"ts": int(now)})
+                    last_heartbeat = now
+
+                time.sleep(0.75)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.debug(f"SSE admin uptime stream disconnected for admin: {admin_username}")
+        except Exception as e:
+            logger.warning(f"SSE admin uptime stream error for {admin_username}: {e}")
+
     def _stream_admin_auth_events(self):
         """Streams realtime auth validation events for admin clients."""
         self.send_response(200)
@@ -2545,6 +2858,32 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         global _ADS_ENABLED_GLOBALLY, _SHOW_ADS_TO_ADMINS
+
+        if self.path == '/admin_tracker_land':
+            admin_payload = self._authenticate_request()
+            if not admin_payload:
+                return
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+                payload = json.loads(post_body.decode('utf-8') or '{}')
+            except json.JSONDecodeError:
+                self.send_api_response(400, {"message": "Invalid JSON payload."})
+                return
+
+            session_id = str(payload.get('sessionId', '')).strip()
+            if not session_id:
+                self.send_api_response(400, {"message": "sessionId is required."})
+                return
+
+            source_ip = self.client_address[0] if self.client_address else 'unknown-ip'
+            _record_admin_tracker_landing_once(
+                session_id=session_id,
+                admin_username=admin_payload.get('username', 'unknown'),
+                source_ip=source_ip,
+            )
+            self.send_api_response(200, {"ok": True})
+            return
 
         if self.path == '/upload_chunk':
             try:
@@ -3671,13 +4010,25 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             self._stream_admin_tracker_events(admin_payload.get('username', 'unknown'))
+        elif request_path == '/events/admin_uptime_data':
+            admin_payload = self._authenticate_sse_request()
+            if not admin_payload:
+                return
+
+            self._stream_admin_uptime_events(admin_payload.get('username', 'unknown'))
         elif request_path == '/admin_tracker_data': # New endpoint for admin tracker data (protected)
             admin_payload = self._authenticate_request()
             if not admin_payload: return # _authenticate_request already sent response
 
             with _tracking_data_lock:
-                self.send_api_response(200, {"trackingData": _tracking_data})
-            logger.info(f"Served /admin_tracker_data to admin: {admin_payload.get('username')}")
+                tracking_snapshot = json.loads(json.dumps(_tracking_data, ensure_ascii=False))
+            uptime_snapshot = get_uptime_payload().get("uptimeData", {})
+            self.send_api_response(200, {"trackingData": tracking_snapshot, "uptimeData": uptime_snapshot})
+        elif request_path == '/admin_uptime_data':
+            admin_payload = self._authenticate_request()
+            if not admin_payload:
+                return
+            self.send_api_response(200, get_uptime_payload())
         elif request_path == '/benchmark_data':
             admin_payload = self._authenticate_request()
             if not admin_payload:
@@ -3803,6 +4154,9 @@ def run_web_server(port, main_loop):
 def main():
     # Load tracking data and ad settings at startup
     load_tracking_data()
+    load_uptime_data()
+    start_uptime_monitor()
+    atexit.register(mark_uptime_shutdown, "atexit")
     load_ad_settings()
     
     # Start the preview cleanup scheduler (removes abandoned preview files)
@@ -3880,6 +4234,8 @@ def main():
             finally:
                 first_start = False
     finally:
+        stop_uptime_monitor()
+        mark_uptime_shutdown("process_exit")
         try:
             web_asyncio_loop.call_soon_threadsafe(web_asyncio_loop.stop)
         except Exception:

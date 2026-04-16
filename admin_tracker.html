@@ -4,1733 +4,1753 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Tracker - Project GlyphMotion</title>
-    <meta name="description" content="Comprehensive dashboard for Project GlyphMotion administrators to monitor processed video data, request origins, and GitHub commit details.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Comprehensive analytics dashboard for Project GlyphMotion — processing statistics, operational intelligence, and real-time tracking data.">
     <link rel="icon" type="image/x-icon" href="images/project-glyph-motion.ico">
-    <link rel="manifest" href="/manifest.json"> <!-- IMPORTANT: manifest.json link should always be relative to the root if using a custom domain --> <!-- PWA: Link to manifest file -->
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="manifest" href="/manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <style>
-
-        /* -- NEW BACKGROUND STYLES -- */
-        body {
-            background-color: #030303;
-            color: #e4e4e7;
-            -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
-        }
-
-        .bg-glow-main {
-            position: fixed; top: -30vh; left: 50%; transform: translateX(-50%);
-            width: 150vw; height: 100vh;
-            background: radial-gradient(ellipse at 50% 30%, rgba(245, 158, 11, 0.15) 0%, transparent 60%);
-            z-index: 0; pointer-events: none; opacity: 0.8;
-            mix-blend-mode: screen;
-        }
-
-        .bg-mesh {
-            position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: 0.3;
-            background-image: 
-                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-            background-size: 40px 40px;
-        }
-
-        .scanlines {
-            position: fixed; inset: 0; pointer-events: none; z-index: 2;
-            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
-            background-size: 100% 4px; opacity: 0.3;
-        }
-
-
-        /* Define custom cubic-bezier for a more "springy" feel */
-        .cubic-ease-in-out {
-            transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1.25); /* More pronounced overshoot for opening */
-        }
-        .cubic-ease-out {
-            transition-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53); /* Snappy closing, slight bounce */
-        }
-        .subtle-spring {
-            transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Gentle spring for small interactions */
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0B0A0F; /* Very dark background from the new theme */
-            color: #EDEDF3; /* Light text color */
-            position: relative;
-            min-height: 100vh;
-            overflow-x: hidden; /* Prevent horizontal scroll */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start; /* Align content to top, allowing footer to push down */
-            padding: 1rem;
-            scroll-behavior: smooth;
-        }
-
-        /* Background Glow Elements - Reused from index.html */
-        .background-glow-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -10;
-            overflow: hidden;
-            pointer-events: none;
-        }
-        .glow-element {
-            position: absolute;
-            border-radius: 50%;
-            opacity: 0.2;
-            mix-blend-mode: screen;
-            filter: blur(100px);
-            will-change: transform, opacity;
-        }
-        .glow-1 {
-            width: clamp(400px, 60vw, 800px);
-            height: clamp(400px, 60vw, 800px);
-            background: radial-gradient(circle at center, #f59e0b 0%, rgba(245, 158, 11, 0) 70%);
-            filter: blur(120px);
-            top: -20%;
-            left: -15%;
-            animation: subtleDrift 35s infinite alternate ease-in-out;
-        }
-        .glow-2 {
-            width: clamp(350px, 50vw, 700px);
-            height: clamp(350px, 50vw, 700px);
-            background: radial-gradient(circle at center, #FF5733 0%, rgba(255, 87, 51, 0) 70%);
-            filter: blur(100px);
-            bottom: -15%;
-            right: -10%;
-            animation: subtleDrift 40s infinite alternate-reverse ease-in-out 2s;
-        }
-        .glow-3 {
-            width: clamp(300px, 40vw, 500px);
-            height: clamp(300px, 40vw, 500px);
-            background: radial-gradient(circle at center, #FF8C00 0%, rgba(255, 140, 0, 0) 70%);
-            filter: blur(90px);
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            opacity: 0.15;
-            animation: subtlePulse 20s infinite alternate ease-in-out;
-        }
-        .glow-4 {
-            width: clamp(250px, 35vw, 450px);
-            height: clamp(250px, 35vw, 450px);
-            background: radial-gradient(circle at center, #00BFFF 0%, rgba(0, 191, 255, 0) 70%);
-            filter: blur(110px);
-            top: 10%;
-            right: 5%;
-            animation: subtleDrift 30s infinite alternate-reverse ease-in-out 1s;
-        }
-        .glow-5 {
-            width: clamp(200px, 30vw, 400px);
-            height: clamp(200px, 30vw, 400px);
-            background: radial-gradient(circle at center, #8A2BE2 0%, rgba(138, 43, 226, 0) 70%);
-            filter: blur(95px);
-            bottom: 5%;
-            left: 5%;
-            animation: subtlePulse 25s infinite alternate ease-in-out 3s;
-        }
-
-        @keyframes subtleDrift {
-            0% { transform: translate(0, 0) scale(1); opacity: 0.1; }
-            50% { opacity: 0.25; }
-            100% { transform: translate(calc(8vw - 20px), calc(8vh - 10px)) scale(1.2); opacity: 0.1; }
-        }
-        @keyframes subtlePulse {
-            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.1; }
-            100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.2; }
-        }
-
-        /* Particle effect - Reused from index.html */
-        .particle-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -11;
-            overflow: hidden;
-            pointer-events: none;
-        }
-        .particle {
-            position: absolute;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            animation: particle-fade-move 15s infinite ease-in-out alternate;
-            filter: blur(1px);
-        }
-        .particle:nth-child(1) { width: 3px; height: 3px; top: 10%; left: 20%; animation-delay: 0s; }
-        .particle:nth-child(2) { width: 2px; height: 2px; top: 30%; left: 50%; animation-delay: 2s; }
-        .particle:nth-child(3) { width: 4px; height: 4px; top: 60%; left: 80%; animation-delay: 4s; }
-        .particle:nth-child(4) { width: 3px; height: 3px; top: 80%; left: 10%; animation-delay: 6s; }
-        .particle:nth-child(5) { width: 2px; height: 2px; top: 40%; left: 90%; animation-delay: 8s; }
-        .particle:nth-child(6) { width: 4px; height: 4px; top: 5%; left: 70%; animation-delay: 10s; }
-        .particle:nth-child(7) { width: 3px; height: 3px; top: 95%; left: 40%; animation-delay: 12s; }
-        .particle:nth-child(8) { width: 2px; height: 2px; top: 70%; left: 30%; animation-delay: 14s; }
-
-        @keyframes particle-fade-move {
-            0% { opacity: 0; transform: translate(0, 0); }
-            20% { opacity: 0.2; }
-            80% { opacity: 0.2; }
-            100% { opacity: 0; transform: translate(10vw, 10vh); }
-        }
-
-        /* Main content card styling - Reused from index.html */
-        #mainContentCard {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
-        }
-        #mainContentCard.animate-in {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .content-card {
-            background-color: rgba(10, 10, 12, 0.6);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 1.5rem;
-            color: #EDEDF3;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), inset 0 1px 0 0 rgba(255,255,255,0.05);
-            position: relative;
-            z-index: 10;
-            flex-grow: 1;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
-        }
-        .content-card.animate-in {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* Page Title specific style - Reused from index.html */
-        .page-title {
-            font-family: 'Press Start 2P', cursive;
-            font-weight: normal;
-            background: linear-gradient(to right, #f59e0b, #FFD700);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 2px 3px rgba(0,0,0,0.3);
-            line-height: 1.3;
-        }
-
-        /* Glasmorphism effect base class - Reused from index.html */
-        .glass-effect {
-            background-color: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        /* Info banner styling - Reused from index.html */
-        .info-banner {
-            background-color: rgba(245, 158, 11, 0.1);
-            border: 1px solid rgba(245, 158, 11, 0.3);
-            color: #FED7AA;
-            border-left-width: 4px;
-            border-left-color: #f59e0b;
-        }
-        .info-banner.error-banner {
-            background-color: rgba(255, 0, 0, 0.1);
-            border-color: rgba(255, 0, 0, 0.3);
-            border-left-color: #FF5733;
-            color: #FFD7D7;
-        }
-        .info-banner.success-banner { /* Added for success messages */
-            background-color: rgba(52, 211, 153, 0.1);
-            border-color: rgba(52, 211, 153, 0.3);
-            border-left-color: #34D399;
-            color: #C6F6D5;
-        }
-
-        /* Loading spinner */
-        .spinner {
-            border: 4px solid rgba(245, 158, 11, 0.2);
-            border-top: 4px solid #f59e0b;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 2rem auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Go Back button styling - Reused from index.html, adjusted to fit context */
-        .btn {
-            @apply font-semibold py-2 px-4 shadow-md transition-transform duration-300 subtle-spring;
-            border-radius: 10px;
-            position: relative;
-            overflow: hidden;
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
-        }
-        .btn:hover {
-            transform: translateY(-2px) scale(1.02);
-            box-shadow: 0 8px 15px rgba(0,0,0,0.4);
-        }
-        .btn-custom-primary {
-            background: linear-gradient(to right, rgba(245,158,11,0.2), rgba(245,158,11,0.1));
-            border: 1px solid rgba(245,158,11,0.3);
-            color: #f59e0b;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(4px);
-        }
-        .btn-custom-primary:hover {
-            background: linear-gradient(to right, rgba(245,158,11,0.8), rgba(245,158,11,0.6));
-            color: white;
-            border-color: rgba(245,158,11,0.8);
-            box-shadow: 0 0 15px rgba(245,158,11,0.3);
-        }
-        .btn-danger { /* Added danger button style */
-            @apply bg-gradient-to-br from-red-500 to-rose-500 text-white focus:ring-red-400 shadow-red-600/40 hover:from-red-600 hover:to-rose-600;
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
-        }
-
-        /* Style for the new "Additional Info" button (outlined) */
-        .toggle-btn-style { /* Reusing toggle-btn-style from index.html */
-            @apply px-0 py-0 text-xs transition-all duration-300 subtle-spring;
-            border-radius: 0.375rem; /* Equivalent to rounded-md for slight roundness */
-            background-color: transparent; /* Fully transparent background */
-            color: #f59e0b; /* Orange text color */
-            box-shadow: none; /* No shadow */
-            border: 1px solid transparent; /* Ensure a border is always there for smooth transition */
-            display: inline-flex; /* Use inline-flex for button content alignment */
-            align-items: center; /* Vertically align content */
-            gap: 0.25rem; /* Space between icon and text */
-        }
-        .toggle-btn-style:hover {
-            /* Removed glow effects for hover */
-            transform: translateY(-1px); /* Slight lift on hover */
-            background-color: rgba(245, 158, 11, 0.1); /* Subtle orange tint on hover */
-            border-color: #f59e0b; /* Introduce border on hover */
-        }
-        /* Removed .active style for these buttons as requested */
-        .separator {
-            color: #f59e0b; /* Orange color for the dot */
-            font-size: 1.5rem; /* Make the dot larger */
-            margin: 0 0.25rem; /* Reduced space around the dot */
-        }
-
-        /* Ripple effect for buttons */
-        .btn::after {
-            content: '';
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.3); /* White ripple */
-            animation: ripple 0.6s linear forwards;
-            opacity: 0;
-            transform: scale(0);
-            pointer-events: none; /* Do not interfere with clicks */
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0);
-        }
-        .btn.clicked::after {
-            animation: ripple 0.6s linear forwards;
-        }
-        @keyframes ripple {
-            0% {
-                transform: translate(-50%, -50%) scale(0.1);
-                opacity: 1;
-            }
-            100% {
-                transform: translate(-50%, -50%) scale(1.5);
-                opacity: 0;
-            }
-        }
-
-
-        /* Progress Bar (reused from index.html) */
-        .progress-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 4px;
-            width: 0%;
-            z-index: 1003;
-            transition: width 0.3s ease-in-out, opacity 0.3s ease-in-out;
-            opacity: 0;
-            will-change: width, opacity;
-            background-color: #f59e0b;
-        }
-        #pollProgressBar {
-            background-color: #f59e0b;
-            transition: width linear;
-        }
-
-
-        /* Central Message Overlay (reused from index.html) */
-        #centralMessageOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1002;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease-in-out;
-        }
-
-        #centralMessageContent {
-            background-color: rgba(10, 10, 15, 0.95);
-            border: 1px solid rgba(245, 158, 11, 0.5);
-            border-radius: 0.75rem;
-            padding: 2rem;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            max-width: 80%;
-            color: #EDEDF3;
-            font-size: 1.25rem;
-            font-weight: 500;
-            transform: translateY(-20px);
-            opacity: 0;
-            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1.25), opacity 0.4s ease-out;
-            will-change: transform, opacity;
-        }
-
-        #centralMessageOverlay.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        #centralMessageOverlay.show #centralMessageContent {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        #centralMessageOverlay.hide #centralMessageContent {
-            transform: translateY(20px);
-            opacity: 0;
-            transition: transform 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 0.3s ease-in;
-        }
-
-        /* Footer animation */
-        .footer-animated {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
-            will-change: opacity, transform;
-        }
-        .footer-animated.animate-in {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* New style for the outlined logged-in username span */
-        .logged-in-text-outline {
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            padding: 0.25rem 0.75rem;
-            margin-right: 0.5rem;
-            display: inline-block;
-            background-color: rgba(255, 255, 255, 0.03);
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
-            transition: all 0.2s ease-out;
-        }
-        .logged-in-text-outline:hover {
-            background-color: rgba(255, 255, 255, 0.05);
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 0 2px rgba(245, 158, 11, 0.2);
-        }
-
-        /* New Tracker Card Styles */
-        .tracker-card-grid {
-            display: grid;
-            grid-template-columns: 1fr; /* Default to single column for mobile */
-            gap: 2rem; /* More space between cards */
-            margin-top: 1.5rem;
-        }
-
-        @media (min-width: 640px) { /* sm breakpoint */
-            .tracker-card-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2 columns on small screens */
-            }
-        }
-        @media (min-width: 1024px) { /* lg breakpoint */
-            .tracker-card-grid {
-                grid-template-columns: repeat(3, minmax(0, 1fr)); /* 3 columns on larger screens */
-            }
-        }
-        @media (min-width: 1280px) { /* xl breakpoint */
-            .tracker-card-grid {
-                grid-template-columns: repeat(3, minmax(0, 1fr)); /* 3 columns on very large screens */
-            }
-        }
-
-        .tracker-card {
-            background-color: rgba(20, 20, 24, 0.5);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-top: 1px solid rgba(245, 158, 11, 0.2);
-            border-radius: 1.25rem;
-            padding: 1.5rem;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.4), inset 0 1px 0 0 rgba(255,255,255,0.05);
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease, border-color 0.3s ease;
-            will-change: transform, box-shadow;
-            opacity: 0;
-            transform: translateY(20px);
-            animation: cardEntrance 0.6s cubic-bezier(0.25, 0.8, 0.25, 1.25) forwards;
-        }
-        .tracker-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.6), 0 0 20px -5px rgba(245, 158, 11, 0.15);
-            border-color: rgba(245, 158, 11, 0.3);
-            border-top-color: rgba(245, 158, 11, 0.5);
-        }
-        .tracker-card:hover {
-            transform: translateY(-5px) scale(1.01);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
-            border-color: #FFD700;
-        }
-        /* Keyframe for card entrance */
-        @keyframes cardEntrance {
-            0% { opacity: 0; transform: translateY(20px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-
-        .card-section-title {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #f59e0b;
-            border-bottom: 1px solid rgba(245, 158, 11, 0.2);
-            padding-bottom: 0.5rem;
-            margin-bottom: 0.75rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .card-detail-item {
-            display: flex;
-            flex-wrap: wrap; /* Allow wrapping on small screens */
-            gap: 0.5rem;
-            align-items: baseline; /* Align value with label */
-            font-size: 0.95rem; /* Slightly larger text */
-            color: #E0E0E0; /* Slightly lighter text for details */
-        }
-        .card-detail-label {
-            font-weight: 500;
-            color: #fbbf24;
-            flex-shrink: 0;
-            font-size: 0.85rem;
-        }
-        .card-detail-value {
-            word-break: break-all; /* Ensure long values wrap */
-        }
-        .card-detail-value.sha-container {
-            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
-            font-size: 0.85rem;
-            color: #B0B0B0;
-            user-select: none;
-            background-color: rgba(0, 0, 0, 0.1);
-            padding: 0.2rem 0.5rem;
-            border-radius: 0.2rem;
-            display: flex; /* Use flexbox to position text and icon */
-            justify-content: space-between; /* Push icon to the right */
-            align-items: center;
-            cursor: pointer;
-            position: relative;
-            transition: all 0.2s ease-out;
-        }
-        .card-detail-value.sha-container:hover {
-            background-color: rgba(0, 0, 0, 0.2);
-        }
-        .card-detail-value .copy-icon {
-            color: #71717A;
-            font-size: 0.75rem;
-            opacity: 0.7;
-            transition: color 0.2s ease-in-out, opacity 0.2s ease-in-out, transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1.275);
-            flex-shrink: 0;
-            margin-left: 0.5rem;
-        }
-        .card-detail-value.sha-container:hover .copy-icon {
-            opacity: 1;
-            color: #f59e0b;
-            transform: scale(1.1);
-        }
-        .copy-icon.copied-success {
-            color: #34D399 !important;
-            opacity: 1 !important;
-            transform: scale(1.2) !important;
-        }
-
-        /* Styling for map links in the default view (tracker cards) */
-        .card-map-link-container { /* New container for individual map links within Lat/Lon row */
-            display: flex;
-            align-items: center;
-            gap: 0.3rem; /* Space between icon and text */
-            color: #00BFFF; /* Deep Sky Blue for maps */
-            text-decoration: none;
-            font-size: 0.95rem; /* Match detail item text size */
-            transition: color 0.2s ease, transform 0.2s subtle-spring;
-            padding: 0.2rem 0.4rem; /* Small padding around the link */
-            border-radius: 0.25rem; /* Slight rounding */
-        }
-        .card-map-link-container:hover {
-            color: #FFD700; /* Gold on hover */
-            transform: translateY(-2px);
-            background-color: rgba(255,255,255,0.05); /* Subtle background on hover */
-        }
-        .card-map-link-container.earth {
-            color: #34D399; /* Green for earth */
-        }
-        .card-map-link-container.earth:hover {
-            color: #FFD700;
-        }
-        /* No specific margin-right for icons here, gap on parent handles it */
-
-
-        /* Responsive behavior for map links within Lat/Lon row */
-        /* Adjusted .lat-lon-row and .lat-lon-links-group for new inline label/value */
-        .lat-lon-value-and-links { /* New container to hold the value span and the links group */
-            display: flex;
-            flex-direction: column; /* Stack value and links vertically */
-            gap: 0.5rem; /* Space between value and links */
-            flex-grow: 1; /* Allow it to take available space */
-        }
-        .lat-lon-links-group {
-            display: flex;
-            flex-wrap: wrap; /* Allow wrapping of links */
-            gap: 0.75rem; /* Space between links when inline */
-            align-items: center;
-            /* Changed from justify-content: center to flex-start for left alignment */
-            justify-content: flex-start; /* Align links to the left */
-        }
-        
-        /* For 2-column layout (medium screens) and general mobile, links should stack */
-        @media (min-width: 640px) { /* sm breakpoint */
-             .lat-lon-links-group {
-                flex-direction: row; /* Keep links inline when space allows */
-                gap: 0.75rem; /* Space between links */
-            }
-        }
-        /* Since we strictly use 3 columns now, ensure links stack neatly on large screens */
-        @media (min-width: 1024px) { /* lg breakpoint */
-            .tracker-card-grid .lat-lon-links-group {
-                flex-direction: column; /* Stack links vertically */
-                align-items: flex-start;
-                gap: 0.25rem; /* Smaller gap between stacked links */
-            }
-        }
-        /* Override specific .card-detail-item for lat/lon to be row-based */
-        .card-detail-item.lat-lon-item {
-            flex-direction: row; /* Make label and value/links container inline */
-            align-items: baseline; /* Align label and value at their baselines */
-            gap: 0.75rem; /* Space between label and the value/links container */
-        }
-        .card-detail-item.lat-lon-item .card-detail-label {
-            font-weight: 500;
-            color: #fbbf24;
-            flex-shrink: 0;
-            font-size: 0.85rem;
-        }
-
-
-        .card-actions-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            /* Changed from justify-content: flex-end to flex-start for left alignment */
-            justify-content: flex-start; /* Align actions to the left */
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px dashed rgba(255, 255, 255, 0.1);
-        }
-        .card-actions-row .btn {
-            font-size: 0.85rem;
-            padding: 0.5rem 1rem;
-            border-radius: 8px; /* Slightly less rounded for actions */
-        }
-        /* Style for the "Go to Video" button in the card */
-        .card-go-to-video-btn {
-            @apply bg-gradient-to-br from-orange-500 to-amber-500 text-white focus:ring-orange-400 shadow-orange-600/40 hover:from-orange-600 hover:to-amber-600;
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
-            font-size: 0.85rem;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-        }
-
-        .no-data-message {
-            text-align: center;
-            color: #9CA3AF;
-            margin-top: 2rem;
-            font-size: 1.125rem;
-        }
-
-        /* Styles for the new Info Modal (Popup) */
-        #infoModal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease-in-out;
-        }
-
-        #infoModal.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        /* New keyframes for confirmation modal pop-in/out */
-        @keyframes popIn {
-            0% { transform: scale(0.8); opacity: 0; }
-            80% { transform: scale(1.05); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes popOut {
-            0% { transform: scale(1); opacity: 1; }
-            100% { transform: scale(0.8); opacity: 0; }
-        }
-
-        #infoModalContent {
-            background-color: rgba(15, 15, 20, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 0.5rem;
-            padding: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
-            width: clamp(300px, 98vw, 1200px);
-            max-height: 95vh;
-            overflow-y: auto;
-            color: #EDEDF3;
-            
-            transform: scale(0);
-            opacity: 0;
-            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1.25), opacity 0.4s ease-out; 
-            will-change: transform, opacity;
-            
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        #infoModal.show #infoModalContent {
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        /* For closing animation of info modal */
-        #infoModal.closing #infoModalContent {
-            transform: scale(0);
-            opacity: 0;
-            transition: transform 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 0.3s ease-in;
-        }
-
-        .info-modal-close-btn {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: none;
-            border: none;
-            color: #EDEDF3;
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 0.5rem;
-            transition: background-color 0.2s ease, transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1.25);
-            will-change: background-color, transform;
-        }
-        .info-modal-close-btn:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            transform: rotate(90deg);
-        }
-
-        .info-detail-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid rgba(245, 158, 11, 0.2);
-            margin-top: 1rem;
-        }
-        .info-detail-grid div {
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: 0.3rem;
-            padding: 0.75rem 1rem;
-            font-size: 0.9rem;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        .info-detail-grid strong {
-            color: #f59e0b;
-            display: block;
-            margin-bottom: 0.25rem;
-            font-size: 0.8rem;
-        }
-        @media (min-width: 640px) { /* sm breakpoint */
-            .info-detail-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-        @media (min-width: 1024px) { /* lg breakpoint */
-            .info-detail-grid {
-                grid-template-columns: 1fr 1fr 1fr;
-            }
-        }
-        .map-links-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 1rem;
-            justify-content: center;
-        }
-        .map-link-btn {
-            @apply bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105;
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
-        }
-        .map-link-btn.earth {
-            @apply bg-green-600 hover:bg-green-700;
-        }
-        /* Explicitly define margin-right for icons in the popup map links */
-        .info-modal-map-link-icon {
-            margin-right: 0.5rem;
-        }
-    </style>
-
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        outfit: ['Outfit', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                        retro: ['"Press Start 2P"', 'cursive'],
-                    },
-                    colors: {
-                        black: '#030303',
-                        surface: '#0a0a0c',
-                    }
-                }
-            }
+            theme: { extend: { fontFamily: { sans: ['Inter','sans-serif'], outfit: ['Outfit','sans-serif'], mono: ['JetBrains Mono','monospace'], retro: ['"Press Start 2P"','cursive'] }, colors: { black: '#030303', surface: '#0a0a0c' } } }
         }
     </script>
-
+    <style>
+        body { background-color:#030303; color:#e4e4e7; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+        .bg-glow-main { position:fixed; top:-30vh; left:50%; transform:translateX(-50%); width:150vw; height:100vh; background:radial-gradient(ellipse at 50% 30%,rgba(245,158,11,0.15)0%,transparent 60%); pointer-events:none; z-index:0; }
+        .bg-mesh { position:fixed; inset:0; background-size:35px 35px; background-position:center top; background-image:linear-gradient(to right,rgba(255,255,255,0.03)1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.03)1px,transparent 1px); mask-image:linear-gradient(to bottom,transparent 0%,black 15%,black 85%,transparent 100%); -webkit-mask-image:linear-gradient(to bottom,transparent 0%,black 15%,black 85%,transparent 100%); z-index:1; pointer-events:none; }
+        .scanlines { position:fixed; inset:0; pointer-events:none; z-index:2; background:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,0)50%,rgba(0,0,0,0.2)50%,rgba(0,0,0,0.2)); background-size:100% 4px; opacity:0.3; }
+        .doc-card { background:linear-gradient(180deg,rgba(16,16,20,0.85)0%,rgba(10,10,12,0.98)100%); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.05); border-top:1px solid rgba(255,255,255,0.1); box-shadow:0 10px 40px -10px rgba(0,0,0,0.9); border-radius:1.25rem; position:relative; transition:all 0.4s cubic-bezier(0.25,1,0.5,1); z-index:10; }
+        .doc-card:hover { transform:translateY(-4px); border-color:rgba(245,158,11,0.4); border-top-color:rgba(245,158,11,0.7); box-shadow:0 15px 35px -10px rgba(0,0,0,0.8),0 0 25px -5px rgba(245,158,11,0.15); }
+        .stat-card { background:rgba(10,10,12,0.8); border:1px solid rgba(255,255,255,0.06); border-radius:1rem; padding:1.5rem; text-align:center; transition:all 0.3s; min-width:0; display:flex; flex-direction:column; justify-content:center; }
+        .stat-card:hover { border-color:rgba(245,158,11,0.3); transform:translateY(-2px); }
+        .stat-value { font-family:'Outfit',sans-serif; font-size:2.2rem; font-weight:700; background:linear-gradient(135deg,#f59e0b,#ea580c); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+        .stat-value-compact { font-size:clamp(0.92rem, 1.3vw, 1.18rem); }
+        .stat-label { font-family:'JetBrains Mono',monospace; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em; color:#71717a; margin-top:0.25rem; }
+        .status-widget { display:inline-flex; align-items:center; gap:.45rem; padding:.45rem .72rem; width:fit-content; max-width:100%; border-radius:.65rem; border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.35); font-size:11px; font-family:'JetBrains Mono',monospace; white-space:nowrap; }
+        .chart-box { background:rgba(0,0,0,0.30); border:1px solid rgba(255,255,255,0.10); border-radius:.85rem; padding:.75rem; height:300px; position:relative; }
+        .chart-box.with-toolbar { display:flex; flex-direction:column; gap:.55rem; }
+        .chart-box.with-toolbar canvas { flex:1; min-height:0; }
+        .chart-toolbar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; flex-wrap:wrap; }
+        .chart-toolbar-left { display:flex; align-items:center; gap:.35rem; }
+        .chart-toolbar-right { font-family:'JetBrains Mono',monospace; font-size:10px; color:#a1a1aa; padding:.25rem .5rem; border-radius:.5rem; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); }
+        .chart-tool-btn { border:1px solid rgba(245,158,11,0.35); background:rgba(245,158,11,0.09); color:#fcd34d; font-family:'JetBrains Mono',monospace; font-size:10px; line-height:1; padding:.34rem .52rem; border-radius:.45rem; cursor:pointer; transition:all .18s ease; }
+        .chart-tool-btn:hover { background:rgba(245,158,11,0.18); border-color:rgba(245,158,11,0.55); }
+        .chart-tool-btn:disabled { opacity:.45; cursor:not-allowed; }
+        .rich-table-card { position:relative; border:1px solid rgba(255,255,255,0.08); background:radial-gradient(120% 100% at 0% 0%,rgba(245,158,11,0.09)0%,rgba(245,158,11,0)42%),linear-gradient(180deg,rgba(16,16,20,0.93)0%,rgba(9,9,12,0.98)100%); overflow:hidden; box-shadow:0 20px 38px -26px rgba(0,0,0,0.92),0 0 0 1px rgba(245,158,11,0.06),inset 0 1px 0 rgba(255,255,255,0.06); border-radius:1.25rem; }
+        .table-shell { background:#0f0f12; border:1px solid rgba(255,255,255,0.1); border-radius:1rem; overflow:hidden; overscroll-behavior:contain; box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 18px 30px -24px rgba(0,0,0,0.85); position:relative; }
+        .data-table { width:100%; border-collapse:separate; border-spacing:0; font-size:0.8rem; }
+        .data-table th { position:sticky; top:0; background:#2a1c05; color:#f59e0b; font-family:'JetBrains Mono',monospace; font-size:0.65rem; text-transform:uppercase; letter-spacing:.05em; padding:.75rem 1rem; text-align:left; border-bottom:1px solid rgba(245,158,11,0.2); z-index:1; }
+        .data-table td { padding:.65rem 1rem; border-bottom:1px solid rgba(255,255,255,0.04); color:#a1a1aa; font-family:'JetBrains Mono',monospace; font-size:0.75rem; white-space:nowrap; background:#0f0f12; }
+        .data-table tr:hover td { background:#18120b; color:#e4e4e7; }
+        .table-headline { display:flex; align-items:center; gap:0.7rem; }
+        .table-header-icon { width:2.2rem; height:2.2rem; border-radius:0.8rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid rgba(245,158,11,0.3); background:rgba(245,158,11,0.1); box-shadow:inset 0 1px 0 rgba(255,255,255,0.07),0 8px 18px -12px rgba(245,158,11,0.75); flex-shrink:0; }
+        .table-subtitle { color:#a1a1aa; font-size:0.78rem; font-family:'Outfit',sans-serif; letter-spacing:0.01em; margin-top:0.2rem; }
+        .table-filter-input { background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.16); box-shadow:inset 0 1px 0 rgba(255,255,255,0.05); transition:border-color 0.2s ease,box-shadow 0.2s ease; }
+        .table-filter-input:focus { outline:none; border-color:rgba(245,158,11,0.5); box-shadow:0 0 0 3px rgba(245,158,11,0.12); }
+        .table-kpis { display:flex; flex-wrap:wrap; align-items:center; gap:0.55rem; padding-top:0.2rem; }
+        .table-kpi { display:inline-flex; align-items:center; gap:0.4rem; padding:0.35rem 0.62rem; border-radius:0.6rem; border:1px solid #3a3a41; background:#121218; color:#d4d4d8; font-size:10px; letter-spacing:0.03em; text-transform:uppercase; font-family:'JetBrains Mono',monospace; box-shadow:inset 0 1px 0 rgba(255,255,255,0.05); }
+        .table-kpi .val { color:#fbbf24; font-weight:700; font-size:11px; }
+        #statLastTime { white-space:nowrap; font-size:clamp(0.92rem, 1.3vw, 1.18rem); line-height:1.25; display:inline-block; letter-spacing:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+        .heatmap-wrap { margin-top:1rem; background:rgba(0,0,0,0.26); border:1px solid rgba(255,255,255,0.1); border-radius:.85rem; padding:1rem; overflow:auto; }
+        .heatmap-grid { display:grid; grid-template-columns:88px repeat(12, minmax(52px, 1fr)); gap:0.35rem; min-width:860px; }
+        .heatmap-cell { min-height:34px; border:1px solid rgba(255,255,255,0.08); border-radius:0.45rem; display:flex; align-items:center; justify-content:center; font-size:10px; font-family:'JetBrains Mono',monospace; color:#e4e4e7; }
+        .heatmap-cell.header { background:rgba(255,255,255,0.06); color:#cbd5e1; border-color:rgba(255,255,255,0.12); }
+        .heatmap-cell.day { background:rgba(245,158,11,0.12); color:#fcd34d; border-color:rgba(245,158,11,0.25); justify-content:flex-start; padding-left:0.55rem; }
+        .heatmap-meta { display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:.8rem; }
+        .heatmap-pill { border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); color:#d4d4d8; border-radius:999px; padding:.3rem .6rem; font-size:10px; font-family:'JetBrains Mono',monospace; }
+        @media(max-width:768px) { .stat-value { font-size:1.5rem; } .stat-card { padding:0.9rem; } .chart-box { height:220px; } }
+        @media(max-width:480px) { .stat-value { font-size:1.3rem; } #statLastTime { font-size:0.96rem; } }
+        .spinner { border:4px solid rgba(245,158,11,0.2); border-top:4px solid #f59e0b; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:2rem auto; }
+        @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+        ::-webkit-scrollbar { width:8px; height:8px; }
+        ::-webkit-scrollbar-track { background:#030303; }
+        ::-webkit-scrollbar-thumb { background:#27272a; border-radius:4px; border:2px solid #030303; }
+        ::-webkit-scrollbar-thumb:hover { background:#f59e0b; }
+        .mono { font-family:'JetBrains Mono',monospace; }
+        #centralMessageOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1002; opacity:0; pointer-events:none; transition:opacity 0.3s ease-in-out; }
+        #centralMessageContent { background-color:rgba(10,10,15,0.95); border:1px solid rgba(245,158,11,0.5); border-radius:0.75rem; padding:2rem; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-width:80%; color:#EDEDF3; font-size:1.25rem; font-weight:500; transform:translateY(-20px); opacity:0; transition:transform 0.4s cubic-bezier(0.25,0.8,0.25,1.25),opacity 0.4s ease-out; }
+        #centralMessageOverlay.show { opacity:1; pointer-events:auto; }
+        #centralMessageOverlay.show #centralMessageContent { opacity:1; transform:translateY(0); }
+        #centralMessageOverlay.hide #centralMessageContent { transform:translateY(20px); opacity:0; }
+        .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0); z-index:50; display:flex; align-items:center; justify-content:center; padding:1rem; pointer-events:none; transition:background 0.4s ease; opacity:0; }
+        .modal-backdrop.active { background:rgba(0,0,0,0.85); pointer-events:auto; opacity:1; }
+        .modal-panel { transform:scale(0.85) translateY(30px); opacity:0; transition:transform 0.5s cubic-bezier(0.16,1,0.3,1),opacity 0.4s ease; max-width:min(96vw,1100px); width:100%; max-height:90vh; overflow-y:auto; }
+        .modal-backdrop.active .modal-panel { transform:scale(1) translateY(0); opacity:1; }
+        .info-detail-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:0.75rem; }
+        .info-detail-grid div { background-color:rgba(255,255,255,0.05); border-radius:0.3rem; padding:0.65rem 0.85rem; font-size:0.82rem; box-shadow:inset 0 1px 3px rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); }
+        .info-detail-grid strong { color:#f59e0b; display:block; margin-bottom:0.15rem; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; }
+        #refreshProgressBar { position:fixed; top:0; left:0; width:100vw; height:3px; background:linear-gradient(to right,#fcd34d,#f59e0b,#ea580c); z-index:99999; transform-origin:left center; transform:scaleX(0); opacity:0; transition:opacity .2s ease; box-shadow:0 0 12px rgba(245,158,11,0.8); }
+    </style>
 </head>
-<body class="min-h-screen py-8 px-4 flex flex-col items-center">
-
+<body class="relative min-h-screen">
+    <div id="refreshProgressBar"></div>
     <div class="bg-glow-main"></div>
     <div class="bg-mesh"></div>
     <div class="scanlines"></div>
 
-    <div class="progress-bar" id="pageLoadProgressBar"></div>
-    <div class="progress-bar" id="pollProgressBar"></div>
-
-            </div>
-
-    <div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div>
-    </div>
-
-    <main id="mainContentCard" class="relative z-10 max-w-[95%] mx-auto px-4 md:px-8 pt-4 md:pt-6 pb-32 flex flex-col w-full">
-        <header class="flex flex-col items-center justify-center text-center mb-6 relative z-10 w-full gs-reveal">
+    <main class="relative z-10 w-full max-w-full px-4 md:px-8 lg:px-12 xl:px-16 pt-12 md:pt-20 pb-32">
+        <!-- HEADER -->
+        <header class="flex flex-col items-center justify-center text-center mb-0 relative z-10">
             <h2 class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-4 flex items-center gap-3">
                 <span class="w-8 h-px bg-zinc-700"></span> Admin Tracker <span class="w-8 h-px bg-zinc-700"></span>
             </h2>
-            <h1 class="font-retro text-3xl sm:text-4xl md:text-5xl lg:text-[46px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-2 whitespace-nowrap">
-                Project<br class="md:hidden" /><span class="md:ml-6">GlyphMotion</span>
+            <h1 class="font-retro text-2xl sm:text-3xl md:text-4xl lg:text-[40px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-6">
+                PROJECT GLYPHMOTION
             </h1>
-            
-            <div id="adminTrackerControls" class="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4 mb-0 mt-4">
-                <span id="loggedInUsername" class="text-sm font-medium text-orange-300 hidden"></span>
-                <button id="refreshDataBtn" class="btn btn-custom-primary py-2 px-4 text-sm">
-                    <i class="fas fa-sync-alt mr-2"></i> Refresh
-                </button>
-                <!-- Removed logoutAllAdminsBtn as per user request -->
-                <button id="goBackBtn"
-                        class="btn btn-custom-primary py-2 px-4 text-sm">
-                    <i class="fas fa-arrow-left mr-2"></i> Back to Home
-                </button>
+            <p class="font-outfit text-zinc-400 max-w-3xl mx-auto text-base md:text-lg leading-relaxed mb-8">
+                Real-time analytics dashboard — processing statistics, behavioral trends, and comprehensive tracking data across all processed videos.
+            </p>
+            <div class="flex flex-wrap items-center justify-center gap-3 text-xs font-mono text-zinc-500">
+                <a href="index.html" class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all">
+                    <i data-lucide="home" class="w-3 h-3 text-amber-500"></i> Home</a>
+                <button id="refreshDataBtn" class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all cursor-pointer">
+                    <i data-lucide="refresh-cw" class="w-3 h-3 text-amber-500"></i> Refresh</button>
+                <div id="serverStatusWidget" class="status-widget">
+                    <div class="relative flex h-2.5 w-2.5">
+                        <span id="serverStatusPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-75"></span>
+                        <span id="serverStatusDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-zinc-500"></span>
+                    </div>
+                    <span id="serverStatusText" class="text-zinc-300">CONNECTING...</span>
+                </div>
+                <div id="snapshotStatusWidget" class="status-widget border-zinc-700/70 bg-zinc-900/40">
+                    <span id="snapshotStatusText" class="text-zinc-300">SNAPSHOT: --</span>
+                </div>
+                <div id="freshnessStatusWidget" class="status-widget border-zinc-700/70 bg-zinc-900/40">
+                    <span id="freshnessStatusText" class="text-zinc-300">FRESHNESS: --</span>
+                </div>
+                <span id="loggedInUsername" class="hidden text-xs font-mono text-zinc-400 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full"></span>
             </div>
         </header>
 
-        <div id="statusArea" class="mt-8 p-4 info-banner rounded-lg hidden text-sm flex items-start">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-orange-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd" /></svg>
-            <p id="statusMessage" class="font-medium"></p>
+        <!-- STATUS / ERROR BANNERS -->
+        <div id="statusArea" class="mt-6 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 hidden text-sm flex items-start gap-3">
+            <i data-lucide="info" class="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0"></i>
+            <p id="statusMessage" class="font-outfit text-zinc-300"></p>
+        </div>
+        <div id="errorArea" class="mt-4 p-3 rounded-xl border border-red-500/30 bg-red-500/5 hidden text-sm flex items-start gap-3">
+            <i data-lucide="alert-circle" class="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0"></i>
+            <p id="errorMessage" class="font-outfit text-red-300"></p>
         </div>
 
-        <div id="errorArea" class="mt-4 p-4 info-banner error-banner rounded-lg hidden text-sm flex items-start">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 inline-block mr-3 flex-shrink-0 text-red-400"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94l-1.72-1.72Z" clip-rule="evenodd" /></svg>
-            <p id="errorMessage" class="font-medium"></p>
-        </div>
-
+        <!-- LOADING -->
         <div id="loadingSpinner" class="spinner"></div>
-        <p id="noDataMessage" class="no-data-message hidden">No tracking data available yet. Process some videos!</p>
 
-        <div id="trackerCardsContainer" class="tracker-card-grid">
+        <!-- STATS CARDS -->
+        <section id="statsSection" class="hidden grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-10 mb-10">
+            <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total Processed</div></div>
+            <div class="stat-card"><div class="stat-value" id="statLocations">0</div><div class="stat-label">Unique Locations</div></div>
+            <div class="stat-card"><div class="stat-value" id="statTopCity">—</div><div class="stat-label">Most Active City</div></div>
+            <div class="stat-card"><div class="stat-value stat-value-compact" id="statPeakHour">—</div><div class="stat-label">Peak Hour</div></div>
+            <div class="stat-card"><div class="stat-value" id="statOffline14d">—</div><div class="stat-label">Offline (14d)</div></div>
+            <div class="stat-card"><div class="stat-value stat-value-compact" id="statLastTime">—</div><div class="stat-label">Last Processed</div></div>
+        </section>
+
+        <!-- OPERATIONAL INTELLIGENCE -->
+        <section id="insightsSection" class="hidden mb-10">
+            <div class="doc-card p-6 md:p-8">
+                <header class="flex flex-col items-center text-center mb-8">
+                    <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 mb-6 inline-flex shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                        <i data-lucide="radar" class="w-8 h-8 text-emerald-400"></i>
+                    </div>
+                    <h2 class="font-outfit text-2xl md:text-3xl font-bold text-white mb-3">Operational Intelligence</h2>
+                    <p class="text-zinc-400 max-w-2xl mx-auto font-outfit text-sm">Actionable metrics for traffic quality, request velocity, repeat visitor behavior, and security posture.</p>
+                </header>
+                <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
+                    <div class="stat-card"><div class="stat-value text-[1.6rem] md:text-[1.8rem]" id="insightRepeatRate">0%</div><div class="stat-label">Repeat Request Rate</div></div>
+                    <div class="stat-card"><div class="stat-value text-[1.6rem] md:text-[1.8rem]" id="insight24h">0</div><div class="stat-label">Requests (24h)</div></div>
+                    <div class="stat-card"><div class="stat-value text-[1.6rem] md:text-[1.8rem]" id="insightPrev24h">0</div><div class="stat-label">Previous 24h</div></div>
+                    <div class="stat-card"><div class="stat-value text-[1.6rem] md:text-[1.8rem]" id="insightGrowth">0%</div><div class="stat-label">24h Growth</div></div>
+                    <div class="stat-card"><div class="stat-value text-[1.6rem] md:text-[1.8rem]" id="insightTopProvider">N/A</div><div class="stat-label">Top Provider</div></div>
+                    <div class="stat-card"><div class="stat-value text-[1.6rem] md:text-[1.8rem]" id="insightSpikeRisk">Low</div><div class="stat-label">Spike Risk</div></div>
+                </div>
+                <div class="table-kpis mb-4">
+                    <span class="table-kpi">Suspicious Traffic <span id="insightSuspiciousRate" class="val">0%</span></span>
+                    <span class="table-kpi">Geo Coverage <span id="insightGeoCoverage" class="val">0%</span></span>
+                    <span class="table-kpi">New IP Rate (24h) <span id="insightNewIpRate" class="val">0%</span></span>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div class="chart-box"><canvas id="velocityChart"></canvas></div>
+                    <div class="chart-box with-toolbar">
+                        <div class="chart-toolbar">
+                            <div class="chart-toolbar-left">
+                                <button id="uptimePreset10mBtn" class="chart-tool-btn" type="button" title="Set 10 minute window">10M</button>
+                                <button id="uptimePreset30mBtn" class="chart-tool-btn" type="button" title="Set 30 minute window">30M</button>
+                                <button id="uptimePreset1hBtn" class="chart-tool-btn" type="button" title="Set 1 hour window">1H</button>
+                                <button id="uptimePreset2hBtn" class="chart-tool-btn" type="button" title="Set 2 hour window">2H</button>
+                                <button id="uptimeZoomInBtn" class="chart-tool-btn" type="button" title="Zoom in">Zoom In</button>
+                                <button id="uptimeZoomOutBtn" class="chart-tool-btn" type="button" title="Zoom out">Zoom Out</button>
+                                <button id="uptimeZoomResetBtn" class="chart-tool-btn" type="button" title="Reset to default">Default</button>
+                            </div>
+                            <div id="uptimeZoomLabel" class="chart-toolbar-right">Window: 2h</div>
+                        </div>
+                        <canvas id="serverTimelineChart"></canvas>
+                    </div>
+                </div>
+                <div class="table-kpis mt-4">
+                    <span class="table-kpi">Server Status <span id="uptimeCurrentStatus" class="val">Unknown</span></span>
+                    <span class="table-kpi">Observed Window <span id="uptimeObservedWindow" class="val">—</span></span>
+                    <span class="table-kpi">Last Change <span id="uptimeLastChange" class="val">—</span></span>
+                    <span class="table-kpi">Transitions (14d) <span id="uptimeTransitions14d" class="val">0</span></span>
+                </div>
             </div>
+        </section>
+
+        <section id="chartsSection" class="hidden mb-10">
+            <div class="doc-card p-6 md:p-8">
+                <header class="flex flex-col items-center text-center mb-8">
+                    <div class="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 mb-6 inline-flex shadow-[0_0_30px_rgba(59,130,246,0.2)]">
+                        <i data-lucide="bar-chart-3" class="w-8 h-8 text-blue-400"></i>
+                    </div>
+                    <h2 class="font-outfit text-2xl md:text-3xl font-bold text-white mb-3">Processing Analytics</h2>
+                    <p class="text-zinc-400 max-w-2xl mx-auto font-outfit text-sm">Location distribution, IST activity windows, provider distribution, and weekday demand trend.</p>
+                </header>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div class="chart-box"><canvas id="locationChart"></canvas></div>
+                    <div class="chart-box"><canvas id="activityChart"></canvas></div>
+                    <div class="chart-box"><canvas id="peakHoursChart"></canvas></div>
+                    <div class="chart-box"><canvas id="ispChart"></canvas></div>
+                    <div class="chart-box"><canvas id="countryChart"></canvas></div>
+                    <div class="chart-box"><canvas id="serverHourlyPatternChart"></canvas></div>
+                    <div class="chart-box xl:col-span-2"><canvas id="weekdayTrendChart"></canvas></div>
+                </div>
+                <div class="heatmap-wrap mt-4">
+                    <div class="heatmap-meta">
+                        <span class="heatmap-pill">Heatmap: IST weekday x 2-hour windows</span>
+                        <span class="heatmap-pill" id="heatmapPeakSlot">Peak slot: —</span>
+                        <span class="heatmap-pill" id="heatmapTotalEvents">Events mapped: 0</span>
+                    </div>
+                    <div id="trafficHeatmapGrid" class="heatmap-grid"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TRACKING DATA TABLE -->
+        <section id="tableSection" class="hidden mb-10">
+            <div class="rich-table-card p-6 md:p-8">
+                <header class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-5">
+                    <div class="space-y-3 w-full">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div>
+                                <h2 class="font-outfit text-2xl font-bold text-white table-headline">
+                                    <span class="table-header-icon"><i data-lucide="list" class="w-5 h-5 text-amber-300"></i></span>
+                                    <span>All Tracking Records</span>
+                                </h2>
+                                <p class="table-subtitle">Full processing history with geolocation, timestamps, and commit details.</p>
+                            </div>
+                            <input id="tableFilter" type="text" class="table-filter-input rounded-lg px-3 py-2 text-xs text-zinc-200 w-full md:w-72 max-w-full font-mono" placeholder="Filter by city, IP, title...">
+                        </div>
+                        <div class="table-kpis">
+                            <span class="table-kpi">Total Records <span id="kpiTotal" class="val">0</span></span>
+                            <span class="table-kpi">Unique IPs <span id="kpiIPs" class="val">0</span></span>
+                            <span class="table-kpi">Unique Cities <span id="kpiCities" class="val">0</span></span>
+                        </div>
+                    </div>
+                </header>
+                <div id="trackingTableShell" class="table-shell max-h-[36rem] overflow-auto">
+                    <table class="data-table" id="trackingTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Timestamp (IST)</th>
+                                <th>Video Title</th>
+                                <th>IP Address</th>
+                                <th>City</th>
+                                <th>State</th>
+                                <th>Country</th>
+                                <th>ISP</th>
+                                <th>Commit SHA</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trackingTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <p id="noDataMessage" class="hidden text-center text-zinc-500 font-outfit text-lg mt-12">No tracking data available yet. Process some videos!</p>
     </main>
 
-    <footer class="relative z-10 pb-8 pt-4 mt-auto w-full footer-animated">
+    <!-- FOOTER -->
+    <footer class="relative z-10 pb-8 pt-4 mt-auto w-full">
         <div class="max-w-max mx-auto px-6 py-3 rounded-full bg-surface/80 backdrop-blur-md border border-zinc-800/60 shadow-[0_0_20px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 transition-all hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)]">
             <i data-lucide="terminal-square" class="w-4 h-4 text-amber-500"></i>
-            <p class="text-zinc-400 text-sm font-mono tracking-wide">
-                Maintained by <span class="text-zinc-200 font-semibold">Project GlyphMotion</span>
-            </p>
+            <p class="text-zinc-400 text-sm font-mono tracking-wide">Maintained by <span class="text-zinc-200 font-semibold">Project GlyphMotion</span></p>
         </div>
     </footer>
 
-    <div id="centralMessageOverlay" class="hidden">
-        <div id="centralMessageContent">
-            <p id="centralMessageText"></p>
+    <!-- CENTRAL MESSAGE -->
+    <div id="centralMessageOverlay">
+        <div id="centralMessageContent"><p id="centralMessageText"></p></div>
+    </div>
+
+    <!-- INFO MODAL -->
+    <div id="infoModal" class="modal-backdrop">
+        <div class="modal-panel doc-card p-6 md:p-8">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="font-outfit text-xl font-bold text-amber-400 flex items-center gap-2"><i data-lucide="map-pin" class="w-5 h-5"></i> Geolocation Details</h3>
+                <button id="infoModalCloseBtn" class="text-zinc-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div id="infoModalDetailsContent" class="info-detail-grid"></div>
+            <div id="infoModalMapLinks" class="flex flex-wrap gap-3 mt-6"></div>
         </div>
     </div>
 
-    <div id="infoModal" class="hidden">
-        <div id="infoModalContent">
-            <button id="infoModalCloseBtn" class="info-modal-close-btn">×</button>
-            <h3 class="text-xl font-bold mb-4 text-orange-400">Additional Geolocation Details</h3>
-            <div id="infoModalDetailsContent" class="info-detail-grid">
-                </div>
-            <div id="infoModalMapLinksContainer" class="map-links-container">
-                </div>
-        </div>
-    </div>
+<script>
+// ═══════════════════════════════════════════
+// CONSTANTS & STATE
+// ═══════════════════════════════════════════
+const NGROK_PUBLIC_URL = 'https://backend.projectglyphmotion.studio';
+const LOCAL_TRACKER_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_data';
+const LOCAL_TRACKER_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_tracker_data';
+const LOCAL_UPTIME_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_uptime_data';
+const LOCAL_UPTIME_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_uptime_data';
+const LOCAL_ADMIN_TRACKER_LAND_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_land';
+const LOCAL_ADMIN_AUTH_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_auth';
+const SSE_RECONNECT_DELAY_MS = 3000;
+const MASTER_ADMIN_USERNAMES_FRONTEND = ["SHITIJ.dev", "sayann70"];
+const IST_TIMEZONE = 'Asia/Kolkata';
+const TRACKER_SNAPSHOT_KEY_PREFIX = 'adminTrackerSnapshot::v1::';
 
-    <script>
-        const trackerCardsContainer = document.getElementById('trackerCardsContainer');
-        const loadingSpinner = document.getElementById('loadingSpinner');
-        const noDataMessage = document.getElementById('noDataMessage');
-        const goBackBtn = document.getElementById('goBackBtn');
-        const mainContentCard = document.getElementById('mainContentCard');
-        const footerElements = document.querySelectorAll('.footer-animated');
-        const pageLoadProgressBar = document.getElementById('pageLoadProgressBar');
-        const pollProgressBar = document.getElementById('pollProgressBar');
-        const loggedInUsernameSpan = document.getElementById('loggedInUsername');
-        const refreshDataBtn = document.getElementById('refreshDataBtn');
-        // Removed logoutAllAdminsBtn constant as the button is removed from HTML
+const IST_FORMATTERS = {
+    full: new Intl.DateTimeFormat('en-IN', { timeZone: IST_TIMEZONE, year:'numeric', month:'short', day:'numeric', hour:'numeric', minute:'numeric', second:'numeric', hour12:true }),
+    compact: new Intl.DateTimeFormat('en-IN', { timeZone: IST_TIMEZONE, month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true }),
+    hour24: new Intl.DateTimeFormat('en-IN', { timeZone: IST_TIMEZONE, hour:'2-digit', hour12:false }),
+    dayLabel: new Intl.DateTimeFormat('en-IN', { timeZone: IST_TIMEZONE, month:'short', day:'numeric' }),
+    weekdayShort: new Intl.DateTimeFormat('en-IN', { timeZone: IST_TIMEZONE, weekday:'short' }),
+    dateKeyParts: new Intl.DateTimeFormat('en-IN', { timeZone: IST_TIMEZONE, year:'numeric', month:'2-digit', day:'2-digit' })
+};
 
-        const centralMessageOverlay = document.getElementById('centralMessageOverlay');
-        const centralMessageText = document.getElementById('centralMessageText');
-        const centralMessageContent = document.getElementById('centralMessageContent');
+let isAdminLoggedIn = false, loggedInUsername = '', isAdminMaster = false;
+let trackerEventSource = null, trackerReconnectTimer = null, trackerFallbackInterval = null;
+let authEventSource = null, authReconnectTimer = null;
+let uptimeEventSource = null, uptimeReconnectTimer = null;
+let allTrackingData = [];
+let chartInstances = {};
+let serverStatusHistory = [];
+let serverUptimeSessions = [];
+let currentServerStatus = 'offline';
+let lastTrackingDataSignature = '';
+let lastUptimeSignature = '';
+let latestUptimeSnapshot = null;
+let lastUptimePullMs = 0;
+let uptimeTimelineHoursWindow = 2;
+const UPTIME_TIMELINE_DEFAULT_HOURS = 2;
+const UPTIME_TIMELINE_MIN_HOURS = (10 / 60);
+const UPTIME_TIMELINE_MAX_HOURS = 24 * 30;
+const UPTIME_PULL_DEBOUNCE_MS = 4000;
 
-        const infoModal = document.getElementById('infoModal');
-        const infoModalCloseBtn = document.getElementById('infoModalCloseBtn');
-        const infoModalDetailsContent = document.getElementById('infoModalDetailsContent');
-        const infoModalMapLinksContainer = document.getElementById('infoModalMapLinksContainer');
+// ═══════════════════════════════════════════
+// AUTH HELPERS
+// ═══════════════════════════════════════════
+async function authenticatedFetch(url, options = {}) {
+    const token = localStorage.getItem('adminToken');
+    if (!token) { showCentralMessage('Session expired. Please log in again.', true); setTimeout(() => { window.location.href = 'admin.html'; }, 2000); throw new Error('Not authenticated'); }
+    const response = await fetch(url, { ...options, headers: { ...options.headers, 'Authorization': `Bearer ${token}` } });
+    if (response.status === 401) { showCentralMessage('Session expired. Please log in again.', true); clearAdminSession(); setTimeout(() => { window.location.href = 'admin.html'; }, 2000); throw new Error('Auth failed'); }
+    return response;
+}
 
+function clearAdminSession() {
+    disconnectTrackerEvents(); disconnectAuthEvents(); stopTrackerFallbackPolling();
+    clearTrackerSnapshots();
+    clearTrackerDashboardData();
+    localStorage.removeItem('adminToken'); localStorage.removeItem('adminUsername');
+    localStorage.removeItem('sessionTimeoutEnabled'); localStorage.removeItem('sessionDurationDays');
+    isAdminLoggedIn = false; loggedInUsername = ''; isAdminMaster = false;
+}
 
-        const NGROK_PUBLIC_URL = 'https://backend.projectglyphmotion.studio';
-        const LOCAL_TRACKER_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_data';
-        const LOCAL_TRACKER_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_tracker_data';
-        const LOCAL_ADMIN_AUTH_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_auth';
-        const LOCAL_LOGOUT_ALL_ADMINS_ENDPOINT = NGROK_PUBLIC_URL + '/logout_all_admins'; 
-        const GITHUB_PAGES_REPO_URL = 'https://projectglyphmotion.studio/';
+function showCentralMessage(message, isError = false) {
+    const overlay = document.getElementById('centralMessageOverlay');
+    const content = document.getElementById('centralMessageContent');
+    document.getElementById('centralMessageText').innerHTML = message;
+    overlay.classList.remove('hide'); overlay.classList.add('show');
+    content.style.borderColor = isError ? 'rgba(255,87,51,0.5)' : 'rgba(245,158,11,0.5)';
+    content.style.color = isError ? '#FFD7D7' : '#EDEDF3';
+    setTimeout(() => { overlay.classList.add('hide'); setTimeout(() => { overlay.classList.remove('show','hide'); }, 300); }, 3000);
+}
 
-        const POLLING_INTERVAL_DURATION_SECONDS = 1;
-        const SSE_RECONNECT_DELAY_MS = 3000;
+function getTrackerSnapshotKey() {
+    return `${TRACKER_SNAPSHOT_KEY_PREFIX}${loggedInUsername || 'anonymous'}`;
+}
 
-        let isAdminLoggedIn = false;
-        let loggedInUsername = '';
-        let isAdminMaster = false;
-        let sessionTimeoutEnabled = false;
-        let sessionDurationDays = 0;
-        let trackerEventSource = null;
-        let trackerReconnectTimer = null;
-        let trackerFallbackInterval = null;
-        let authEventSource = null;
-        let authReconnectTimer = null;
+function clearTrackerSnapshots() {
+    try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(TRACKER_SNAPSHOT_KEY_PREFIX)) keysToRemove.push(key);
+        }
+        keysToRemove.forEach((key) => localStorage.removeItem(key));
+    } catch (_) {}
+}
 
+function saveTrackerSnapshot(snapshot) {
+    try {
+        localStorage.setItem(getTrackerSnapshotKey(), JSON.stringify(snapshot));
+    } catch (_) {}
+}
 
-        // Master Admin Usernames (Frontend reference for UI logic - backend validates definitively)
-        const MASTER_ADMIN_USERNAMES_FRONTEND = ["SHITIJ.dev", "sayann70"];
+function loadTrackerSnapshot() {
+    try {
+        const raw = localStorage.getItem(getTrackerSnapshotKey());
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return null;
+        const trackingData = Array.isArray(parsed.trackingData) ? parsed.trackingData : [];
+        const uptimeData = parsed.uptimeData && typeof parsed.uptimeData === 'object' ? parsed.uptimeData : null;
+        const savedAtTs = Number(parsed.savedAtTs || 0);
+        return { trackingData, uptimeData, savedAtTs };
+    } catch (_) {
+        return null;
+    }
+}
 
+function formatIst12Hour(ts) {
+    const n = Number(ts || 0);
+    if (!Number.isFinite(n) || n <= 0) return '--';
+    try {
+        return new Intl.DateTimeFormat('en-IN', {
+            timeZone: IST_TIMEZONE,
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        }).format(new Date(n));
+    } catch (_) {
+        return '--';
+    }
+}
 
-        // Helper function to make authenticated fetch requests
-        async function authenticatedFetch(url, options = {}) {
-            const token = localStorage.getItem('adminToken');
-            if (!token) {
-                showCentralMessage('Session expired or not logged in. Please log in again.', true);
-                setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
-                throw new Error('Not authenticated');
-            }
+function toFreshnessText(syncTsMs) {
+    const n = Number(syncTsMs || 0);
+    if (!Number.isFinite(n) || n <= 0) return 'FRESHNESS: --';
+    const sec = Math.max(0, Math.floor((Date.now() - n) / 1000));
+    if (sec < 60) return `FRESHNESS: just now (${sec}s)`;
+    if (sec < 3600) return `FRESHNESS: ${Math.floor(sec / 60)}m ago`;
+    if (sec < 86400) return `FRESHNESS: ${Math.floor(sec / 3600)}h ago`;
+    return `FRESHNESS: ${Math.floor(sec / 86400)}d ago`;
+}
 
-            const headers = {
-                ...options.headers,
-                'Authorization': `Bearer ${token}`
-            };
+function updateFreshnessIndicator(syncTsMs, isOffline = false) {
+    const text = document.getElementById('freshnessStatusText');
+    const widget = document.getElementById('freshnessStatusWidget');
+    if (!text || !widget) return;
+    text.textContent = toFreshnessText(syncTsMs);
+    widget.className = isOffline
+        ? 'status-widget border-amber-500/35 bg-amber-500/10'
+        : 'status-widget border-emerald-500/35 bg-emerald-500/10';
+}
 
-            const response = await fetch(url, { ...options, headers });
+function updateSnapshotIndicator(snapshotPayload, isOfflineSnapshot = false) {
+    const text = document.getElementById('snapshotStatusText');
+    const widget = document.getElementById('snapshotStatusWidget');
+    if (!text || !widget) return;
+    const savedAt = Number(snapshotPayload?._savedAt || snapshotPayload?.savedAt || 0);
+    const lastSynced = Number(snapshotPayload?._lastSyncedAt || snapshotPayload?.lastSyncedAt || savedAt || 0);
+    if (savedAt <= 0) {
+        text.textContent = 'SNAPSHOT: --';
+        widget.className = 'status-widget border-zinc-700/70 bg-zinc-900/40';
+        updateFreshnessIndicator(0, false);
+        return;
+    }
+    const savedPretty = formatIst12Hour(savedAt);
+    if (isOfflineSnapshot) {
+        text.textContent = `SNAPSHOT: OFFLINE (${savedPretty} IST)`;
+        widget.className = 'status-widget border-amber-500/35 bg-amber-500/10';
+        updateFreshnessIndicator(lastSynced, true);
+        return;
+    }
+    text.textContent = `SNAPSHOT: LIVE (${savedPretty} IST)`;
+    widget.className = 'status-widget border-emerald-500/35 bg-emerald-500/10';
+    updateFreshnessIndicator(lastSynced, false);
+}
 
-            if (response.status === 401) {
-                showCentralMessage('Session expired or invalid. Please log in again.', true);
-                clearAdminSession();
-                setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
-                throw new Error('Authentication failed');
-            }
+function clearTrackerDashboardData() {
+    allTrackingData = [];
+    serverStatusHistory = [];
+    Object.keys(chartInstances).forEach((id) => destroyChart(id));
+    const tbody = document.getElementById('trackingTableBody');
+    if (tbody) tbody.innerHTML = '';
+    document.getElementById('statsSection').classList.add('hidden');
+    document.getElementById('insightsSection').classList.add('hidden');
+    document.getElementById('chartsSection').classList.add('hidden');
+    document.getElementById('tableSection').classList.add('hidden');
+    document.getElementById('noDataMessage').classList.remove('hidden');
+    updateSnapshotIndicator(null, false);
+}
 
-            return response;
+function hideStatusBanner() {
+    const area = document.getElementById('statusArea');
+    if (area) area.classList.add('hidden');
+}
+
+function showStatusBanner(message) {
+    const area = document.getElementById('statusArea');
+    const msg = document.getElementById('statusMessage');
+    if (!area || !msg) return;
+    msg.textContent = message;
+    area.classList.remove('hidden');
+}
+
+function restoreSnapshotIfAvailable() {
+    const snapshot = loadTrackerSnapshot();
+    if (!snapshot) return false;
+
+    const hasTracking = Array.isArray(snapshot.trackingData) && snapshot.trackingData.length > 0;
+    const hasUptime = !!snapshot.uptimeData;
+    if (!hasTracking && !hasUptime) return false;
+
+    if (hasTracking) maybeProcessTrackingData(snapshot.trackingData, true);
+    if (hasUptime) {
+        latestUptimeSnapshot = JSON.parse(JSON.stringify(snapshot.uptimeData));
+        applyServerUptimeData({ uptimeData: snapshot.uptimeData });
+    }
+
+    const savedLabel = snapshot.savedAtTs ? formatTimestampCompact(snapshot.savedAtTs) : 'recently';
+    showStatusBanner(`Showing offline snapshot (${savedLabel}) until live data syncs.`);
+    updateSnapshotIndicator({ _savedAt: snapshot.savedAtTs * 1000, _lastSyncedAt: snapshot.savedAtTs * 1000 }, true);
+    return true;
+}
+
+function persistLiveSnapshot(trackingData, uptimeData) {
+    const normalizedTracking = Array.isArray(trackingData) ? trackingData : [];
+    const normalizedUptime = uptimeData && typeof uptimeData === 'object' ? uptimeData : null;
+    const nowMs = Date.now();
+    saveTrackerSnapshot({
+        trackingData: normalizedTracking,
+        uptimeData: normalizedUptime,
+        savedAtTs: Math.floor(nowMs / 1000),
+        _savedAt: nowMs,
+        _lastSyncedAt: nowMs
+    });
+    updateSnapshotIndicator({ _savedAt: nowMs, _lastSyncedAt: nowMs }, false);
+}
+
+function normalizeProviderName(isp) {
+    const value = String(isp || '').trim();
+    if (!value || value.toLowerCase() === 'n/a') return 'N/A';
+    const cleaned = value.toLowerCase().replace(/[.,]/g, '').replace(/\s+/g, ' ').trim();
+    if (cleaned === 'airtel' || cleaned === 'bharti airtel' || cleaned === 'bharti airtel ltd' || cleaned === 'bharti airtel limited' || cleaned.includes('airtel')) {
+        return 'Bharti Airtel';
+    }
+    return value;
+}
+
+function getIstHour(ts) {
+    if (!ts) return 0;
+    const hourPart = IST_FORMATTERS.hour24.formatToParts(new Date(ts * 1000)).find((p) => p.type === 'hour');
+    return hourPart ? Number.parseInt(hourPart.value, 10) : 0;
+}
+
+function getIstDateKey(ts) {
+    const parts = IST_FORMATTERS.dateKeyParts.formatToParts(new Date(ts * 1000));
+    const year = parts.find((p) => p.type === 'year')?.value;
+    const month = parts.find((p) => p.type === 'month')?.value;
+    const day = parts.find((p) => p.type === 'day')?.value;
+    if (!year || !month || !day) return '0000-00-00';
+    return `${year}-${month}-${day}`;
+}
+
+function getIstHourLabel(hour) {
+    const h = Number(hour) % 24;
+    const twelve = h % 12 || 12;
+    const period = h < 12 ? 'AM' : 'PM';
+    return `${twelve}:00 ${period}`;
+}
+
+function getIstDateHourLabel(ts) {
+    if (!ts) return '—';
+    const day = IST_FORMATTERS.dayLabel.format(new Date(ts * 1000));
+    return `${day} ${getIstHourLabel(getIstHour(ts))}`;
+}
+
+function formatTimelineLabel(ts, windowHours) {
+    const date = new Date(ts * 1000);
+    if (windowHours <= 24) {
+        return new Intl.DateTimeFormat('en-IN', { timeZone: IST_TIMEZONE, hour: 'numeric', minute: '2-digit', hour12: true }).format(date);
+    }
+    if (windowHours <= (24 * 7)) {
+        const day = IST_FORMATTERS.dayLabel.format(date);
+        const hour = new Intl.DateTimeFormat('en-IN', { timeZone: IST_TIMEZONE, hour: 'numeric', hour12: true }).format(date);
+        return `${day} ${hour}`;
+    }
+    return IST_FORMATTERS.dayLabel.format(date);
+}
+
+function initializeServerStatusTracking() {
+    serverStatusHistory = [];
+}
+
+function requestUptimeSync(force = false) {
+    const nowMs = Date.now();
+    if (!force && (nowMs - lastUptimePullMs) < UPTIME_PULL_DEBOUNCE_MS) return;
+    lastUptimePullMs = nowMs;
+    fetchUptimeData();
+}
+
+function getTrackingDataSignature(data) {
+    if (!Array.isArray(data) || data.length === 0) return '0';
+    const n = data.length;
+    const first = data[0] || {};
+    const last = data[n - 1] || {};
+    let sample = 0;
+    const step = Math.max(1, Math.floor(n / 20));
+    for (let i = 0; i < n; i += step) {
+        const row = data[i] || {};
+        const ts = Number(row.timestamp || 0);
+        const shaLen = String(row.commitSha || '').length;
+        sample = (sample * 131 + ts + (shaLen * 17)) % 1000000007;
+    }
+    return `${n}|${first.timestamp || 0}|${last.timestamp || 0}|${sample}`;
+}
+
+function maybeProcessTrackingData(data, force = false) {
+    const signature = getTrackingDataSignature(data);
+    if (!force && signature === lastTrackingDataSignature) return false;
+    lastTrackingDataSignature = signature;
+    processTrackingData(data);
+    return true;
+}
+
+function applyServerUptimeData(payload) {
+    const data = payload && payload.uptimeData ? payload.uptimeData : payload;
+    if (!data || typeof data !== 'object') return;
+    latestUptimeSnapshot = JSON.parse(JSON.stringify(data));
+    const rawEvents = Array.isArray(data.events) ? data.events : [];
+    const rawSessions = Array.isArray(data.sessions) ? data.sessions : [];
+    const rawLast = rawEvents.length ? rawEvents[rawEvents.length - 1] : null;
+    const rawLastSession = rawSessions.length ? rawSessions[rawSessions.length - 1] : null;
+    const incomingStatus = (typeof data.currentStatus === 'string' && data.currentStatus)
+        ? data.currentStatus.toLowerCase()
+        : '';
+    const signature = `${rawEvents.length}|${rawLast?.ts || 0}|${rawLast?.status || ''}|${rawSessions.length}|${rawLastSession?.startTs || 0}|${rawLastSession?.endTs ?? ''}|${incomingStatus}`;
+    if (signature === lastUptimeSignature) return;
+    lastUptimeSignature = signature;
+
+    const normalizedEvents = rawEvents
+        .filter((e) => e && Number.isFinite(e.ts) && typeof e.status === 'string')
+        .map((e) => ({ ts: Number(e.ts), status: String(e.status || '').toLowerCase() }))
+        .sort((a, b) => a.ts - b.ts);
+
+    const normalizedSessions = rawSessions
+        .filter((s) => s && Number.isFinite(Number(s.startTs)))
+        .map((s) => ({
+            startTs: Number(s.startTs),
+            endTs: Number.isFinite(Number(s.endTs)) ? Number(s.endTs) : null,
+            startReason: String(s.startReason || ''),
+            endReason: String(s.endReason || '')
+        }))
+        .sort((a, b) => a.startTs - b.startTs);
+
+    const fallbackTs = rawLast && Number.isFinite(Number(rawLast.ts))
+        ? Number(rawLast.ts)
+        : (serverStatusHistory.length ? serverStatusHistory[serverStatusHistory.length - 1].ts : Math.floor(Date.now() / 1000));
+    const tailStatus = normalizedEvents.length ? normalizedEvents[normalizedEvents.length - 1].status : '';
+    if (incomingStatus && (!tailStatus || tailStatus !== incomingStatus)) {
+        normalizedEvents.push({ ts: fallbackTs, status: incomingStatus });
+    }
+
+    serverStatusHistory = normalizedEvents;
+    serverUptimeSessions = normalizedSessions;
+
+    if (incomingStatus) {
+        currentServerStatus = incomingStatus;
+    }
+    refreshServerStatusCharts();
+}
+
+async function fetchUptimeData() {
+    try {
+        const response = await authenticatedFetch(LOCAL_UPTIME_DATA_ENDPOINT);
+        if (!response.ok) return;
+        const payload = await response.json();
+        applyServerUptimeData(payload);
+        const rawUptimeData = payload && payload.uptimeData ? payload.uptimeData : null;
+        persistLiveSnapshot(allTrackingData, rawUptimeData || latestUptimeSnapshot);
+        hideStatusBanner();
+    } catch (_) {}
+}
+
+function disconnectUptimeEvents() {
+    if (uptimeEventSource) { uptimeEventSource.close(); uptimeEventSource = null; }
+    if (uptimeReconnectTimer) { clearTimeout(uptimeReconnectTimer); uptimeReconnectTimer = null; }
+}
+
+function scheduleUptimeReconnect() {
+    if (uptimeReconnectTimer) return;
+    uptimeReconnectTimer = setTimeout(() => { uptimeReconnectTimer = null; connectUptimeEvents(); }, SSE_RECONNECT_DELAY_MS);
+}
+
+function connectUptimeEvents() {
+    const token = localStorage.getItem('adminToken');
+    if (!token || !isAdminLoggedIn) return;
+    disconnectUptimeEvents();
+    try { uptimeEventSource = new EventSource(`${LOCAL_UPTIME_EVENTS_ENDPOINT}?token=${encodeURIComponent(token)}`); }
+    catch (_) { scheduleUptimeReconnect(); return; }
+
+    uptimeEventSource.addEventListener('uptimeData', (event) => {
+        try { applyServerUptimeData(JSON.parse(event.data || '{}')); } catch (_) {}
+    });
+    uptimeEventSource.addEventListener('heartbeat', () => {});
+    uptimeEventSource.onerror = () => { disconnectUptimeEvents(); scheduleUptimeReconnect(); };
+}
+
+function getStatusValue(status) {
+    if (status === 'on') return 1;
+    if (status === 'off') return 0;
+    if (status === 'connected') return 1;
+    if (status === 'polling') return 0.5;
+    return 0;
+}
+
+function getStatusAtTimestamp(ts) {
+    let status = 'off';
+    for (let i = 0; i < serverStatusHistory.length; i++) {
+        if (serverStatusHistory[i].ts > ts) break;
+        status = serverStatusHistory[i].status;
+    }
+    return status;
+}
+
+function isStatusOnline(status) {
+    return status === 'on' || status === 'connected' || status === 'polling';
+}
+
+function formatDurationCompact(seconds) {
+    const total = Math.max(0, Math.floor(Number(seconds || 0)));
+    const d = Math.floor(total / 86400);
+    const h = Math.floor((total % 86400) / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+}
+
+function formatMinutesAsDuration(totalMinutes) {
+    const mins = Math.max(0, Math.round(Number(totalMinutes || 0)));
+    const d = Math.floor(mins / 1440);
+    const h = Math.floor((mins % 1440) / 60);
+    const m = mins % 60;
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+}
+
+function getTimelineBucketSeconds(windowHours) {
+    if (windowHours <= (10 / 60)) return 1;
+    if (windowHours <= 0.5) return 2;
+    if (windowHours <= 1) return 3;
+    if (windowHours <= 2) return 30;
+    if (windowHours <= 6) return 60;
+    if (windowHours <= 12) return 120;
+    if (windowHours <= 24) return 180;
+    if (windowHours <= 72) return 300;
+    if (windowHours <= 168) return 900;
+    if (windowHours <= 336) return 1800;
+    return 3600;
+}
+
+function formatWindowHoursLabel(hours) {
+    if (hours < 1) {
+        return `${Math.max(1, Math.round(hours * 60))}m`;
+    }
+    if (hours >= 24) {
+        const days = (hours / 24);
+        return Number.isInteger(days) ? `${days}d` : `${days.toFixed(1)}d`;
+    }
+    return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
+}
+
+function updateUptimeZoomControls() {
+    const label = document.getElementById('uptimeZoomLabel');
+    const zoomInBtn = document.getElementById('uptimeZoomInBtn');
+    const zoomOutBtn = document.getElementById('uptimeZoomOutBtn');
+    if (label) label.textContent = `Window: ${formatWindowHoursLabel(uptimeTimelineHoursWindow)} (IST)`;
+    if (zoomInBtn) zoomInBtn.disabled = uptimeTimelineHoursWindow <= UPTIME_TIMELINE_MIN_HOURS;
+    if (zoomOutBtn) zoomOutBtn.disabled = uptimeTimelineHoursWindow >= UPTIME_TIMELINE_MAX_HOURS;
+}
+
+function setUptimeTimelineWindow(nextHours) {
+    const numeric = Number(nextHours);
+    const fallback = Number.isFinite(numeric) ? numeric : UPTIME_TIMELINE_DEFAULT_HOURS;
+    const clamped = Math.max(UPTIME_TIMELINE_MIN_HOURS, Math.min(UPTIME_TIMELINE_MAX_HOURS, fallback));
+    const normalized = Math.round(clamped * 1000) / 1000;
+    if (normalized === uptimeTimelineHoursWindow) {
+        updateUptimeZoomControls();
+        return;
+    }
+    uptimeTimelineHoursWindow = normalized;
+    updateUptimeZoomControls();
+    refreshServerStatusCharts();
+}
+
+function addDurationToHourlyBuckets(startMs, endMs, status, onMs, offMs) {
+    if (endMs <= startMs) return;
+    let cursor = startMs;
+    while (cursor < endMs) {
+        const shifted = cursor + (19800 * 1000);
+        const nextHourShifted = (Math.floor(shifted / 3600000) + 1) * 3600000;
+        const nextBoundary = Math.min(endMs, nextHourShifted - (19800 * 1000));
+        const hour = Math.floor(shifted / 3600000) % 24;
+        const delta = nextBoundary - cursor;
+        if (status === 'connected' || status === 'polling' || status === 'on') onMs[hour] += delta;
+        else offMs[hour] += delta;
+        cursor = nextBoundary;
+    }
+}
+
+function isOnlineDuringWindow(startTs, endTs, nowTs) {
+    return getOnlineSecondsInWindow(startTs, endTs, nowTs) > 0;
+}
+
+function getOnlineSecondsInWindow(startTs, endTs, nowTs) {
+    const windowLen = Math.max(0, endTs - startTs);
+    if (windowLen <= 0) return 0;
+
+    if (!Array.isArray(serverStatusHistory) || serverStatusHistory.length === 0) {
+        return isStatusOnline(currentServerStatus) ? windowLen : 0;
+    }
+
+    let online = 0;
+    let cursor = startTs;
+    let currentStatus = getStatusAtTimestamp(startTs);
+
+    for (let i = 0; i < serverStatusHistory.length; i++) {
+        const event = serverStatusHistory[i];
+        const eventTs = Number(event.ts || 0);
+        if (eventTs <= startTs) continue;
+        if (eventTs >= endTs) break;
+
+        if (isStatusOnline(currentStatus)) {
+            online += Math.max(0, eventTs - cursor);
         }
 
-        function clearAdminSession() {
-            disconnectTrackerEvents();
-            disconnectAuthEvents();
-            stopTrackerFallbackPolling();
-            localStorage.removeItem('adminToken');
-            localStorage.removeItem('adminUsername');
-            localStorage.removeItem('sessionTimeoutEnabled');
-            localStorage.removeItem('sessionDurationDays');
-            isAdminLoggedIn = false;
-            loggedInUsername = '';
-            isAdminMaster = false;
-        }
+        cursor = eventTs;
+        currentStatus = String(event.status || 'off').toLowerCase();
+    }
 
+    if (isStatusOnline(currentStatus)) {
+        online += Math.max(0, endTs - cursor);
+    }
 
-        function showCentralMessage(message, isError = false) {
-            centralMessageText.innerHTML = message;
-            centralMessageOverlay.classList.remove('hide');
-            centralMessageOverlay.classList.add('show');
+    return Math.max(0, Math.min(windowLen, online));
+}
 
-            if (isError) {
-                centralMessageContent.style.borderColor = 'rgba(255, 87, 51, 0.5)';
-                centralMessageContent.style.color = '#FFD7D7';
-            } else {
-                centralMessageContent.style.borderColor = 'rgba(245, 158, 11, 0.5)';
-                centralMessageContent.style.color = '#EDEDF3';
-            }
+function buildServerStatusSeries(hoursBack = null) {
+    const nowTs = Math.floor(Date.now() / 1000);
+    const earliestEventTs = serverStatusHistory.length ? serverStatusHistory[0].ts : nowTs;
+    const earliestSessionTs = serverUptimeSessions.length ? Number(serverUptimeSessions[0].startTs || nowTs) : nowTs;
+    const earliestTs = Math.min(earliestEventTs, earliestSessionTs);
+    const requestedHours = Number.isFinite(hoursBack) && hoursBack ? hoursBack : uptimeTimelineHoursWindow;
+    const effectiveHoursBack = Math.max(UPTIME_TIMELINE_MIN_HOURS, Math.min(UPTIME_TIMELINE_MAX_HOURS, requestedHours));
+    const startTs = Math.max(earliestTs, nowTs - (effectiveHoursBack * 3600));
+    let bucketSizeSec = getTimelineBucketSeconds(effectiveHoursBack);
+    const rawBuckets = Math.max(2, Math.floor((nowTs - startTs) / bucketSizeSec) + 1);
+    const maxBuckets = 1200;
+    if (rawBuckets > maxBuckets) {
+        const factor = Math.ceil(rawBuckets / maxBuckets);
+        bucketSizeSec *= factor;
+    }
 
-            setTimeout(() => {
-                centralMessageOverlay.classList.add('hide');
-                setTimeout(() => {
-                    centralMessageOverlay.classList.remove('show', 'hide');
-                }, 300);
-            }, 3000);
-        }
+    const labels = [];
+    const statuses = [];
+    const ratios = [];
+    const bucketStarts = [];
 
-        function copyToClipboard(text, iconElement) {
-            const tempInput = document.createElement('textarea');
-            tempInput.value = text;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            let copySuccess = false;
-            try {
-                copySuccess = document.execCommand('copy');
-            } catch (err) {
-                console.error('Failed to copy text:', err);
-            }
-            document.body.removeChild(tempInput);
+    for (let ts = startTs; ts <= nowTs; ts += bucketSizeSec) {
+        const bucketStart = ts;
+        const bucketEnd = Math.min(nowTs + 1, bucketStart + bucketSizeSec);
+        const windowLen = Math.max(0.001, bucketEnd - bucketStart);
+        const onlineSeconds = getOnlineSecondsInWindow(bucketStart, bucketEnd, nowTs);
+        const onlineRatio = onlineSeconds / windowLen;
+        let status = 'off';
+        if (onlineRatio >= 0.999) status = 'on';
+        else if (onlineRatio > 0.001) status = 'mixed';
+        labels.push(formatTimelineLabel(bucketStart, effectiveHoursBack));
+        statuses.push(status);
+        ratios.push(onlineRatio);
+        bucketStarts.push(bucketStart);
+    }
+    return { labels, statuses, ratios, bucketStarts, startTs, endTs: nowTs, hoursBack: effectiveHoursBack, bucketSizeSec };
+}
 
-            if (copySuccess) {
-                iconElement.classList.add('copied-success');
-                iconElement.classList.remove('fa-copy');
-                iconElement.classList.add('fa-check');
-                setTimeout(() => {
-                    iconElement.classList.remove('copied-success');
-                    iconElement.classList.remove('fa-check');
-                    iconElement.classList.add('fa-copy');
-                }, 1500);
-            } else {
-                iconElement.classList.remove('fa-copy');
-                iconElement.classList.add('fa-times');
-                iconElement.style.color = '#EF4444';
-                setTimeout(() => {
-                    iconElement.classList.remove('fa-times');
-                    iconElement.classList.add('fa-copy');
-                    iconElement.style.color = '';
-                }, 1500);
-            }
-        }
+function computeServerBehaviorMetrics(daysBack = 14) {
+    const nowMs = Date.now();
+    const earliestTs = serverStatusHistory.length ? serverStatusHistory[0].ts : Math.floor(nowMs / 1000);
+    const requestedStartMs = nowMs - (daysBack * 24 * 3600000);
+    const windowStartMs = Math.max(requestedStartMs, earliestTs * 1000);
+    const onMs = new Array(24).fill(0);
+    const offMs = new Array(24).fill(0);
+    const transitions = new Array(24).fill(0);
 
-        function formatTimestamp(unixTimestamp) {
-            if (!unixTimestamp) return 'N/A';
-            const date = new Date(unixTimestamp * 1000);
-            const options = {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: 'numeric',
-                second: 'numeric',
-                hour12: true
-            };
-            return date.toLocaleString(undefined, options);
-        }
+    let prevStatus = getStatusAtTimestamp(Math.floor(windowStartMs / 1000));
+    let prevMs = windowStartMs;
+    const events = serverStatusHistory.filter((e) => (e.ts * 1000) >= windowStartMs && (e.ts * 1000) <= nowMs);
 
-        function startPollProgressBar() {
-            pollProgressBar.style.transition = 'none';
-            pollProgressBar.style.width = '0%';
-            pollProgressBar.style.opacity = '1';
+    events.forEach((event) => {
+        const currMs = event.ts * 1000;
+        addDurationToHourlyBuckets(prevMs, currMs, prevStatus, onMs, offMs);
+        if (event.status !== prevStatus) transitions[getIstHour(event.ts)] += 1;
+        prevStatus = event.status;
+        prevMs = currMs;
+    });
+    addDurationToHourlyBuckets(prevMs, nowMs, prevStatus, onMs, offMs);
 
-            void pollProgressBar.offsetWidth;
+    const totalOn = onMs.reduce((a, b) => a + b, 0);
+    const totalOff = offMs.reduce((a, b) => a + b, 0);
+    const uptimePct = (totalOn + totalOff) ? (totalOn / (totalOn + totalOff)) * 100 : 0;
+    const transitionCount = transitions.reduce((a, b) => a + b, 0);
+    return { onMs, offMs, transitions, uptimePct, transitionCount, windowStartTs: Math.floor(windowStartMs / 1000), windowEndTs: Math.floor(nowMs / 1000) };
+}
 
-            pollProgressBar.style.transition = `width ${POLLING_INTERVAL_DURATION_SECONDS}s linear, opacity 0.3s ease-in-out`;
-            pollProgressBar.style.width = '100%';
+function refreshServerStatusCharts() {
+    const timelineCanvas = document.getElementById('serverTimelineChart');
+    const patternCanvas = document.getElementById('serverHourlyPatternChart');
 
-            setTimeout(() => {
-                pollProgressBar.style.opacity = '0';
-            }, POLLING_INTERVAL_DURATION_SECONDS * 1000);
-        }
-
-        async function fetchTrackingData(options = {}) {
-            const { showLoading = true } = options;
-
-            startPollProgressBar();
-
-            if (showLoading) {
-                loadingSpinner.classList.remove('hidden');
-                noDataMessage.classList.add('hidden');
-                trackerCardsContainer.classList.add('hidden');
-                document.getElementById('statusArea').classList.add('hidden');
-                document.getElementById('errorArea').classList.add('hidden');
-            }
-
-            try {
-                const response = await authenticatedFetch(LOCAL_TRACKER_DATA_ENDPOINT);
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || `Server error: ${response.status}`);
-                }
-                const data = await response.json();
-                renderTrackingData(data.trackingData);
-            } catch (error) {
-                document.getElementById('errorMessage').textContent = `Failed to load tracking data: ${error.message}`;
-                document.getElementById('errorArea').classList.remove('hidden');
-                noDataMessage.textContent = 'Failed to load tracking data. Please ensure you are logged in and the server is running.';
-                noDataMessage.classList.remove('hidden');
-                trackerCardsContainer.classList.add('hidden');
-            } finally {
-                if (showLoading) {
-                    loadingSpinner.classList.add('hidden');
-                }
-            }
-        }
-
-        function buildTrackerEventsUrl() {
-            const token = localStorage.getItem('adminToken');
-            return `${LOCAL_TRACKER_EVENTS_ENDPOINT}?token=${encodeURIComponent(token)}`;
-        }
-
-        function buildAuthEventsUrl() {
-            const token = localStorage.getItem('adminToken');
-            return `${LOCAL_ADMIN_AUTH_EVENTS_ENDPOINT}?token=${encodeURIComponent(token)}`;
-        }
-
-        function stopTrackerFallbackPolling() {
-            if (trackerFallbackInterval) {
-                clearInterval(trackerFallbackInterval);
-                trackerFallbackInterval = null;
-            }
-        }
-
-        function startTrackerFallbackPolling() {
-            if (trackerFallbackInterval) return;
-
-            trackerFallbackInterval = setInterval(() => {
-                fetchTrackingData({ showLoading: false });
-            }, POLLING_INTERVAL_DURATION_SECONDS * 1000);
-        }
-
-        function disconnectTrackerEvents() {
-            if (trackerEventSource) {
-                trackerEventSource.close();
-                trackerEventSource = null;
-            }
-            if (trackerReconnectTimer) {
-                clearTimeout(trackerReconnectTimer);
-                trackerReconnectTimer = null;
-            }
-        }
-
-        function scheduleTrackerReconnect() {
-            if (trackerReconnectTimer) return;
-
-            trackerReconnectTimer = setTimeout(() => {
-                trackerReconnectTimer = null;
-                connectTrackerEvents();
-            }, SSE_RECONNECT_DELAY_MS);
-        }
-
-        function connectTrackerEvents() {
-            const token = localStorage.getItem('adminToken');
-            if (!token || !isAdminLoggedIn) return;
-
-            disconnectTrackerEvents();
-
-            try {
-                trackerEventSource = new EventSource(buildTrackerEventsUrl());
-            } catch (error) {
-                console.error('Failed to initialize tracker EventSource:', error);
-                startTrackerFallbackPolling();
-                scheduleTrackerReconnect();
-                return;
-            }
-
-            trackerEventSource.onopen = () => {
-                stopTrackerFallbackPolling();
-                document.getElementById('errorArea').classList.add('hidden');
-            };
-
-            trackerEventSource.addEventListener('trackingData', (event) => {
-                try {
-                    const payload = JSON.parse(event.data || '{}');
-                    renderTrackingData(payload.trackingData || []);
-                    loadingSpinner.classList.add('hidden');
-                    noDataMessage.classList.add('hidden');
-                    document.getElementById('errorArea').classList.add('hidden');
-                } catch (error) {
-                    console.error('Invalid SSE trackingData payload:', error);
-                }
-            });
-
-            trackerEventSource.addEventListener('heartbeat', () => {
-                // no-op: heartbeat keeps the connection warm
-            });
-
-            trackerEventSource.onerror = () => {
-                disconnectTrackerEvents();
-                startTrackerFallbackPolling();
-                scheduleTrackerReconnect();
-            };
-        }
-
-        function disconnectAuthEvents() {
-            if (authEventSource) {
-                authEventSource.close();
-                authEventSource = null;
-            }
-            if (authReconnectTimer) {
-                clearTimeout(authReconnectTimer);
-                authReconnectTimer = null;
-            }
-        }
-
-        function scheduleAuthReconnect() {
-            if (authReconnectTimer) return;
-
-            authReconnectTimer = setTimeout(() => {
-                authReconnectTimer = null;
-                connectAuthEvents();
-            }, SSE_RECONNECT_DELAY_MS);
-        }
-
-        function forceLogoutFromRealtime(reasonMessage) {
-            showCentralMessage(reasonMessage || 'Your admin session has been invalidated. Please log in again.', true);
-            clearAdminSession();
-            setTimeout(() => { window.location.href = 'admin.html'; }, 1200);
-        }
-
-        function connectAuthEvents() {
-            const token = localStorage.getItem('adminToken');
-            if (!token || !isAdminLoggedIn) return;
-
-            disconnectAuthEvents();
-
-            try {
-                authEventSource = new EventSource(buildAuthEventsUrl());
-            } catch (error) {
-                console.error('Failed to initialize auth EventSource:', error);
-                scheduleAuthReconnect();
-                return;
-            }
-
-            authEventSource.addEventListener('authRevoked', () => {
-                forceLogoutFromRealtime('Master admin invalidated all sessions. Logging out now...');
-            });
-
-            authEventSource.onerror = async () => {
-                disconnectAuthEvents();
-                if (!localStorage.getItem('adminToken')) return;
-
-                try {
-                    await authenticatedFetch(LOCAL_TRACKER_DATA_ENDPOINT, { method: 'GET' });
-                    scheduleAuthReconnect();
-                } catch (error) {
-                    const msg = String(error?.message || '').toLowerCase();
-                    if (msg.includes('authentication') || msg.includes('not authenticated')) {
-                        return;
-                    }
-                    scheduleAuthReconnect();
-                }
-            };
-        }
-
-        function renderTrackingData(data) {
-            trackerCardsContainer.innerHTML = '';
-            if (data && data.length > 0) {
-                trackerCardsContainer.classList.remove('hidden');
-                noDataMessage.classList.add('hidden');
-
-                data.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-                data.forEach((entry, index) => {
-                    const geolocation = entry.geolocation || {};
-                    const card = document.createElement('div');
-                    card.className = 'tracker-card';
-                    card.style.animationDelay = `${index * 0.08}s`;
-
-                    const latLonValue = (geolocation.lat && geolocation.lon && geolocation.lat !== 'N/A' && geolocation.lon !== 'N/A')
-                        ? `${parseFloat(geolocation.lat).toFixed(4)}, ${parseFloat(geolocation.lon).toFixed(4)}`
-                        : 'N/A';
-
-                    // Prepare map links HTML separately to ensure they are consistently aligned left within their group
-                    const mapLinksHtml = (geolocation.lat && geolocation.lon && geolocation.lat !== 'N/A' && geolocation.lon !== 'N/A')
-                        ? `
-                            <div class="lat-lon-links-group">
-                                <a href="https://www.google.com/maps/search/?api=1&query=${geolocation.lat},${geolocation.lon}" target="_blank" class="card-map-link-container" title="View on Google Maps">
-                                    <i class="fas fa-map-marker-alt mr-2"></i> Google Maps
-                                </a>
-                                <a href="https://earth.google.com/web/@${geolocation.lat},${geolocation.lon},0a,10000d,1000y,0h,0t,0r/data=..." target="_blank" class="card-map-link-container earth" title="View on Google Earth">
-                                    <i class="fas fa-globe-americas mr-2"></i> Google Earth
-                                </a>
-                            </div>
-                        `
-                        : '';
-
-                    card.innerHTML = `
-                        <div class="card-section-title">
-                            <i class="fas fa-clock"></i> General Info
-                        </div>
-                        <div class="card-detail-item">
-                            <span class="card-detail-label">Date & Time:</span>
-                            <span class="card-detail-value">${formatTimestamp(entry.timestamp)}</span>
-                        </div>
-                        <div class="card-detail-item">
-                            <span class="card-detail-label">Video Title:</span>
-                            <span class="card-detail-value">${entry.videoTitle || 'N/A'}</span>
-                        </div>
-                        <div class="card-detail-item">
-                            <span class="card-detail-label">Commit SHA:</span>
-                            <span class="card-detail-value sha-container">
-                                <span class="actual-sha-text">${entry.commitSha || 'N/A'}</span>
-                                ${entry.commitSha ? '<i class="far fa-copy copy-icon"></i>' : ''}
-                            </span>
-                        </div>
-                        <div class="card-detail-item">
-                            <span class="card-detail-label">IP Address:</span>
-                            <span class="card-detail-value">${entry.ipAddress || 'N/A'}</span>
-                        </div>
-                        <div class="card-detail-item">
-                            <span class="card-detail-label">Location:</span>
-                            <span class="card-detail-value">
-                                ${geolocation.city || 'N/A'}${geolocation.city && geolocation.regionName ? ', ' : ''}${geolocation.regionName || 'N/A'}${geolocation.country && (geolocation.city || geolocation.regionName) ? ', ' : ''}${geolocation.country || 'N/A'}
-                            </span>
-                        </div>
-                        <div class="card-detail-item lat-lon-item">
-                            <span class="card-detail-label">Lat/Lon:</span>
-                            <span class="card-detail-value">${latLonValue}</span>
-                        </div>
-                        <!-- Separate div for map links to control their alignment independently -->
-                        <div class="lat-lon-map-links-section">
-                            ${mapLinksHtml}
-                        </div>
-                        <div class="card-actions-row justify-start items-center">
-                            <!-- Removed 'Go to Video' button as per user request -->
-                            <button class="toggle-btn-style show-additional-info-btn" data-geolocation='${JSON.stringify(geolocation)}'>
-                                <i class="fas fa-info-circle mr-1"></i> Additional Info
-                            </button>
-                        </div>
-                    `;
-                    trackerCardsContainer.appendChild(card);
-
-                    // Add event listener for copy SHA icon
-                    const copyIcon = card.querySelector('.copy-icon');
-                    if (copyIcon) {
-                        copyIcon.addEventListener('click', (e) => {
-                            const shaText = e.currentTarget.closest('.sha-container').querySelector('.actual-sha-text').textContent;
-                            copyToClipboard(shaText, e.currentTarget);
-                        });
-                    }
-
-                    // Add event listener for "Additional Info" button
-                    const additionalInfoBtn = card.querySelector('.show-additional-info-btn');
-                    if (additionalInfoBtn) {
-                        additionalInfoBtn.addEventListener('click', (e) => {
-                            const geolocationData = JSON.parse(e.currentTarget.dataset.geolocation);
-                            const originX = e.clientX;
-                            const originY = e.clientY;
-                            showInfoModal(geolocationData, originX, originY);
-                        });
-                    }
-                });
-            } else {
-                noDataMessage.classList.remove('hidden');
-                trackerCardsContainer.classList.add('hidden');
-            }
-        }
-
-        function showInfoModal(geolocationData, originX, originY) {
-            infoModal.classList.remove('closing');
-            infoModal.classList.add('show');
-
-            if (originX !== undefined && originY !== undefined) {
-                infoModalContent.style.transformOrigin = `${originX}px ${originY}px`;
-            } else {
-                infoModalContent.style.transformOrigin = 'center center';
-            }
-
-            infoModalDetailsContent.innerHTML = '';
-            infoModalMapLinksContainer.innerHTML = '';
-
-            const geo = geolocationData || {};
-
-            infoModalDetailsContent.innerHTML = `
-                <div><strong>IP Query:</strong> ${geo.query || 'N/A'}</div>
-                <div><strong>Country Code:</strong> ${geo.countryCode || 'N/A'}</div>
-                <div><strong>Region Code:</strong> ${geo.region || 'N/A'}</div>
-                <div><strong>District:</strong> ${geo.district || 'N/A'}</div>
-                <div><strong>Zip Code:</strong> ${geo.zip || 'N/A'}</div>
-                <div><strong>Timezone:</strong> ${geo.timezone || 'N/A'}</div>
-                <div><strong>Offset:</strong> ${geo.offset !== 'N/A' ? geo.offset / 3600 + ' hours' : 'N/A'}</div>
-                <div><strong>Currency:</strong> ${geo.currency || 'N/A'}</div>
-                <div><strong>ISP:</strong> ${geo.isp || 'N/A'}</div>
-                <div><strong>Organization:</strong> ${geo.org || 'N/A'}</div>
-                <div><strong>AS:</strong> ${geo.as || 'N/A'}</div>
-                <div><strong>AS Name:</strong> ${geo.asname || 'N/A'}</div>
-                <div><strong>Mobile:</strong> ${geo.mobile !== 'N/A' ? (geo.mobile ? 'Yes' : 'No') : 'N/A'}</div>
-                <div><strong>Proxy:</strong> ${geo.proxy !== 'N/A' ? (geo.proxy ? 'Yes' : 'No') : 'N/A'}</div>
-                <div><strong>Hosting:</strong> ${geo.hosting !== 'N/A' ? (geo.hosting ? 'Yes' : 'No') : 'N/A'}</div>
-                <div><strong>Status:</strong> ${geo.status || 'N/A'}</div>
-                <div class="col-span-full"><strong>Message:</strong> ${geo.message || 'N/A'}</div>
-            `;
-
-            if (geo.lat && geo.lon && geo.lat !== 'N/A' && geo.lon !== 'N/A') {
-                const mapsLink = document.createElement('a');
-                mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${geo.lat},${geo.lon}`;
-                mapsLink.target = '_blank';
-                mapsLink.className = 'map-link-btn';
-                mapsLink.innerHTML = '<i class="fas fa-map-marker-alt mr-2 info-modal-map-link-icon"></i> View on Google Maps';
-                infoModalMapLinksContainer.appendChild(mapsLink);
-
-                const earthLink = document.createElement('a');
-                earthLink.href = `https://earth.google.com/web/@${geo.lat},${geo.lon},0a,10000d,1000y,0h,0t,0r/data=...`;
-                earthLink.target = '_blank';
-                earthLink.className = 'map-link-btn earth';
-                earthLink.innerHTML = '<i class="fas fa-globe-americas mr-2 info-modal-map-link-icon"></i> View on Google Earth';
-                infoModalMapLinksContainer.appendChild(earthLink);
-            } else {
-                infoModalMapLinksContainer.innerHTML = '<p class="text-sm text-slate-400 col-span-full text-center">Map links not available (Lat/Lon missing).</p>';
-            }
-        }
-
-        function closeInfoModal() {
-            infoModal.classList.add('closing');
-            setTimeout(() => {
-                infoModal.classList.remove('show', 'closing');
-                infoModalContent.style.transformOrigin = '';
-            }, 300);
-        }
-        infoModalCloseBtn.addEventListener('click', closeInfoModal);
-
-        infoModal.addEventListener('click', (event) => {
-            if (event.target === infoModal) {
-                closeInfoModal();
-            }
+    if (timelineCanvas) {
+        const series = buildServerStatusSeries(uptimeTimelineHoursWindow);
+        const timelineData = series.statuses.map(() => 1);
+        const timelineColors = series.statuses.map((status) => {
+            const isOnline = status === 'on' || status === 'connected' || status === 'polling';
+            if (status === 'mixed') return 'rgba(251,191,36,0.55)';
+            return isOnline ? 'rgba(16,185,129,0.86)' : 'rgba(239,68,68,0.38)';
         });
-
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-                if (infoModal.classList.contains('show')) {
-                    closeInfoModal();
-                } else if (!document.getElementById('centralMessageOverlay').classList.contains('hidden')) {
-                    centralMessageOverlay.classList.add('hide');
-                    setTimeout(() => {
-                        centralMessageOverlay.classList.remove('show', 'hide');
-                    }, 300);
-                }
-            }
+        const timelineBorderColors = series.statuses.map((status) => {
+            const isOnline = status === 'on' || status === 'connected' || status === 'polling';
+            if (status === 'mixed') return 'rgba(251,191,36,0.9)';
+            return isOnline ? 'rgba(16,185,129,0.95)' : 'rgba(239,68,68,0.62)';
         });
-
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem('adminToken');
-            loggedInUsername = localStorage.getItem('adminUsername');
-            sessionTimeoutEnabled = localStorage.getItem('sessionTimeoutEnabled') === 'true';
-            sessionDurationDays = parseInt(localStorage.getItem('sessionDurationDays') || '0', 10);
-
-            if (token && loggedInUsername) {
-                isAdminLoggedIn = true;
-                isAdminMaster = MASTER_ADMIN_USERNAMES_FRONTEND.includes(loggedInUsername);
-
-                if (sessionTimeoutEnabled) {
-                    try {
-                        const payload = JSON.parse(atob(token.split('.')[1]));
-                        if (payload.exp && (Date.now() / 1000) > payload.exp) {
-                            showCentralMessage('Your session has expired. Please log in again.', true);
-                            clearAdminSession();
-                            isAdminLoggedIn = false;
-                            setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
+        destroyChart('serverTimelineChart');
+        chartInstances['serverTimelineChart'] = new Chart(timelineCanvas, {
+            type: 'bar',
+            data: {
+                labels: series.labels,
+                datasets: [{
+                    label: 'Server timeline',
+                    data: timelineData,
+                    borderWidth: 1,
+                    borderRadius: 0,
+                    borderSkipped: false,
+                    backgroundColor: timelineColors,
+                    borderColor: timelineBorderColors,
+                    barThickness: 'flex',
+                    maxBarThickness: 14,
+                    categoryPercentage: 1.0,
+                    barPercentage: 1.0,
+                    hoverBorderWidth: 1,
+                    hoverBackgroundColor: timelineColors,
+                    hoverBorderColor: timelineBorderColors
+                }]
+            },
+            options: {
+                ...CHART_DEFAULTS,
+                animation: false,
+                interaction: {
+                    mode: 'index',
+                    axis: 'x',
+                    intersect: false
+                },
+                hover: {
+                    mode: 'index',
+                    axis: 'x',
+                    intersect: false
+                },
+                layout: { padding: { top: 4, right: 6, left: 2, bottom: 0 } },
+                scales: {
+                    x: {
+                        ...CHART_DEFAULTS.scales.x,
+                        grid: { color: 'rgba(255,255,255,0.02)' },
+                        ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                    },
+                    y: {
+                        ...CHART_DEFAULTS.scales.y,
+                        min: 0,
+                        max: 1,
+                        display: false,
+                        grid: { display: false },
+                        ticks: { display: false }
+                    }
+                },
+                plugins: {
+                    ...CHART_DEFAULTS.plugins,
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: (items) => {
+                                const idx = items?.[0]?.dataIndex ?? -1;
+                                if (idx < 0) return '';
+                                return series.labels[idx] || '';
+                            },
+                            label: (ctx) => {
+                                const status = series.statuses[ctx.dataIndex] || 'off';
+                                if (status === 'mixed') return 'Status: MIXED (brief drop/recover in bin)';
+                                return `Status: ${(status === 'on' || status === 'connected' || status === 'polling') ? 'ONLINE' : 'OFFLINE'}`;
+                            },
+                            afterLabel: (ctx) => {
+                                const idx = ctx.dataIndex;
+                                const startTs = series.bucketStarts?.[idx] || 0;
+                                const endTs = startTs ? (startTs + series.bucketSizeSec) : 0;
+                                const ratio = Number(series.ratios?.[idx] || 0);
+                                const from = startTs ? formatTimestampCompact(startTs) : '—';
+                                const to = endTs ? formatTimestampCompact(endTs) : '—';
+                                return [`From: ${from}`, `To: ${to}`, `Online in bin: ${(ratio * 100).toFixed(1)}%`, `Resolution: ${Math.max(1, Math.round(series.bucketSizeSec / 60))} min/bin`];
+                            }
                         }
-                    } catch (e) {
-                        console.error("Error parsing JWT expiry from localStorage, treating as expired.", e);
-                        showCentralMessage('Session is invalid. Please log in again.', true);
-                        clearAdminSession();
-                        isAdminLoggedIn = false;
-                        setTimeout(() => { window.location.href = 'admin.html'; }, 2000);
+                    },
+                    title: { display: true, text: `Server Timeline (${formatWindowHoursLabel(series.hoursBack)} window, IST)`, color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } },
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+
+    if (patternCanvas) {
+        const metrics = computeServerBehaviorMetrics(14);
+        const onMinutes = metrics.onMs.map((ms) => +(ms / 60000).toFixed(1));
+        const offMinutes = metrics.offMs.map((ms) => +(ms / 60000).toFixed(1));
+        destroyChart('serverHourlyPatternChart');
+        chartInstances['serverHourlyPatternChart'] = new Chart(patternCanvas, {
+            data: {
+                labels: new Array(24).fill(0).map((_, i) => `${getIstHourLabel(i)} IST`),
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'ON minutes',
+                        data: onMinutes,
+                        backgroundColor: CHART_COLORS.greenBg,
+                        borderColor: CHART_COLORS.green,
+                        borderWidth: 1,
+                        stack: 'uptime'
+                    },
+                    {
+                        type: 'bar',
+                        label: 'OFF minutes',
+                        data: offMinutes,
+                        backgroundColor: CHART_COLORS.redBg,
+                        borderColor: CHART_COLORS.red,
+                        borderWidth: 1,
+                        stack: 'uptime'
                     }
-                }
-            }
-            
-            if (!isAdminLoggedIn) {
-                window.location.href = 'admin.html';
-                return;
-            } else {
-                if (loggedInUsername) {
-                    loggedInUsernameSpan.textContent = `Logged in as: ${loggedInUsername}`;
-                    loggedInUsernameSpan.classList.remove('hidden');
-                    loggedInUsernameSpan.classList.add('logged-in-text-outline');
-                }
-                // Removed display logic for logoutAllAdminsBtn
-            }
-
-            // Initialize Lucide icons
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
-
-            fetchTrackingData();
-            connectTrackerEvents();
-            connectAuthEvents();
-
-            mainContentCard.classList.add('animate-in');
-            footerElements.forEach(el => el.classList.add('animate-in'));
-        });
-
-        window.addEventListener('beforeunload', () => {
-            disconnectTrackerEvents();
-            disconnectAuthEvents();
-            stopTrackerFallbackPolling();
-        });
-
-        goBackBtn.addEventListener('click', () => {
-            window.location.href = 'index.html';
-        });
-
-        document.querySelectorAll('.btn').forEach(button => {
-            button.addEventListener('click', function(e) {
-                const btn = this;
-                btn.classList.remove('clicked');
-                void btn.offsetWidth;
-                btn.classList.add('clicked');
-                setTimeout(() => {
-                    btn.classList.remove('clicked');
-                }, 600);
-            });
-        });
-
-        refreshDataBtn.addEventListener('click', () => {
-            fetchTrackingData();
-        });
-
-        // Removed Logout All Admins button click listener
-
-        // PWA: Register Service Worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                // Correct path/scope for custom domain
-                const serviceWorkerScriptPath = '/service-worker.js';
-                const serviceWorkerScope = '/';
-
-                navigator.serviceWorker.register(serviceWorkerScriptPath, {
-                    scope: serviceWorkerScope,
-                    updateViaCache: 'none'
-                })
-                    .then(registration => {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    })
-                    .catch(err => {
-                        console.log('ServiceWorker registration failed: ', err);
-                    });
-            });
-        }
-
-        // PWA Install Prompt Logic (New)
-        let deferredPrompt; // Variable to store the event
-
-        const pwaInstallPrompt = document.getElementById('pwaInstallPrompt');
-        const installButton = pwaInstallPrompt.querySelector('.install-button');
-        const dismissButton = pwaInstallPrompt.querySelector('.dismiss-button');
-
-        // Check if the app is already installed
-        function isAppInstalled() {
-            // This is a common way to check if the app is running in standalone mode (installed PWA)
-            return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-        }
-
-        // Function to show the install prompt UI
-        function showInstallPrompt() {
-            // Only show if not already installed and deferredPrompt exists
-            if (!isAppInstalled() && deferredPrompt) {
-                pwaInstallPrompt.classList.add('show');
-                pwaInstallPrompt.classList.remove('hide');
-            }
-        }
-
-        // Function to hide the install prompt UI
-        function hideInstallPrompt() {
-            pwaInstallPrompt.classList.add('hide');
-            // Remove 'show' after transition for proper re-appearance if needed later
-            setTimeout(() => {
-                pwaInstallPrompt.classList.remove('show');
-            }, 300); // Match CSS transition duration
-        }
-
-        // Listen for the beforeinstallprompt event
-        window.addEventListener('beforeinstallprompt', (e) => {
-            // Prevent the mini-infobar from appearing on mobile
-            e.preventDefault();
-            // Stash the event so it can be triggered later.
-            deferredPrompt = e;
-            // Update UI to notify the user they can install the app
-            showInstallPrompt();
-            console.log('[PWA] beforeinstallprompt fired, showing custom prompt.');
-        });
-
-        // Handle the install button click
-        installButton.addEventListener('click', async () => {
-            hideInstallPrompt(); // Hide the custom prompt
-
-            if (deferredPrompt) {
-                // Show the browser's native install prompt
-                deferredPrompt.prompt();
-                // Wait for the user to respond to the prompt
-                const { outcome } = await deferredPrompt.userChoice;
-                // Optionally, send analytics event with outcome of user choice
-                console.log(`[PWA] User response to install prompt: ${outcome}`);
-                // Clear the deferredPrompt variable, as it can only be used once.
-                deferredPrompt = null;
-
-                // Hide the prompt if the user accepts or dismisses it
-                if (outcome === 'accepted') {
-                    showCentralMessage('GlyphMotion installed successfully! Find it on your home screen.', false);
-                } else {
-                    showCentralMessage('Installation declined.', true);
+                ]
+            },
+            options: {
+                ...CHART_DEFAULTS,
+                scales: {
+                    x: CHART_DEFAULTS.scales.x,
+                    y: {
+                        ...CHART_DEFAULTS.scales.y,
+                        stacked: true,
+                        title: { display: true, text: 'Minutes per hour', color: '#71717a' }
+                    }
+                },
+                plugins: {
+                    ...CHART_DEFAULTS.plugins,
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `${ctx.dataset.label}: ${formatMinutesAsDuration(ctx.parsed.y)}`
+                        }
+                    },
+                    title: { display: true, text: `Server On/Off Pattern by Hour (14d, IST) | Uptime ${metrics.uptimePct.toFixed(1)}%`, color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } }
                 }
             }
         });
 
-        // Handle the dismiss button click
-        dismissButton.addEventListener('click', () => {
-            hideInstallPrompt();
-            // Optionally, remember that the user dismissed the prompt
-            // For example, using localStorage to not show it again for some time
-            localStorage.setItem('pwaDismissedTimestamp', Date.now());
-            console.log('[PWA] Install prompt dismissed.');
-        });
+        const lastEvent = serverStatusHistory.length ? serverStatusHistory[serverStatusHistory.length - 1] : null;
+        const currentStatusEl = document.getElementById('uptimeCurrentStatus');
+        const observedWindowEl = document.getElementById('uptimeObservedWindow');
+        const lastChangeEl = document.getElementById('uptimeLastChange');
+        const transitionsEl = document.getElementById('uptimeTransitions14d');
+        if (currentStatusEl) currentStatusEl.textContent = (currentServerStatus || 'Unknown').toUpperCase();
+        if (observedWindowEl) observedWindowEl.textContent = formatDurationCompact(metrics.windowEndTs - metrics.windowStartTs);
+        if (lastChangeEl) lastChangeEl.textContent = lastEvent ? formatTimestampCompact(lastEvent.ts) : '—';
+        if (transitionsEl) transitionsEl.textContent = String(metrics.transitionCount || 0);
 
-        // Hide the prompt if the app is already installed when the page loads
-        if (isAppInstalled()) {
-            pwaInstallPrompt.style.display = 'none'; // Directly hide if already installed
-            console.log('[PWA] App is already installed, hiding install prompt.');
-        } else {
-            // Check if the user previously dismissed the prompt (e.g., within the last 24 hours)
-            const dismissedTimestamp = localStorage.getItem('pwaDismissedTimestamp');
-            const oneDay = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-            if (dismissedTimestamp && (Date.now() - parseInt(dismissedTimestamp, 10) < oneDay)) {
-                pwaInstallPrompt.style.display = 'none'; // Keep hidden if dismissed recently
-                console.log('[PWA] Install prompt dismissed recently, keeping hidden.');
+        const offlineEl = document.getElementById('statOffline14d');
+        if (offlineEl) {
+            const totalOfflineMinutes = metrics.offMs.reduce((acc, value) => acc + (value / 60000), 0);
+            offlineEl.textContent = formatMinutesAsDuration(totalOfflineMinutes);
+        }
+    }
+}
+
+// ═══════════════════════════════════════════
+// SSE & POLLING
+// ═══════════════════════════════════════════
+function setServerStatus(status) {
+    const dot = document.getElementById('serverStatusDot');
+    const ping = document.getElementById('serverStatusPing');
+    const text = document.getElementById('serverStatusText');
+    if (status === 'connected') {
+        dot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500';
+        ping.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75';
+        text.textContent = 'LIVE'; text.className = 'text-green-400';
+    } else {
+        dot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500';
+        ping.className = 'absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-0';
+        text.textContent = 'OFFLINE'; text.className = 'text-red-400';
+    }
+}
+
+function stopTrackerFallbackPolling() { if (trackerFallbackInterval) { clearInterval(trackerFallbackInterval); trackerFallbackInterval = null; } }
+function startTrackerFallbackPolling() {
+    if (trackerFallbackInterval) return;
+    setServerStatus('offline');
+    trackerFallbackInterval = setInterval(() => {
+        fetchTrackingData(false);
+        requestUptimeSync();
+    }, 30000);
+}
+function disconnectTrackerEvents() { if (trackerEventSource) { trackerEventSource.close(); trackerEventSource = null; } if (trackerReconnectTimer) { clearTimeout(trackerReconnectTimer); trackerReconnectTimer = null; } }
+function scheduleTrackerReconnect() { if (trackerReconnectTimer) return; trackerReconnectTimer = setTimeout(() => { trackerReconnectTimer = null; connectTrackerEvents(); }, SSE_RECONNECT_DELAY_MS); }
+
+function connectTrackerEvents() {
+    const token = localStorage.getItem('adminToken');
+    if (!token || !isAdminLoggedIn) return;
+    disconnectTrackerEvents();
+    try { trackerEventSource = new EventSource(`${LOCAL_TRACKER_EVENTS_ENDPOINT}?token=${encodeURIComponent(token)}`); } catch(e) { startTrackerFallbackPolling(); scheduleTrackerReconnect(); return; }
+    trackerEventSource.onopen = () => {
+        stopTrackerFallbackPolling();
+        setServerStatus('connected');
+        document.getElementById('errorArea').classList.add('hidden');
+        requestUptimeSync(true);
+    };
+    trackerEventSource.addEventListener('trackingData', (event) => {
+        try {
+            const p = JSON.parse(event.data || '{}');
+            maybeProcessTrackingData(p.trackingData || []);
+            if (p.uptimeData) applyServerUptimeData({ uptimeData: p.uptimeData });
+            persistLiveSnapshot(p.trackingData || allTrackingData || [], p.uptimeData || latestUptimeSnapshot || null);
+            hideStatusBanner();
+            if (!p.uptimeData) requestUptimeSync();
+        } catch(e) {}
+    });
+    trackerEventSource.addEventListener('heartbeat', () => {});
+    trackerEventSource.onerror = () => { disconnectTrackerEvents(); startTrackerFallbackPolling(); scheduleTrackerReconnect(); };
+}
+
+function disconnectAuthEvents() { if (authEventSource) { authEventSource.close(); authEventSource = null; } if (authReconnectTimer) { clearTimeout(authReconnectTimer); authReconnectTimer = null; } }
+function scheduleAuthReconnect() { if (authReconnectTimer) return; authReconnectTimer = setTimeout(() => { authReconnectTimer = null; connectAuthEvents(); }, SSE_RECONNECT_DELAY_MS); }
+
+function connectAuthEvents() {
+    const token = localStorage.getItem('adminToken');
+    if (!token || !isAdminLoggedIn) return;
+    disconnectAuthEvents();
+    try { authEventSource = new EventSource(`${LOCAL_ADMIN_AUTH_EVENTS_ENDPOINT}?token=${encodeURIComponent(token)}`); } catch(e) { scheduleAuthReconnect(); return; }
+    authEventSource.addEventListener('authRevoked', () => { showCentralMessage('Master admin invalidated all sessions.', true); clearAdminSession(); setTimeout(() => { window.location.href = 'admin.html'; }, 1200); });
+    authEventSource.onerror = async () => { disconnectAuthEvents(); if (!localStorage.getItem('adminToken')) return; try { await authenticatedFetch(LOCAL_TRACKER_DATA_ENDPOINT, {method:'GET'}); scheduleAuthReconnect(); } catch(e) { if (!String(e?.message||'').toLowerCase().includes('auth')) scheduleAuthReconnect(); } };
+}
+
+// ═══════════════════════════════════════════
+// DATA FETCHING
+// ═══════════════════════════════════════════
+function showProgress() {
+    const bar = document.getElementById('refreshProgressBar');
+    bar.style.transition = 'none'; bar.style.transform = 'scaleX(0)'; bar.style.opacity = '1';
+    void bar.offsetWidth;
+    bar.style.transition = 'transform 1.5s ease-out'; bar.style.transform = 'scaleX(0.9)';
+}
+function hideProgress() {
+    const bar = document.getElementById('refreshProgressBar');
+    bar.style.transition = 'transform 0.3s ease'; bar.style.transform = 'scaleX(1)';
+    setTimeout(() => { bar.style.transition = 'opacity 0.3s ease'; bar.style.opacity = '0'; }, 300);
+}
+
+async function fetchTrackingData(showLoading = true) {
+    showProgress();
+    if (showLoading) { document.getElementById('loadingSpinner').classList.remove('hidden'); }
+    try {
+        const response = await authenticatedFetch(LOCAL_TRACKER_DATA_ENDPOINT);
+        if (!response.ok) { const e = await response.json(); throw new Error(e.message || `Error: ${response.status}`); }
+        const data = await response.json();
+        maybeProcessTrackingData(data.trackingData || [], true);
+        if (data.uptimeData) applyServerUptimeData({ uptimeData: data.uptimeData });
+        persistLiveSnapshot(data.trackingData || [], data.uptimeData || latestUptimeSnapshot || null);
+        hideStatusBanner();
+        document.getElementById('errorArea').classList.add('hidden');
+    } catch (error) {
+        setServerStatus('offline');
+        document.getElementById('errorMessage').textContent = `Failed to load: ${error.message}`;
+        document.getElementById('errorArea').classList.remove('hidden');
+        const restored = restoreSnapshotIfAvailable();
+        if (!restored) showStatusBanner('Live data unavailable and no local snapshot found.');
+    } finally {
+        document.getElementById('loadingSpinner').classList.add('hidden');
+        hideProgress();
+    }
+}
+
+async function reportAdminLandingOnce() {
+    const sessionIdKey = 'adminTrackerLandingSessionIdV1';
+    const sentKey = 'adminTrackerLandingLoggedV1';
+    const existing = sessionStorage.getItem(sessionIdKey);
+    const sessionId = existing || ((window.crypto && typeof window.crypto.randomUUID === 'function')
+        ? window.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    if (!existing) sessionStorage.setItem(sessionIdKey, sessionId);
+    if (sessionStorage.getItem(sentKey) === '1') return;
+
+    try {
+        await authenticatedFetch(LOCAL_ADMIN_TRACKER_LAND_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId })
+        });
+        sessionStorage.setItem(sentKey, '1');
+    } catch (_) {}
+}
+
+function initializeUptimeZoomControls() {
+    const preset10mBtn = document.getElementById('uptimePreset10mBtn');
+    const preset30mBtn = document.getElementById('uptimePreset30mBtn');
+    const preset1hBtn = document.getElementById('uptimePreset1hBtn');
+    const preset2hBtn = document.getElementById('uptimePreset2hBtn');
+    const zoomInBtn = document.getElementById('uptimeZoomInBtn');
+    const zoomOutBtn = document.getElementById('uptimeZoomOutBtn');
+    const zoomResetBtn = document.getElementById('uptimeZoomResetBtn');
+    if (preset10mBtn) preset10mBtn.addEventListener('click', () => setUptimeTimelineWindow(10 / 60));
+    if (preset30mBtn) preset30mBtn.addEventListener('click', () => setUptimeTimelineWindow(30 / 60));
+    if (preset1hBtn) preset1hBtn.addEventListener('click', () => setUptimeTimelineWindow(1));
+    if (preset2hBtn) preset2hBtn.addEventListener('click', () => setUptimeTimelineWindow(2));
+    if (zoomInBtn) zoomInBtn.addEventListener('click', () => setUptimeTimelineWindow(Math.max(UPTIME_TIMELINE_MIN_HOURS, uptimeTimelineHoursWindow / 2)));
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => setUptimeTimelineWindow(Math.min(UPTIME_TIMELINE_MAX_HOURS, Math.ceil(uptimeTimelineHoursWindow * 2))));
+    if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => setUptimeTimelineWindow(UPTIME_TIMELINE_DEFAULT_HOURS));
+    updateUptimeZoomControls();
+}
+
+// ═══════════════════════════════════════════
+// DATA PROCESSING & RENDERING
+// ═══════════════════════════════════════════
+function processTrackingData(data) {
+    if (!data || data.length === 0) {
+        document.getElementById('noDataMessage').classList.remove('hidden');
+        document.getElementById('statsSection').classList.add('hidden');
+        document.getElementById('insightsSection').classList.add('hidden');
+        document.getElementById('chartsSection').classList.add('hidden');
+        document.getElementById('tableSection').classList.add('hidden');
+        return;
+    }
+    document.getElementById('noDataMessage').classList.add('hidden');
+    allTrackingData = data.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    document.getElementById('statsSection').classList.remove('hidden');
+    document.getElementById('insightsSection').classList.remove('hidden');
+    document.getElementById('chartsSection').classList.remove('hidden');
+    document.getElementById('tableSection').classList.remove('hidden');
+    document.getElementById('loadingSpinner').classList.add('hidden');
+
+    updateStats(allTrackingData);
+    updateInsights(allTrackingData);
+    updateCharts(allTrackingData);
+    renderTable(allTrackingData);
+}
+
+function formatTimestamp(ts) {
+    if (!ts) return 'N/A';
+    return IST_FORMATTERS.full.format(new Date(ts * 1000)) + ' IST';
+}
+
+function formatTimestampCompact(ts) {
+    if (!ts) return '—';
+    return IST_FORMATTERS.compact.format(new Date(ts * 1000)) + ' IST';
+}
+function timeAgo(ts) {
+    if (!ts) return '—';
+    const d = Math.floor((Date.now()/1000) - ts);
+    if (d < 60) return d + 's ago';
+    if (d < 3600) return Math.floor(d/60) + 'm ago';
+    if (d < 86400) return Math.floor(d/3600) + 'h ago';
+    return Math.floor(d/86400) + 'd ago';
+}
+
+function updateStats(data) {
+    document.getElementById('statTotal').textContent = data.length;
+    const cities = new Set(data.map(e => e.geolocation?.city).filter(Boolean));
+    document.getElementById('statLocations').textContent = cities.size;
+
+    const cityCount = {};
+    data.forEach(e => { const c = e.geolocation?.city; if (c && c !== 'N/A') cityCount[c] = (cityCount[c]||0)+1; });
+    const topCity = Object.entries(cityCount).sort((a,b)=>b[1]-a[1])[0];
+    document.getElementById('statTopCity').textContent = topCity ? topCity[0] : '—';
+    document.getElementById('statTopCity').style.fontSize = topCity && topCity[0].length > 8 ? '1.2rem' : '';
+
+    const hourCount = {};
+    data.forEach(e => { if (e.timestamp) { const h = getIstHour(e.timestamp); hourCount[h] = (hourCount[h]||0)+1; } });
+    const peakH = Object.entries(hourCount).sort((a,b)=>b[1]-a[1])[0];
+    document.getElementById('statPeakHour').textContent = peakH ? `${getIstHourLabel(peakH[0])} IST` : '—';
+
+    document.getElementById('statLastTime').textContent = data[0] ? formatTimestampCompact(data[0].timestamp) : '—';
+
+    const offlineEl = document.getElementById('statOffline14d');
+    if (offlineEl && !offlineEl.textContent.trim()) offlineEl.textContent = '—';
+}
+
+// ═══════════════════════════════════════════
+// INSIGHTS
+// ═══════════════════════════════════════════
+function updateInsights(data) {
+    const nowTs = Math.floor(Date.now() / 1000);
+    const last24hThreshold = nowTs - 86400;
+    const prev24hThreshold = nowTs - 172800;
+
+    const last24h = data.filter((e) => e.timestamp && e.timestamp >= last24hThreshold);
+    const prev24h = data.filter((e) => e.timestamp && e.timestamp >= prev24hThreshold && e.timestamp < last24hThreshold);
+
+    const ipCounts = {};
+    data.forEach((entry) => {
+        const ip = entry.ipAddress;
+        if (!ip) return;
+        ipCounts[ip] = (ipCounts[ip] || 0) + 1;
+    });
+    const repeatRequests = data.filter((entry) => entry.ipAddress && ipCounts[entry.ipAddress] > 1).length;
+    const repeatRate = data.length ? (repeatRequests / data.length) * 100 : 0;
+
+    const growth = prev24h.length === 0
+        ? (last24h.length > 0 ? 100 : 0)
+        : ((last24h.length - prev24h.length) / prev24h.length) * 100;
+
+    const normalizedIspCount = {};
+    data.forEach((entry) => {
+        const provider = normalizeProviderName(entry.geolocation?.isp);
+        if (provider === 'N/A') return;
+        normalizedIspCount[provider] = (normalizedIspCount[provider] || 0) + 1;
+    });
+    const topProvider = Object.entries(normalizedIspCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+
+    const latestHourCounts = new Array(24).fill(0);
+    last24h.forEach((entry) => {
+        const h = getIstHour(entry.timestamp);
+        latestHourCounts[h] += 1;
+    });
+    const activeHours = latestHourCounts.filter((v) => v > 0);
+    const avgActiveHour = activeHours.length ? activeHours.reduce((a, b) => a + b, 0) / activeHours.length : 0;
+    const peakHourly = activeHours.length ? Math.max(...activeHours) : 0;
+    const spikeRisk = avgActiveHour > 0 && peakHourly >= avgActiveHour * 2.5 ? 'High' : (avgActiveHour > 0 && peakHourly >= avgActiveHour * 1.8 ? 'Moderate' : 'Low');
+
+    let suspiciousCount = 0;
+    let geoKnownCount = 0;
+    data.forEach((entry) => {
+        const g = entry.geolocation || {};
+        if (g.city && g.city !== 'N/A' && g.country && g.country !== 'N/A') geoKnownCount += 1;
+        if (g.proxy === true || g.hosting === true) suspiciousCount += 1;
+    });
+
+    const firstSeenIpTs = {};
+    data.forEach((entry) => {
+        if (!entry.ipAddress || !entry.timestamp) return;
+        const existing = firstSeenIpTs[entry.ipAddress];
+        if (!existing || entry.timestamp < existing) firstSeenIpTs[entry.ipAddress] = entry.timestamp;
+    });
+    const newIpLast24h = last24h.filter((entry) => entry.ipAddress && firstSeenIpTs[entry.ipAddress] && firstSeenIpTs[entry.ipAddress] >= last24hThreshold).length;
+    const newIpRate = last24h.length ? (newIpLast24h / last24h.length) * 100 : 0;
+
+    const suspiciousRate = data.length ? (suspiciousCount / data.length) * 100 : 0;
+    const geoCoverage = data.length ? (geoKnownCount / data.length) * 100 : 0;
+
+    document.getElementById('insightRepeatRate').textContent = `${repeatRate.toFixed(1)}%`;
+    document.getElementById('insight24h').textContent = String(last24h.length);
+    document.getElementById('insightPrev24h').textContent = String(prev24h.length);
+    document.getElementById('insightGrowth').textContent = `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`;
+    document.getElementById('insightTopProvider').textContent = topProvider.length > 14 ? `${topProvider.slice(0, 14)}...` : topProvider;
+    document.getElementById('insightSpikeRisk').textContent = spikeRisk;
+    document.getElementById('insightSuspiciousRate').textContent = `${suspiciousRate.toFixed(1)}%`;
+    document.getElementById('insightGeoCoverage').textContent = `${geoCoverage.toFixed(1)}%`;
+    document.getElementById('insightNewIpRate').textContent = `${newIpRate.toFixed(1)}%`;
+
+    const nowMs = Date.now();
+    const hourlyBuckets = [];
+    const bucketCount = {};
+    for (let i = 23; i >= 0; i--) {
+        const ts = Math.floor((nowMs - (i * 3600 * 1000)) / 1000);
+        const key = `${getIstDateKey(ts)}-${String(getIstHour(ts)).padStart(2, '0')}`;
+        hourlyBuckets.push(key);
+        bucketCount[key] = 0;
+    }
+    data.forEach((entry) => {
+        if (!entry.timestamp || entry.timestamp < last24hThreshold) return;
+        const key = `${getIstDateKey(entry.timestamp)}-${String(getIstHour(entry.timestamp)).padStart(2, '0')}`;
+        if (bucketCount[key] !== undefined) bucketCount[key] += 1;
+    });
+
+    const velocityLabels = hourlyBuckets.map((key) => {
+        const hour = Number(key.slice(-2));
+        return getIstHourLabel(hour);
+    });
+    const velocityData = hourlyBuckets.map((key) => bucketCount[key]);
+    const velocityTitlesMap = {};
+    hourlyBuckets.forEach((key) => { velocityTitlesMap[key] = []; });
+    data.forEach((entry) => {
+        if (!entry.timestamp || entry.timestamp < last24hThreshold) return;
+        const key = `${getIstDateKey(entry.timestamp)}-${String(getIstHour(entry.timestamp)).padStart(2, '0')}`;
+        if (!velocityTitlesMap[key]) return;
+        const title = String(entry.videoTitle || '').trim();
+        if (!title) return;
+        const bucketTitles = velocityTitlesMap[key];
+        if (!bucketTitles.includes(title)) bucketTitles.push(title);
+    });
+    destroyChart('velocityChart');
+    chartInstances['velocityChart'] = new Chart(document.getElementById('velocityChart'), {
+        type: 'line',
+        data: {
+            labels: velocityLabels,
+            datasets: [{
+                label: 'Requests / hour (IST)',
+                data: velocityData,
+                borderColor: CHART_COLORS.green,
+                backgroundColor: CHART_COLORS.greenBg,
+                fill: true,
+                tension: 0.35,
+                pointBackgroundColor: CHART_COLORS.green
+            }]
+        },
+        options: {
+            ...CHART_DEFAULTS,
+            plugins: {
+                ...CHART_DEFAULTS.plugins,
+                tooltip: {
+                    callbacks: {
+                        title: (items) => items?.[0]?.label ? `${items[0].label} IST` : '',
+                        label: (ctx) => `Requests: ${ctx.parsed.y}`,
+                        afterBody: (items) => {
+                            const idx = items?.[0]?.dataIndex ?? -1;
+                            if (idx < 0) return [];
+                            const key = hourlyBuckets[idx];
+                            const titles = (velocityTitlesMap[key] || []).slice(0, 6);
+                            if (titles.length === 0) return ['Video titles: —'];
+                            return ['Video titles:', ...titles.map((t) => `- ${t}`)];
+                        }
+                    }
+                },
+                title: { display: true, text: 'Request Velocity (Last 24h, IST)', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } }
             }
         }
-    
-        // UNIVERSAL SCALING FIX
-        (function () {
-            const REFERENCE_WIDTH = 1920;
-            const MIN_ZOOM = 0.6;
-            const MAX_ZOOM = 1.0;
+    });
 
-            function applyScaling() {
-                const viewportWidth = window.innerWidth;
-                const viewportHeight = window.innerHeight;
+    refreshServerStatusCharts();
+}
 
-                if (viewportWidth <= 1024) {
-                    document.documentElement.style.zoom = '1';
-                    document.documentElement.style.setProperty('--real-vh', viewportHeight + 'px');
-                    return;
-                }
+// ═══════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════
+const CHART_COLORS = { amber:'rgba(245,158,11,0.85)', amberBg:'rgba(245,158,11,0.15)', blue:'rgba(59,130,246,0.85)', blueBg:'rgba(59,130,246,0.15)', green:'rgba(16,185,129,0.85)', greenBg:'rgba(16,185,129,0.15)', purple:'rgba(139,92,246,0.85)', purpleBg:'rgba(139,92,246,0.15)', red:'rgba(239,68,68,0.85)', redBg:'rgba(239,68,68,0.15)' };
+const CHART_DEFAULTS = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#a1a1aa', font:{ family:'Inter', size:11 } } } }, scales:{ x:{ ticks:{ color:'#71717a', font:{ family:'JetBrains Mono', size:10 } }, grid:{ color:'rgba(255,255,255,0.04)' } }, y:{ ticks:{ color:'#71717a', font:{ family:'JetBrains Mono', size:10 } }, grid:{ color:'rgba(255,255,255,0.04)' } } } };
 
-                let zoomLevel = viewportWidth / REFERENCE_WIDTH;
-                zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel));
+function destroyChart(id) { if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; } }
 
-                document.documentElement.style.zoom = zoomLevel;
+function updateCharts(data) {
+    // 1. Location distribution (top 10 cities)
+    const cityCount = {};
+    data.forEach(e => { const c = e.geolocation?.city; if (c && c !== 'N/A') cityCount[c] = (cityCount[c]||0)+1; });
+    const topCities = Object.entries(cityCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    destroyChart('locationChart');
+    chartInstances['locationChart'] = new Chart(document.getElementById('locationChart'), {
+        type:'bar', data:{ labels:topCities.map(c=>c[0]), datasets:[{ label:'Videos Processed', data:topCities.map(c=>c[1]), backgroundColor:CHART_COLORS.amberBg, borderColor:CHART_COLORS.amber, borderWidth:1 }] },
+        options:{ ...CHART_DEFAULTS, indexAxis:'y', plugins:{ ...CHART_DEFAULTS.plugins, title:{ display:true, text:'Top Processing Locations', color:'#e4e4e7', font:{ family:'Outfit', size:14, weight:600 } } } }
+    });
 
-                const realVh = viewportHeight / zoomLevel;
-                document.documentElement.style.setProperty('--real-vh', realVh + 'px');
+    // 2. Activity timeline (by day)
+    const dayMap = {};
+    data.forEach((entry) => {
+        if (!entry.timestamp) return;
+        const key = getIstDateKey(entry.timestamp);
+        if (!dayMap[key]) {
+            dayMap[key] = { key, label: IST_FORMATTERS.dayLabel.format(new Date(entry.timestamp * 1000)), count: 0 };
+        }
+        dayMap[key].count += 1;
+    });
+    const days = Object.values(dayMap).sort((a, b) => a.key.localeCompare(b.key)).slice(-14);
+    destroyChart('activityChart');
+    chartInstances['activityChart'] = new Chart(document.getElementById('activityChart'), {
+        type:'line', data:{ labels:days.map(d=>d.label), datasets:[{ label:'Videos/Day', data:days.map(d=>d.count), borderColor:CHART_COLORS.blue, backgroundColor:CHART_COLORS.blueBg, fill:true, tension:0.4, pointBackgroundColor:CHART_COLORS.blue }] },
+        options:{ ...CHART_DEFAULTS, plugins:{ ...CHART_DEFAULTS.plugins, title:{ display:true, text:'Activity Timeline (Last 14 Days, IST)', color:'#e4e4e7', font:{ family:'Outfit', size:14, weight:600 } } } }
+    });
+
+    // 3. Peak hours
+    const hourCount = new Array(24).fill(0);
+    data.forEach(e => { if (e.timestamp) hourCount[getIstHour(e.timestamp)]++; });
+    destroyChart('peakHoursChart');
+    chartInstances['peakHoursChart'] = new Chart(document.getElementById('peakHoursChart'), {
+        type:'bar', data:{ labels:hourCount.map((_,i)=> `${getIstHourLabel(i)} IST`), datasets:[{ label:'Videos', data:hourCount, backgroundColor:hourCount.map((v)=>{ const max=Math.max(...hourCount); return v===max?CHART_COLORS.amber:CHART_COLORS.greenBg; }), borderColor:hourCount.map((v)=>{ const max=Math.max(...hourCount); return v===max?CHART_COLORS.amber:CHART_COLORS.green; }), borderWidth:1 }] },
+        options:{ ...CHART_DEFAULTS, plugins:{ ...CHART_DEFAULTS.plugins, title:{ display:true, text:'Processing by Hour of Day (IST)', color:'#e4e4e7', font:{ family:'Outfit', size:14, weight:600 } }, legend:{display:false} } }
+    });
+
+    // 4. ISP distribution
+    const ispCount = {};
+    data.forEach(e => { const isp = normalizeProviderName(e.geolocation?.isp); if (isp && isp !== 'N/A') ispCount[isp] = (ispCount[isp]||0)+1; });
+    const topISPs = Object.entries(ispCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    const doughnutColors = [CHART_COLORS.amber, CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.purple, CHART_COLORS.red, 'rgba(100,100,100,0.6)'];
+    destroyChart('ispChart');
+    chartInstances['ispChart'] = new Chart(document.getElementById('ispChart'), {
+        type:'doughnut', data:{ labels:topISPs.map(i=>i[0]), datasets:[{ data:topISPs.map(i=>i[1]), backgroundColor:doughnutColors.slice(0,topISPs.length), borderColor:'#0a0a0c', borderWidth:2 }] },
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ color:'#a1a1aa', font:{ family:'Inter', size:10 }, padding:12, boxWidth:12 } }, title:{ display:true, text:'ISP Distribution (Normalized)', color:'#e4e4e7', font:{ family:'Outfit', size:14, weight:600 } } } }
+    });
+
+    // 5. Country distribution
+    const countryCount = {};
+    data.forEach((entry) => {
+        const country = entry.geolocation?.country;
+        if (!country || country === 'N/A') return;
+        countryCount[country] = (countryCount[country] || 0) + 1;
+    });
+    const topCountries = Object.entries(countryCount).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    destroyChart('countryChart');
+    chartInstances['countryChart'] = new Chart(document.getElementById('countryChart'), {
+        type: 'bar',
+        data: {
+            labels: topCountries.map(([country]) => country),
+            datasets: [{
+                label: 'Requests by country',
+                data: topCountries.map(([, count]) => count),
+                backgroundColor: CHART_COLORS.blueBg,
+                borderColor: CHART_COLORS.blue,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            ...CHART_DEFAULTS,
+            plugins: {
+                ...CHART_DEFAULTS.plugins,
+                title: { display: true, text: 'Country Distribution', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } }
             }
+        }
+    });
 
-            applyScaling();
+    // 6. Weekday trend
+    const weekdayOrder = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const weekdayCount = { Mon:0, Tue:0, Wed:0, Thu:0, Fri:0, Sat:0, Sun:0 };
+    data.forEach((entry) => {
+        if (!entry.timestamp) return;
+        const day = IST_FORMATTERS.weekdayShort.format(new Date(entry.timestamp * 1000));
+        const short = day.slice(0, 3);
+        if (weekdayCount[short] !== undefined) weekdayCount[short] += 1;
+    });
+    destroyChart('weekdayTrendChart');
+    chartInstances['weekdayTrendChart'] = new Chart(document.getElementById('weekdayTrendChart'), {
+        type: 'bar',
+        data: {
+            labels: weekdayOrder,
+            datasets: [{
+                label: 'Requests by weekday (IST)',
+                data: weekdayOrder.map((d) => weekdayCount[d]),
+                backgroundColor: CHART_COLORS.redBg,
+                borderColor: CHART_COLORS.red,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            ...CHART_DEFAULTS,
+            plugins: {
+                ...CHART_DEFAULTS.plugins,
+                title: { display: true, text: 'Weekday Demand Trend (IST)', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } }
+            }
+        }
+    });
 
-            let resizeTimeout;
-            window.addEventListener('resize', function () {
-                clearTimeout(resizeTimeout);
-                resizeTimeout = setTimeout(applyScaling, 100);
-            });
-        })();
+    updateTrafficHeatmap(data);
+    refreshServerStatusCharts();
+}
 
-        // OPTIONAL DEBUG PANEL (Press Ctrl+Shift+D to toggle)
-        const debugDiv = document.createElement('div');
-        debugDiv.id = 'viewport-debug';
-        debugDiv.style.cssText = `
-            position: fixed;
-            bottom: 18px;
-            right: 18px;
-            background: linear-gradient(135deg, #1A1821 80%, #C5A065 100%);
-            color: #C5A065;
-            padding: 16px 22px 14px 22px;
-            border-radius: 1.5rem;
-            font-family: 'Manrope', 'Italiana', 'Dancing Script', monospace;
-            font-size: 13px;
-            z-index: 99999;
-            display: none;
-            line-height: 1.7;
-            border: 1.5px solid #C5A065;
-            box-shadow: 0 8px 32px -8px rgba(197,160,101,0.18), 0 2px 8px rgba(26,24,33,0.12);
-            backdrop-filter: blur(4px);
-            transition: box-shadow 0.3s, background 0.3s;
-            letter-spacing: 0.02em;
-            min-width: 260px;
-            max-width: 340px;
-            text-shadow: 0 1px 2px #18181844;
+function updateTrafficHeatmap(data) {
+    const grid = document.getElementById('trafficHeatmapGrid');
+    const peakSlotEl = document.getElementById('heatmapPeakSlot');
+    const totalEl = document.getElementById('heatmapTotalEvents');
+    if (!grid || !peakSlotEl || !totalEl) return;
+
+    const weekdayOrder = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const timeBins = ['12-2A','2-4A','4-6A','6-8A','8-10A','10-12N','12-2P','2-4P','4-6P','6-8P','8-10P','10-12M'];
+    const matrix = { Mon:new Array(12).fill(0), Tue:new Array(12).fill(0), Wed:new Array(12).fill(0), Thu:new Array(12).fill(0), Fri:new Array(12).fill(0), Sat:new Array(12).fill(0), Sun:new Array(12).fill(0) };
+
+    data.forEach((entry) => {
+        if (!entry.timestamp) return;
+        const day = IST_FORMATTERS.weekdayShort.format(new Date(entry.timestamp * 1000)).slice(0, 3);
+        if (!matrix[day]) return;
+        const hour = getIstHour(entry.timestamp);
+        const bin = Math.floor(hour / 2);
+        matrix[day][bin] += 1;
+    });
+
+    let maxValue = 0;
+    let totalMapped = 0;
+    let peakDay = 'Mon';
+    let peakBin = 0;
+    weekdayOrder.forEach((day) => {
+        matrix[day].forEach((count, idx) => {
+            totalMapped += count;
+            if (count > maxValue) {
+                maxValue = count;
+                peakDay = day;
+                peakBin = idx;
+            }
+        });
+    });
+
+    const cells = [];
+    cells.push('<div class="heatmap-cell header">Day / Slot</div>');
+    timeBins.forEach((slot) => cells.push(`<div class="heatmap-cell header">${slot}</div>`));
+
+    weekdayOrder.forEach((day) => {
+        cells.push(`<div class="heatmap-cell day">${day}</div>`);
+        matrix[day].forEach((count) => {
+            const intensity = maxValue > 0 ? count / maxValue : 0;
+            const bg = `rgba(245,158,11,${0.10 + (intensity * 0.72)})`;
+            const border = `rgba(245,158,11,${0.18 + (intensity * 0.62)})`;
+            cells.push(`<div class="heatmap-cell" title="${day} ${count} events" style="background:${bg};border-color:${border};">${count || '·'}</div>`);
+        });
+    });
+
+    grid.innerHTML = cells.join('');
+    peakSlotEl.textContent = `Peak slot: ${peakDay} ${timeBins[peakBin]} IST`;
+    totalEl.textContent = `Events mapped: ${totalMapped}`;
+}
+
+// ═══════════════════════════════════════════
+// TABLE
+// ═══════════════════════════════════════════
+function renderTable(data) {
+    const tbody = document.getElementById('trackingTableBody');
+    tbody.innerHTML = '';
+    const filter = (document.getElementById('tableFilter').value || '').toLowerCase();
+    const filtered = data.filter(e => {
+        if (!filter) return true;
+        const g = e.geolocation || {};
+        const normalizedIsp = normalizeProviderName(g.isp);
+        return [e.videoTitle, e.ipAddress, e.commitSha, g.city, g.regionName, g.country, g.isp, normalizedIsp].some(v => (v||'').toLowerCase().includes(filter));
+    });
+
+    document.getElementById('kpiTotal').textContent = filtered.length;
+    document.getElementById('kpiIPs').textContent = new Set(filtered.map(e=>e.ipAddress).filter(Boolean)).size;
+    document.getElementById('kpiCities').textContent = new Set(filtered.map(e=>e.geolocation?.city).filter(Boolean)).size;
+
+    filtered.forEach((entry, i) => {
+        const g = entry.geolocation || {};
+        const normalizedIsp = normalizeProviderName(g.isp);
+        const tr = document.createElement('tr');
+        tr.className = 'cursor-pointer';
+        tr.innerHTML = `
+            <td class="text-zinc-500">${i+1}</td>
+            <td>${formatTimestamp(entry.timestamp)}</td>
+            <td class="max-w-[200px] overflow-hidden text-ellipsis" title="${entry.videoTitle||''}">${entry.videoTitle || 'N/A'}</td>
+            <td>${entry.ipAddress || 'N/A'}</td>
+            <td>${g.city || 'N/A'}</td>
+            <td>${g.regionName || 'N/A'}</td>
+            <td>${g.country || 'N/A'}</td>
+            <td class="max-w-[160px] overflow-hidden text-ellipsis" title="${g.isp||''}">${normalizedIsp}</td>
+            <td class="max-w-[120px] overflow-hidden text-ellipsis" title="${entry.commitSha||''}">${entry.commitSha ? entry.commitSha.substring(0,8)+'…' : 'N/A'}</td>
+            <td>
+                <button class="info-btn text-amber-500 hover:text-amber-300 transition-colors text-xs" title="View Details">
+                    <i data-lucide="info" class="w-4 h-4"></i>
+                </button>
+            </td>
         `;
-        document.body.appendChild(debugDiv);
+        tr.querySelector('.info-btn').addEventListener('click', (ev) => { ev.stopPropagation(); showInfoModal(g); });
+        tbody.appendChild(tr);
+    });
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
 
-        function updateDebugPanel() {
-            debugDiv.innerHTML = `
-                <strong>Viewport:</strong> ${window.innerWidth} x ${window.innerHeight} <br>
-                <strong>Zoom:</strong> ${document.documentElement.style.zoom || 1} <br>
-                <strong>DPR:</strong> ${window.devicePixelRatio}
-            `;
+document.getElementById('tableFilter').addEventListener('input', () => renderTable(allTrackingData));
+
+// ═══════════════════════════════════════════
+// INFO MODAL
+// ═══════════════════════════════════════════
+function showInfoModal(geo) {
+    const modal = document.getElementById('infoModal');
+    const details = document.getElementById('infoModalDetailsContent');
+    const mapLinks = document.getElementById('infoModalMapLinks');
+    const fields = [
+        ['IP Query', geo.query], ['Country', geo.country], ['Country Code', geo.countryCode],
+        ['Region', geo.regionName], ['Region Code', geo.region], ['City', geo.city],
+        ['District', geo.district], ['Zip Code', geo.zip], ['Latitude', geo.lat],
+        ['Longitude', geo.lon], ['Timezone', geo.timezone], ['Offset', geo.offset !== 'N/A' && geo.offset ? (geo.offset/3600)+' hours' : 'N/A'],
+        ['Currency', geo.currency], ['ISP (Raw)', geo.isp], ['ISP (Normalized)', normalizeProviderName(geo.isp)], ['Organization', geo.org],
+        ['AS', geo.as], ['AS Name', geo.asname],
+        ['Mobile', geo.mobile !== 'N/A' ? (geo.mobile?'Yes':'No') : 'N/A'],
+        ['Proxy', geo.proxy !== 'N/A' ? (geo.proxy?'Yes':'No') : 'N/A'],
+        ['Hosting', geo.hosting !== 'N/A' ? (geo.hosting?'Yes':'No') : 'N/A'],
+    ];
+    details.innerHTML = fields.map(([k,v]) => `<div><strong>${k}</strong>${v||'N/A'}</div>`).join('');
+
+    mapLinks.innerHTML = '';
+    if (geo.lat && geo.lon && geo.lat !== 'N/A' && geo.lon !== 'N/A') {
+        mapLinks.innerHTML = `
+            <a href="https://www.google.com/maps/search/?api=1&query=${geo.lat},${geo.lon}" target="_blank" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-blue-600/30 transition-all text-sm font-mono"><i data-lucide="map-pin" class="w-4 h-4"></i> Google Maps</a>
+            <a href="https://earth.google.com/web/@${geo.lat},${geo.lon},0a,10000d,1000y,0h,0t,0r" target="_blank" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 transition-all text-sm font-mono"><i data-lucide="globe" class="w-4 h-4"></i> Google Earth</a>`;
+    } else {
+        mapLinks.innerHTML = '<p class="text-zinc-500 text-sm">Map links unavailable (missing coordinates)</p>';
+    }
+    modal.classList.add('active');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function closeInfoModal() {
+    document.getElementById('infoModal').classList.remove('active');
+}
+document.getElementById('infoModalCloseBtn').addEventListener('click', closeInfoModal);
+document.getElementById('infoModal').addEventListener('click', (e) => { if (e.target.id === 'infoModal') closeInfoModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeInfoModal(); });
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    initializeServerStatusTracking();
+    const token = localStorage.getItem('adminToken');
+    loggedInUsername = localStorage.getItem('adminUsername');
+    const sessionTimeoutEnabled = localStorage.getItem('sessionTimeoutEnabled') === 'true';
+
+    if (token && loggedInUsername) {
+        isAdminLoggedIn = true;
+        isAdminMaster = MASTER_ADMIN_USERNAMES_FRONTEND.includes(loggedInUsername);
+        if (sessionTimeoutEnabled) {
+            try { const payload = JSON.parse(atob(token.split('.')[1])); if (payload.exp && (Date.now()/1000) > payload.exp) { showCentralMessage('Session expired.', true); clearAdminSession(); isAdminLoggedIn = false; setTimeout(() => { window.location.href='admin.html'; }, 2000); } } catch(e) { showCentralMessage('Invalid session.', true); clearAdminSession(); isAdminLoggedIn = false; setTimeout(() => { window.location.href='admin.html'; }, 2000); }
         }
-        
-        window.addEventListener('resize', updateDebugPanel);
-        updateDebugPanel();
+    }
+    if (!isAdminLoggedIn) { clearAdminSession(); window.location.href = 'admin.html'; return; }
 
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
-                e.preventDefault();
-                debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
-            }
-        });
+    const usernameEl = document.getElementById('loggedInUsername');
+    usernameEl.textContent = '';
+    usernameEl.classList.add('hidden');
 
-    </script>
+    initializeUptimeZoomControls();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    restoreSnapshotIfAvailable();
+    reportAdminLandingOnce();
+    fetchTrackingData();
+    fetchUptimeData();
+    connectTrackerEvents();
+    connectUptimeEvents();
+    connectAuthEvents();
+});
+
+document.getElementById('refreshDataBtn').addEventListener('click', () => fetchTrackingData());
+window.addEventListener('beforeunload', () => {
+    disconnectTrackerEvents();
+    disconnectUptimeEvents();
+    disconnectAuthEvents();
+    stopTrackerFallbackPolling();
+});
+
+// ═══════════════════════════════════════════
+// UNIVERSAL SCALING FIX
+// ═══════════════════════════════════════════
+(function(){
+    const REF=1920, MIN=0.6, MAX=1.0;
+    function apply(){ const w=window.innerWidth, h=window.innerHeight; if(w<=1024){document.documentElement.style.zoom='1';return;} let z=Math.max(MIN,Math.min(MAX,w/REF)); document.documentElement.style.zoom=z; }
+    apply(); let t; window.addEventListener('resize',()=>{clearTimeout(t);t=setTimeout(apply,100);});
+})();
+
+// PWA
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/service-worker.js', { scope:'/', updateViaCache:'none' }).catch(()=>{}); }); }
+</script>
 </body>
 </html>
