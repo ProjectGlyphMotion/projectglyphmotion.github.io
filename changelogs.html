@@ -1276,12 +1276,12 @@
                 <div class="w-px h-8 bg-zinc-800/80 hidden sm:block"></div>
                 <div class="flex flex-col items-center">
                     <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i data-lucide="git-commit" class="w-3 h-3 text-amber-500"></i> Tracked Updates</span>
-                    <span class="text-sm md:text-base font-outfit font-semibold text-zinc-200">18 Core Commits</span>
+                    <span class="text-sm md:text-base font-outfit font-semibold text-zinc-200">25 Core Commits</span>
                 </div>
                 <div class="w-px h-8 bg-zinc-800/80 hidden sm:block"></div>
                 <div class="flex flex-col items-center">
                     <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i data-lucide="clock" class="w-3 h-3 text-amber-500"></i> Last Updated</span>
-                    <span id="stat-latest" data-latest-date="2026-03-21T10:24:19+05:30" class="text-sm md:text-base font-outfit font-semibold text-zinc-200">Calculating...</span>
+                    <span id="stat-latest" class="text-sm md:text-base font-outfit font-semibold text-zinc-200">Calculating...</span>
                 </div>
             </div>
         </header>
@@ -1293,8 +1293,536 @@
 
             <div class="space-y-16 pb-10">
 
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-04-17T01:06:49+05:30">
+                    <div class="timeline-dot active"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Fri Apr 17, 2026 • 01:06:49 IST</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-emerald-500"></i> <span class="relative-time-display font-semibold text-emerald-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="activity" class="w-3.5 h-3.5"></i> Precision Overhaul
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Admin Tracker Full Rebuild + Uptime Truth Pipeline</h2>
+                                <p class="why-it-matters font-mono text-xs text-amber-200/90 leading-relaxed mb-4 border-l-2 border-amber-500/40 pl-3">Why it matters: this commit upgrades admin uptime from coarse status rendering to transition-accurate telemetry, preserving micro-downtime and preventing stale offline carryover after fast restarts.</p>
+                                <div class="space-y-2 mb-8">
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Frontend re-architecture:</span> tracker and uptime ingestion are unified across API pull, SSE streams, and snapshot fallback with stronger reconnect choreography.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Precision timeline semantics:</span> short-window controls, deterministic hover mapping, mixed-bin logic, and event-transition overlap now preserve 3s-level outages accurately.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Backend truth preservation:</span> uptime persistence and SSE signatures now emit repaired/session-level changes and avoid collapsing rapid off/on transitions.</p>
+                                </div>
+
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/dc26a3543eada04169561a9f200c9ef747af6700" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-emerald-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-emerald-400"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('dc26a3543eada04169561a9f200c9ef747af6700', 'dc26a35', this)">
+                                        dc26a35 <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-500 to-emerald-900/20"></div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="layout-dashboard" class="w-4 h-4 text-emerald-400"></i> Tracker Frontend Rebuild</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Reworked admin tracker runtime into clearer state domains for auth, transport, tracking payloads, uptime events/sessions, and chart lifecycle. Snapshot freshness indicators and offline fallback flow now keep operators informed during network disruption.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="chart-no-axes-combined" class="w-4 h-4 text-emerald-400"></i> Uptime Precision + Zoom Controls</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Added 10m/30m/1h/2h controls, tighter short-window buckets, deterministic hover mapping, and transition-driven bin overlap math with mixed-state bins. This prevents same-minute micro-outages from being flattened into misleading multi-minute offline spans.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="database-zap" class="w-4 h-4 text-emerald-400"></i> Backend Uptime Integrity</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Upgraded uptime persistence and repair path to preserve rapid transitions with sub-second timing fidelity, rebuild sessions from events safely, and prevent aggressive commonization that previously erased short drop/recover sequences.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="radio" class="w-4 h-4 text-emerald-400"></i> Realtime SSE Reliability</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Expanded uptime stream signatures to include event and session markers so repaired/open-session changes are emitted consistently. Added guarded uptime sync pulls on reconnect and tracker-only payloads to heal stale client state faster.</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 diagnostic-block flex items-start gap-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-emerald-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (3 files, +2058 / -1682)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">admin_tracker.html</code> - +1690 / -1670</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">service-worker.js</code> - +1 / -1</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> - +367 / -11</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-04-15T22:05:57+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Wed Apr 15, 2026 • 22:05:57 IST</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-rose-500"></i> <span class="relative-time-display font-semibold text-rose-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Reliability Epoch
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Cancellation + Realtime Stability Framework</h2>
+                                <p class="why-it-matters font-mono text-xs text-amber-200/90 leading-relaxed mb-4 border-l-2 border-amber-500/40 pl-3">Why it matters: cancellation becomes a reliable production control instead of a best-effort stop button, while ownership checks and status hardening prevent unsafe cancels and stale UI states under load.</p>
+                                <div class="space-y-2 mb-8">
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Control-plane upgrade:</span> active job IDs, cancel-request state, and benchmark task tracking now keep processing lifecycle explicit and inspectable.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Safety boundaries:</span> only the initiating client or an admin can cancel active work, preventing cross-user interruption in shared sessions.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Recovery speed:</span> faster SSE reattach and status polling recovery cuts offline-to-online lag after transient failures.</p>
+                                </div>
+
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/6d1dd7c207939786eda955d81b98689da5cbeab7" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-rose-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-rose-400"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('6d1dd7c207939786eda955d81b98689da5cbeab7', '6d1dd7c', this)">
+                                        6d1dd7c <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-rose-500 to-rose-900/20"></div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="ban" class="w-4 h-4 text-rose-400"></i> Safe Cancellation</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Added explicit processing job IDs, owner-safe cancellation checks, tracked subprocess teardown, and benchmark task cancellation with deterministic status transitions. Cancellation now behaves as a first-class lifecycle event, not a passive interruption hint.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="broadcast" class="w-4 h-4 text-rose-400"></i> Realtime Transport Hardening</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Enhanced status payloads, runtime progress with ETA, accelerated SSE reconnect loops, and stronger offline-to-online recovery behavior across dashboard and upload flows. Recovery paths now prioritize fast re-attachment without sacrificing signal clarity.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="user-cog" class="w-4 h-4 text-rose-400"></i> Ownership Authorization</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Introduced owner metadata in active-job state and enforced owner-or-admin cancel permissions in backend endpoints. This closes unsafe multi-user cancellation paths while preserving emergency override for admins.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="timer-reset" class="w-4 h-4 text-rose-400"></i> Runtime Progress Semantics</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Benchmark runtime status now includes stage, progress percentage, detail text, and ETA windows with emission throttling. Long-running phases remain visibly alive without flooding logs or causing front-end flicker.</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 diagnostic-block flex items-start gap-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-rose-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (5 files, +1775 / -126)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">benchmark.html</code> - +498 / -36</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> - +286 / -21</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">ot.py</code> - +16 / -2</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">service-worker.js</code> - +1 / -1</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> - +974 / -66</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-04-15T03:12:13+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Wed Apr 15, 2026 • 03:12:13 IST</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-cyan-500"></i> <span class="relative-time-display font-semibold text-cyan-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i> UX Overhaul
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Admin Modal Re-Architecture</h2>
+                                <p class="why-it-matters font-mono text-xs text-amber-200/90 leading-relaxed mb-4 border-l-2 border-amber-500/40 pl-3">Why it matters: this removes fragmented admin flows and centralizes critical actions in one controlled modal state machine, reducing navigation drift and reset-flow errors on mobile.</p>
+                                <div class="space-y-2 mb-8">
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Single interaction surface:</span> login actions, password reset, and admin options now share one modal stack with predictable transitions.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Failure clarity:</span> password-change success/error banners and countdown redirect behavior make auth outcomes obvious without forcing ambiguous retries.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Device parity:</span> backdrop/keyboard/back-gesture handling now behaves consistently across phone, tablet, and desktop contexts.</p>
+                                </div>
+
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/a845b27a7504e3aa25a9f63e97c1f748a524e38b" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-cyan-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-cyan-400"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('a845b27a7504e3aa25a9f63e97c1f748a524e38b', 'a845b27', this)">
+                                        a845b27 <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-cyan-500 to-cyan-900/20"></div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="panel-top" class="w-4 h-4 text-cyan-400"></i> Modal Navigation</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Added options/password panel transitions, back/close actions, backdrop and escape handling, plus mobile popstate support for native-feeling back gestures. The modal now follows predictable state transitions instead of ad-hoc toggles.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="key-round" class="w-4 h-4 text-cyan-400"></i> Password UX Hardening</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Improved caps-lock detection, success/error banner states, and post-reset countdown redirection without forcing unreliable logout behavior on wrong-password attempts. Credential update outcomes now present clear actionability at every branch.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="route" class="w-4 h-4 text-cyan-400"></i> In-Modal Flow Consolidation</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Moved standalone password-reset UI into the same admin modal surface, eliminating context jumps between page-level sections. This reduces lost state and misclick loops during sensitive auth operations.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="smartphone" class="w-4 h-4 text-cyan-400"></i> Responsive Interaction Refinement</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Repeated spacing and scale passes aligned desktop, tablet, and mobile modal proportions while keeping controls readable under dense layouts. Back and close controls now adapt correctly by viewport mode.</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 diagnostic-block flex items-start gap-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-cyan-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (2 files, +1114 / -243)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> - +1113 / -242</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">service-worker.js</code> - +1 / -1</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-04-14T22:54:25+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Tue Apr 14, 2026 • 22:54:25 IST</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-fuchsia-500"></i> <span class="relative-time-display font-semibold text-fuchsia-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i> Upload Resilience
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Large Upload Recovery + Bot Stability</h2>
+                                <p class="why-it-matters font-mono text-xs text-amber-200/90 leading-relaxed mb-4 border-l-2 border-amber-500/40 pl-3">Why it matters: heavy video uploads are no longer all-or-nothing. Chunk retries and progress continuity drastically reduce failed publish cycles for long, high-frame jobs.</p>
+                                <div class="space-y-2 mb-8">
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Transfer robustness:</span> resumable chunked upload with exponential backoff survives transient network drops mid-transfer.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Operator visibility:</span> upload percentage and MB progress are pushed through the standard status channel to keep UI and terminal in sync.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Runtime stability:</span> Telegram polling timeout/error handling now tolerates long post-processing phases without noisy crash loops.</p>
+                                </div>
+
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/4ea49af3c12eb2ac43a6a4486cb6e91dd203a517" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-fuchsia-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-fuchsia-400"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('4ea49af3c12eb2ac43a6a4486cb6e91dd203a517', '4ea49af', this)">
+                                        4ea49af <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-fuchsia-500 to-fuchsia-900/20"></div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="hard-drive-upload" class="w-4 h-4 text-fuchsia-400"></i> Chunked Drive Uploads</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Migrated from single-shot upload to resumable chunk flow with exponential backoff retry logic and progress callbacks for smoother large-media transfer behavior. Large frame-heavy files can now survive intermittent network instability mid-stream.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="bot" class="w-4 h-4 text-fuchsia-400"></i> Polling Error Hardening</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Extended Telegram network timeouts and introduced cleaner network error handling so transient failures stop spamming logs and no longer destabilize long runs. Runtime stays resilient when uploads and post-processing span longer windows.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="refresh-ccw" class="w-4 h-4 text-fuchsia-400"></i> Retry and Backoff Discipline</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Each upload chunk now has bounded retry attempts with backoff spacing, balancing reliability and rate-limit safety. This prevents immediate fail-fast exits on temporary upstream or socket pressure spikes.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="signal" class="w-4 h-4 text-fuchsia-400"></i> Status-Channel Progress Bridge</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Upload progress is now fed into the same processing-status stream used by frontend and operators, keeping percent and MB telemetry consistent across UI and server console observation.</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 diagnostic-block flex items-start gap-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-fuchsia-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (2 files, +151 / -22)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">gh.py</code> - +120 / -13</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> - +31 / -9</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-04-13T01:39:23+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-4 flex-wrap">
+                                <div class="flex items-center gap-3">
+                                    <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                        <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                        <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                    </a>
+                                    <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                                </div>
+                                <span class="text-zinc-700 hidden sm:block">|</span>
+                                <div class="flex items-center gap-3">
+                                    <a href="https://github.com/sayann70" target="_blank" class="flex items-center gap-2 group/author">
+                                        <img src="https://avatars.githubusercontent.com/u/89209532?v=4" alt="Sayan Sarkar" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                        <span class="text-sm font-mono text-zinc-300 font-semibold">Sayan Sarkar</span>
+                                    </a>
+                                    <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Co-Author</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Mon Apr 13, 2026 • 01:39:23 IST</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-emerald-500"></i> <span class="relative-time-display font-semibold text-emerald-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="gauge" class="w-3.5 h-3.5"></i> Quality Recovery
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">1080p/720p Benchmark Collapse Fix</h2>
+                                <p class="why-it-matters font-mono text-xs text-amber-200/90 leading-relaxed mb-4 border-l-2 border-amber-500/40 pl-3">Why it matters: this restores trust in benchmark numbers for mobile/VFR material by fixing timeline misalignment that was producing falsely catastrophic VMAF readings.</p>
+                                <div class="space-y-2 mb-8">
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Metric integrity:</span> benchmark comparison now handles phone-style frame timing variance without poisoning VMAF/PSNR/SSIM interpretation.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Pipeline observability:</span> recon intake and post-process score propagation are aligned so logs and final metrics describe the same processed output.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Decision quality:</span> recovered score realism prevents bad tuning decisions caused by false low-quality alerts.</p>
+                                </div>
+
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/7a2c785f79d1a9f3d6555283c4c2af15a3d2c198" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-emerald-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-emerald-400"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('7a2c785f79d1a9f3d6555283c4c2af15a3d2c198', '7a2c785', this)">
+                                        7a2c785 <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-500 to-emerald-900/20"></div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="refresh-cw" class="w-4 h-4 text-emerald-400"></i> Temporal Alignment Repair</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Normalized phone/VFR handling in the benchmark path to prevent timeline mismatches that were poisoning VMAF/PSNR/SSIM interpretation on mobile-heavy clips. Comparison stages are now less vulnerable to variable frame pacing artifacts.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="file-scan" class="w-4 h-4 text-emerald-400"></i> Recon Integration Flow</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Clarified recon intake/post-process linkage and benchmark-state visibility, improving observability from pipeline execution through final report and index updates. Intake and post-process stages now narrate the same effective output context.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-400"></i> Benchmark Lifecycle Coherence</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Status propagation during benchmark phases was stabilized to avoid ambiguous transitions in active-run visibility. Frontend lock behavior now tracks the true benchmark lifecycle more deterministically.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="flask-conical" class="w-4 h-4 text-emerald-400"></i> Score Realism Recovery</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Post-fix runs returned to credible ranges for affected mobile resolutions, reducing false low-quality verdicts that could mislead pipeline tuning and codec-policy decisions.</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 diagnostic-block flex items-start gap-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-emerald-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (3 files, +161 / -25)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> - +13 / -3</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">ot.py</code> - +106 / -3</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> - +42 / -19</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-04-12T16:26:19+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Sun Apr 12, 2026 • 16:26:19 IST</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-violet-500"></i> <span class="relative-time-display font-semibold text-violet-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-violet-500/30 bg-violet-500/10 text-violet-300 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="line-chart" class="w-3.5 h-3.5"></i> Analytics Expansion
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Precision Delete + Advanced Benchmark Charts</h2>
+                                <p class="why-it-matters font-mono text-xs text-amber-200/90 leading-relaxed mb-4 border-l-2 border-amber-500/40 pl-3">Why it matters: benchmark data can now be curated safely without direct file edits, and richer analytics exposes regressions and trade-offs that were previously hidden in flat summaries.</p>
+                                <div class="space-y-2 mb-8">
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Data governance:</span> authenticated delete endpoint plus staged confirmation gates reduces accidental destructive edits.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Schema resilience:</span> alias-based metric fallback improves chart reliability across mixed historical benchmark schemas.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Debug depth:</span> new panels connect quality, tracking, resource stress, and latency into one operational view for faster tuning loops.</p>
+                                </div>
+
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/2bd93f1e8d3513d2e87fa98952cf15a4de33492b" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-violet-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-violet-400"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('2bd93f1e8d3513d2e87fa98952cf15a4de33492b', '2bd93f1', this)">
+                                        2bd93f1 <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-violet-500 to-violet-900/20"></div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="trash-2" class="w-4 h-4 text-violet-400"></i> Record Governance</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Introduced precision selection mode, authenticated deletion endpoint, and multi-stage safety confirmations before destructive benchmark-record removal operations. Destructive actions now pass through explicit intent checkpoints.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="activity" class="w-4 h-4 text-violet-400"></i> Pipeline Intelligence Panels</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Expanded the chart stack with MOTA/VMAF dual-axis trends, quality radar, latency spread, resource stress, compression efficiency, HFDR behavior, and bubble-map diagnostics. Benchmark interpretation now supports richer multi-dimensional regression hunting.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="list-checks" class="w-4 h-4 text-violet-400"></i> Precision Delete Workflow</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Selection-mode UI keeps records stable while adding an explicit trailing selection column and bulk-safe deletion controls. This avoids accidental index drift when operators filter or sort during cleanup.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="merge" class="w-4 h-4 text-violet-400"></i> Metric Alias Compatibility</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Alias fallback handling bridges naming differences across historical telemetry schemas, so charts remain populated even when older runs use variant metric keys.</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 diagnostic-block flex items-start gap-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-violet-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (2 files, +596 / -8)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">benchmark.html</code> - +515 / -8</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> - +81 / -0</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-03-23T20:26:17+05:30">
+                    <div class="timeline-dot"></div>
+                    <div class="commit-card">
+                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
+                                    <img src="https://avatars.githubusercontent.com/u/89300443?v=4" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
+                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
+                                </a>
+                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
+                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Mon Mar 23, 2026 • 20:26:17 IST</span>
+                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-indigo-500"></i> <span class="relative-time-display font-semibold text-indigo-400"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+                            <div class="lg:col-span-4 flex flex-col">
+                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="lock-keyhole" class="w-3.5 h-3.5"></i> Access Alignment
+                                </div>
+                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Admin Auth UX + Offline Benchmark Snapshot</h2>
+                                <p class="why-it-matters font-mono text-xs text-amber-200/90 leading-relaxed mb-4 border-l-2 border-amber-500/40 pl-3">Why it matters: benchmark operations remain useful even during backend outages, and auth/session UX is clearer and safer for admins managing production diagnostics.</p>
+                                <div class="space-y-2 mb-8">
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Continuity mode:</span> local benchmark snapshot cache with freshness labels keeps the dashboard informative when live APIs are unreachable.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Recovery workflow:</span> reconnect auto-resync and delta summaries surface exactly what changed after the backend returns.</p>
+                                    <p class="font-outfit text-zinc-400 text-sm leading-relaxed"><span class="text-zinc-200">Auth ergonomics:</span> remember-me, caps-lock warnings, and stronger payload/session checks reduce login friction and false auth confusion.</p>
+                                </div>
+
+                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/00d602ca45409d6f58784703a670b952743e90a4" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-indigo-500/40 transition-all w-full md:w-max group/btn">
+                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-indigo-400"></i> View Commit</span>
+                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('00d602ca45409d6f58784703a670b952743e90a4', '00d602c', this)">
+                                        00d602c <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
+                                    </span>
+                                </a>
+                            </div>
+
+                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
+                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-indigo-500 to-indigo-900/20"></div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="database-backup" class="w-4 h-4 text-indigo-400"></i> Offline Benchmark Survivability</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Added local benchmark snapshot cache, freshness tracking, reconnect delta sync, and snapshot export to keep dashboard operations meaningful during backend interruptions. Operators can continue analysis with known context rather than blank-state fallback.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="user-check" class="w-4 h-4 text-indigo-400"></i> Auth UX Refinements</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Improved admin login responsiveness, remember-me username persistence, robust caps-lock hints, and cleaner token payload handling for master-admin-aware sessions. Authentication behavior now communicates intent and state transitions more clearly.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="clock-3" class="w-4 h-4 text-indigo-400"></i> Freshness and Snapshot Telemetry</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Added freshness indicators and snapshot-vs-last-sync context so users can distinguish live data from cached state immediately, avoiding silent staleness during outage windows.</p>
+                                    </div>
+                                    <div class="diagnostic-block">
+                                        <h4 class="font-outfit text-zinc-200 font-medium flex items-center gap-2 mb-2"><i data-lucide="shield" class="w-4 h-4 text-indigo-400"></i> Session Integrity Enforcement</h4>
+                                        <p class="text-zinc-400 text-sm leading-relaxed">Session checks were tightened to validate token payload consistency and user context before privileged operations, reducing edge-case auth drift after logout/login state changes.</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 diagnostic-block flex items-start gap-4">
+                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-indigo-400"></i></div>
+                                    <div>
+                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (4 files, +517 / -23)</h4>
+                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">admin.html</code> - +169 / -10</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">benchmark.html</code> - +337 / -11</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">service-worker.js</code> - +1 / -1</li>
+                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> - +10 / -1</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
                 <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-03-21T07:38:10+05:30">
-                    <div class="timeline-dot active drop-shadow-[0_0_8px_rgba(139,92,246,0.8)] border-purple-500 bg-purple-400"></div>
+                    <div class="timeline-dot"></div>
                     <div class="commit-card peak-card">
                         <!-- Floating Gemini Star -->
                         <svg viewBox="0 0 24 24" class="absolute -top-8 -left-8 w-16 h-16 gemini-star-icon z-[60] text-purple-400 drop-shadow-[0_0_12px_rgba(192,132,252,1)]" fill="currentColor">
@@ -3191,8 +3719,7 @@
             });
 
             const genesisDateStr = commits[commits.length - 1].getAttribute('data-date');
-            const latestOverrideDateStr = document.getElementById('stat-latest')?.getAttribute('data-latest-date');
-            const latestDateStr = latestOverrideDateStr || commits[0].getAttribute('data-date');
+            const latestDateStr = commits[0].getAttribute('data-date');
 
             if (genesisDateStr && latestDateStr) {
                 const genesisDate = new Date(genesisDateStr);
