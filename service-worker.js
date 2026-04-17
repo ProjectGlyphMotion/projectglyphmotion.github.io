@@ -2,7 +2,7 @@
 
 // Increment version on updates to trigger cache invalidation and fresh content fetching.
 // This is critical for ensuring users get the latest version of your PWA.
-const CACHE_NAME = 'glyphmotion-pwa-cache-v4.0.11'; // Bumped to force SW update and runtime cache policy refresh. (Changed to 4.0.1 to reflect minor update with bug fixes and improvements, and to ensure all users get the latest content without stale caches. Future updates should increment this version accordingly.)
+const CACHE_NAME = 'glyphmotion-pwa-cache-v4.0.12'; // Bumped to force SW update so realtime upload/status endpoints are no longer served from stale cache.
 const THUMBNAIL_CACHE_NAME = 'glyphmotion-thumbnail-cache-v3';
 const MODEL_CACHE_NAME = 'glyphmotion-model-cache-v1';
 const OFFLINE_URL = '/offline.html'; // Path to your custom offline page
@@ -221,7 +221,14 @@ self.addEventListener('fetch', (event) => {
     // These must always come from network to avoid stale processing/deletion status.
     const dynamicApiPaths = [
         '/status',
+        '/events/status',
+        '/events/admin_auth',
+        '/events/admin_tracker_data',
+        '/events/admin_uptime_data',
         '/admin_tracker_data',
+        '/admin_uptime_data',
+        '/upload_chunk',
+        '/complete_chunked_upload',
         '/get_ad_settings'
     ];
     if (dynamicApiPaths.includes(pathname)) {

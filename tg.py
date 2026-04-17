@@ -46,6 +46,9 @@ TRACKING_DATA_FILE = os.path.join(TRACKING_SUBDIRECTORY, 'tracking_data.json')
 UPTIME_DATA_FILE = os.path.join(TRACKING_SUBDIRECTORY, 'uptime_data.json')
 UPTIME_MAX_EVENTS = 200000
 UPTIME_HEARTBEAT_INTERVAL_SECONDS = 5
+UPTIME_OFFLINE_INFER_MULTIPLIER = 2.5
+UPTIME_EVENT_DEDUPE_TOLERANCE_SECONDS = 2.0
+UPTIME_SHUTDOWN_BROADCAST_GRACE_SECONDS = 0.75
 
 # Frame Restriction Configuration
 FRAME_RESTRICTION_ENABLED = True # Set to True to enable frame count restriction
@@ -1082,6 +1085,89 @@ def _close_open_sessions_locked(end_ts: int, end_reason: str) -> None:
             break
 
 
+def _event_exists_near_locked(status: str, event_ts: float, tolerance_seconds: float = UPTIME_EVENT_DEDUPE_TOLERANCE_SECONDS) -> bool:
+    target_status = _sanitize_uptime_status(status)
+    ts_value = float(event_ts or 0)
+    if ts_value <= 0:
+        return False
+
+    events = _uptime_data.get("events", [])
+    if not isinstance(events, list) or not events:
+        return False
+
+    for event in reversed(events):
+        if not isinstance(event, dict):
+            continue
+        existing_status = _sanitize_uptime_status(event.get("status"))
+        if existing_status != target_status:
+            continue
+        try:
+            existing_ts = float(event.get("ts", 0) or 0)
+        except Exception:
+            continue
+        if abs(existing_ts - ts_value) <= float(tolerance_seconds):
+            return True
+    return False
+
+
+def _append_uptime_event_if_missing_locked(status: str, reason: str, event_ts: Optional[int] = None) -> bool:
+    ts_value = float(event_ts if event_ts is not None else time.time())
+    if _event_exists_near_locked(status=status, event_ts=ts_value):
+        return False
+    _append_uptime_event_locked(status=status, reason=reason, event_ts=ts_value)
+    return True
+
+
+def _infer_unrecorded_offline_gap_locked(startup_ts: float) -> None:
+    """If previous run was marked ON but process restarted, infer OFF start from last heartbeat.
+    This preserves true overnight downtime gaps instead of collapsing OFF at restart time.
+    """
+    if _sanitize_uptime_status(_uptime_data.get("currentStatus")) != "on":
+        return
+
+    events = _uptime_data.get("events", [])
+    if isinstance(events, list) and events:
+        last_event = events[-1]
+        if isinstance(last_event, dict) and _sanitize_uptime_status(last_event.get("status")) == "off":
+            return
+
+    last_seen_candidates = []
+    for value in (
+        _uptime_data.get("lastHeartbeatTs", 0),
+        _uptime_data.get("updatedAt", 0),
+    ):
+        try:
+            parsed = float(value or 0)
+            if parsed > 0:
+                last_seen_candidates.append(parsed)
+        except Exception:
+            pass
+
+    if isinstance(events, list) and events:
+        try:
+            last_event_ts = float((events[-1] or {}).get("ts", 0) or 0)
+            if last_event_ts > 0:
+                last_seen_candidates.append(last_event_ts)
+        except Exception:
+            pass
+
+    if not last_seen_candidates:
+        return
+
+    last_seen_ts = max(last_seen_candidates)
+    infer_after = last_seen_ts + (UPTIME_HEARTBEAT_INTERVAL_SECONDS * UPTIME_OFFLINE_INFER_MULTIPLIER)
+    inferred_off_ts = min(float(startup_ts), max(last_seen_ts, infer_after))
+
+    if inferred_off_ts >= float(startup_ts):
+        inferred_off_ts = max(last_seen_ts, float(startup_ts) - 0.001)
+
+    _append_uptime_event_if_missing_locked(
+        status="off",
+        reason="inferred_offline_gap",
+        event_ts=inferred_off_ts,
+    )
+
+
 def _append_uptime_event_locked(status: str, reason: str, event_ts: Optional[int] = None) -> None:
     ts = float(event_ts if event_ts is not None else time.time())
     status = _sanitize_uptime_status(status)
@@ -1104,7 +1190,8 @@ def _append_uptime_event_locked(status: str, reason: str, event_ts: Optional[int
 
 def _write_uptime_event(status: str, reason: str, event_ts: Optional[int] = None) -> None:
     with _uptime_data_lock:
-        _append_uptime_event_locked(status=status, reason=reason, event_ts=event_ts)
+        _append_uptime_event_if_missing_locked(status=status, reason=reason, event_ts=event_ts)
+        _repair_uptime_data_locked()
         _save_uptime_data_locked()
 
 
@@ -1162,8 +1249,7 @@ def load_uptime_data() -> None:
         _uptime_data = loaded
         now_ts = float(time.time())
         _repair_uptime_data_locked(now_ts=now_ts)
-        if _uptime_data.get("currentStatus") == "on":
-            _append_uptime_event_locked(status="off", reason="ungraceful_restart", event_ts=now_ts)
+        _infer_unrecorded_offline_gap_locked(startup_ts=now_ts)
         _append_uptime_event_locked(status="on", reason="startup", event_ts=now_ts)
         _repair_uptime_data_locked(now_ts=now_ts)
         _save_uptime_data_locked()
@@ -2859,6 +2945,74 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         global _ADS_ENABLED_GLOBALLY, _SHOW_ADS_TO_ADMINS
 
+        if self.path == '/admin_uptime_reconcile':
+            admin_payload = self._authenticate_request()
+            if not admin_payload:
+                return
+
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+                payload = json.loads(post_body.decode('utf-8') or '{}')
+            except json.JSONDecodeError:
+                self.send_api_response(400, {"message": "Invalid JSON payload."})
+                return
+
+            raw_segments = payload.get('segments', [])
+            if not isinstance(raw_segments, list):
+                self.send_api_response(400, {"message": "'segments' must be an array."})
+                return
+
+            now_ts = float(time.time())
+            appended_events = 0
+            accepted_segments = 0
+
+            with _uptime_data_lock:
+                for item in raw_segments[:300]:
+                    if not isinstance(item, dict):
+                        continue
+                    try:
+                        off_ts = float(item.get('offTs', 0) or 0)
+                        on_ts = float(item.get('onTs', 0) or 0)
+                    except Exception:
+                        continue
+
+                    if off_ts <= 0 or on_ts <= 0 or on_ts <= off_ts:
+                        continue
+
+                    # Reject extreme clock skew / unrealistic segments.
+                    if on_ts > now_ts + 120:
+                        continue
+                    if (on_ts - off_ts) > (90 * 24 * 3600):
+                        continue
+
+                    accepted_segments += 1
+                    if _append_uptime_event_if_missing_locked(
+                        status='off',
+                        reason='frontend_sse_disconnect',
+                        event_ts=off_ts,
+                    ):
+                        appended_events += 1
+                    if _append_uptime_event_if_missing_locked(
+                        status='on',
+                        reason='frontend_sse_reconnect',
+                        event_ts=on_ts,
+                    ):
+                        appended_events += 1
+
+                if appended_events > 0:
+                    _repair_uptime_data_locked(now_ts=now_ts)
+                    _save_uptime_data_locked()
+                uptime_snapshot = _safe_uptime_snapshot_locked()
+
+            self.send_api_response(200, {
+                "ok": True,
+                "acceptedSegments": accepted_segments,
+                "appendedEvents": appended_events,
+                "uptimeData": uptime_snapshot,
+            })
+            return
+
         if self.path == '/admin_tracker_land':
             admin_payload = self._authenticate_request()
             if not admin_payload:
@@ -4236,6 +4390,7 @@ def main():
     finally:
         stop_uptime_monitor()
         mark_uptime_shutdown("process_exit")
+        time.sleep(UPTIME_SHUTDOWN_BROADCAST_GRACE_SECONDS)
         try:
             web_asyncio_loop.call_soon_threadsafe(web_asyncio_loop.stop)
         except Exception:

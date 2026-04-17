@@ -311,9 +311,11 @@ const LOCAL_TRACKER_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_data';
 const LOCAL_TRACKER_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_tracker_data';
 const LOCAL_UPTIME_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_uptime_data';
 const LOCAL_UPTIME_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_uptime_data';
+const LOCAL_UPTIME_RECONCILE_ENDPOINT = NGROK_PUBLIC_URL + '/admin_uptime_reconcile';
 const LOCAL_ADMIN_TRACKER_LAND_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_land';
 const LOCAL_ADMIN_AUTH_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_auth';
 const SSE_RECONNECT_DELAY_MS = 3000;
+const UPTIME_SSE_OFFLINE_GRACE_MS = 1200;
 const MASTER_ADMIN_USERNAMES_FRONTEND = ["SHITIJ.dev", "sayann70"];
 const IST_TIMEZONE = 'Asia/Kolkata';
 const TRACKER_SNAPSHOT_KEY_PREFIX = 'adminTrackerSnapshot::v1::';
@@ -341,6 +343,9 @@ let lastUptimeSignature = '';
 let latestUptimeSnapshot = null;
 let lastUptimePullMs = 0;
 let uptimeTimelineHoursWindow = 2;
+let frontendOfflineMarkerTimer = null;
+let frontendOfflineActiveTs = null;
+let pendingUptimeReconcileSegments = [];
 const UPTIME_TIMELINE_DEFAULT_HOURS = 2;
 const UPTIME_TIMELINE_MIN_HOURS = (10 / 60);
 const UPTIME_TIMELINE_MAX_HOURS = 24 * 30;
@@ -359,8 +364,12 @@ async function authenticatedFetch(url, options = {}) {
 
 function clearAdminSession() {
     disconnectTrackerEvents(); disconnectAuthEvents(); stopTrackerFallbackPolling();
+    disconnectUptimeEvents();
     clearTrackerSnapshots();
     clearTrackerDashboardData();
+    if (frontendOfflineMarkerTimer) { clearTimeout(frontendOfflineMarkerTimer); frontendOfflineMarkerTimer = null; }
+    frontendOfflineActiveTs = null;
+    pendingUptimeReconcileSegments = [];
     localStorage.removeItem('adminToken'); localStorage.removeItem('adminUsername');
     localStorage.removeItem('sessionTimeoutEnabled'); localStorage.removeItem('sessionDurationDays');
     isAdminLoggedIn = false; loggedInUsername = ''; isAdminMaster = false;
@@ -598,6 +607,144 @@ function requestUptimeSync(force = false) {
     fetchUptimeData();
 }
 
+function clearOfflineMarkerTimer() {
+    if (frontendOfflineMarkerTimer) {
+        clearTimeout(frontendOfflineMarkerTimer);
+        frontendOfflineMarkerTimer = null;
+    }
+}
+
+function queueUptimeReconcileSegment(offTs, onTs, source = 'frontend_sse_monitor') {
+    const off = Number(offTs || 0);
+    const on = Number(onTs || 0);
+    if (!Number.isFinite(off) || !Number.isFinite(on) || off <= 0 || on <= off) return;
+    pendingUptimeReconcileSegments.push({ offTs: off, onTs: on, source });
+    if (pendingUptimeReconcileSegments.length > 120) {
+        pendingUptimeReconcileSegments = pendingUptimeReconcileSegments.slice(-120);
+    }
+}
+
+async function flushUptimeReconcileSegments() {
+    if (!isAdminLoggedIn || pendingUptimeReconcileSegments.length === 0) return;
+    const payload = { segments: pendingUptimeReconcileSegments.slice() };
+    try {
+        const response = await authenticatedFetch(LOCAL_UPTIME_RECONCILE_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        pendingUptimeReconcileSegments = [];
+        if (data && data.uptimeData) {
+            applyServerUptimeData({ uptimeData: data.uptimeData });
+        }
+    } catch (_) {}
+}
+
+function getDefaultUptimeSnapshot() {
+    return {
+        version: 1,
+        currentStatus: 'off',
+        lastHeartbeatTs: 0,
+        updatedAt: 0,
+        events: [],
+        sessions: []
+    };
+}
+
+function buildSessionsFromEvents(events) {
+    const sorted = events
+        .filter((e) => e && Number.isFinite(Number(e.ts)) && typeof e.status === 'string')
+        .map((e) => ({ ts: Number(e.ts), status: String(e.status || '').toLowerCase(), reason: String(e.reason || '') }))
+        .sort((a, b) => a.ts - b.ts);
+
+    const sessions = [];
+    let active = null;
+    sorted.forEach((event) => {
+        if (event.status === 'on') {
+            if (!active) {
+                active = { startTs: event.ts, endTs: null, startReason: event.reason || 'frontend_sse_connected' };
+            }
+        } else {
+            if (active) {
+                active.endTs = event.ts;
+                active.endReason = event.reason || 'frontend_sse_disconnected';
+                sessions.push(active);
+                active = null;
+            }
+        }
+    });
+    if (active) sessions.push(active);
+    return { events: sorted, sessions };
+}
+
+function appendSyntheticUptimeTransition(status, reason, ts = Math.floor(Date.now() / 1000)) {
+    const normalizedStatus = String(status || '').toLowerCase() === 'on' ? 'on' : 'off';
+    const numericTs = Number(ts || 0);
+    if (!Number.isFinite(numericTs) || numericTs <= 0) return false;
+
+    const base = latestUptimeSnapshot && typeof latestUptimeSnapshot === 'object'
+        ? JSON.parse(JSON.stringify(latestUptimeSnapshot))
+        : getDefaultUptimeSnapshot();
+
+    if (!Array.isArray(base.events)) base.events = [];
+    const normalizedEvents = base.events
+        .filter((e) => e && Number.isFinite(Number(e.ts)) && typeof e.status === 'string')
+        .map((e) => ({ ts: Number(e.ts), status: String(e.status || '').toLowerCase(), reason: String(e.reason || '') }))
+        .sort((a, b) => a.ts - b.ts);
+
+    const prevStatus = normalizedEvents.length
+        ? String(normalizedEvents[normalizedEvents.length - 1].status || 'off').toLowerCase()
+        : String(base.currentStatus || 'off').toLowerCase();
+    if (prevStatus === normalizedStatus) {
+        currentServerStatus = normalizedStatus;
+        return false;
+    }
+
+    normalizedEvents.push({ ts: numericTs, status: normalizedStatus, reason: String(reason || '') });
+    const rebuilt = buildSessionsFromEvents(normalizedEvents);
+
+    base.events = rebuilt.events;
+    base.sessions = rebuilt.sessions;
+    base.currentStatus = normalizedStatus;
+    base.updatedAt = numericTs;
+    base.lastHeartbeatTs = Math.max(Number(base.lastHeartbeatTs || 0), numericTs);
+    latestUptimeSnapshot = base;
+
+    // Force application even when payload shape is unchanged except synthetic marker.
+    lastUptimeSignature = '';
+    applyServerUptimeData({ uptimeData: base });
+    return true;
+}
+
+function scheduleFrontendOfflineMark(reason) {
+    clearOfflineMarkerTimer();
+    frontendOfflineMarkerTimer = setTimeout(() => {
+        frontendOfflineMarkerTimer = null;
+        const nowTs = Math.floor(Date.now() / 1000);
+        setServerStatus('offline');
+        if (appendSyntheticUptimeTransition('off', reason || 'frontend_sse_disconnected', nowTs)) {
+            if (frontendOfflineActiveTs === null) frontendOfflineActiveTs = nowTs;
+        }
+    }, UPTIME_SSE_OFFLINE_GRACE_MS);
+}
+
+function markFrontendOnline(reason) {
+    clearOfflineMarkerTimer();
+    const nowTs = Math.floor(Date.now() / 1000);
+    setServerStatus('connected');
+    if (appendSyntheticUptimeTransition('on', reason || 'frontend_sse_connected', nowTs)) {
+        if (frontendOfflineActiveTs !== null && nowTs > frontendOfflineActiveTs) {
+            queueUptimeReconcileSegment(frontendOfflineActiveTs, nowTs, reason || 'frontend_sse_reconnect');
+            frontendOfflineActiveTs = null;
+            flushUptimeReconcileSegments();
+        }
+    } else if (currentServerStatus === 'on') {
+        frontendOfflineActiveTs = null;
+    }
+}
+
 function getTrackingDataSignature(data) {
     if (!Array.isArray(data) || data.length === 0) return '0';
     const n = data.length;
@@ -675,6 +822,9 @@ async function fetchUptimeData() {
         if (!response.ok) return;
         const payload = await response.json();
         applyServerUptimeData(payload);
+        if ((payload?.uptimeData?.currentStatus || '').toLowerCase() === 'on') {
+            markFrontendOnline('uptime_poll_sync');
+        }
         const rawUptimeData = payload && payload.uptimeData ? payload.uptimeData : null;
         persistLiveSnapshot(allTrackingData, rawUptimeData || latestUptimeSnapshot);
         hideStatusBanner();
@@ -698,11 +848,23 @@ function connectUptimeEvents() {
     try { uptimeEventSource = new EventSource(`${LOCAL_UPTIME_EVENTS_ENDPOINT}?token=${encodeURIComponent(token)}`); }
     catch (_) { scheduleUptimeReconnect(); return; }
 
+    uptimeEventSource.onopen = () => {
+        markFrontendOnline('uptime_sse_connected');
+        requestUptimeSync(true);
+    };
+
     uptimeEventSource.addEventListener('uptimeData', (event) => {
-        try { applyServerUptimeData(JSON.parse(event.data || '{}')); } catch (_) {}
+        try {
+            applyServerUptimeData(JSON.parse(event.data || '{}'));
+            markFrontendOnline('uptime_sse_payload');
+        } catch (_) {}
     });
-    uptimeEventSource.addEventListener('heartbeat', () => {});
-    uptimeEventSource.onerror = () => { disconnectUptimeEvents(); scheduleUptimeReconnect(); };
+    uptimeEventSource.addEventListener('heartbeat', () => { markFrontendOnline('uptime_sse_heartbeat'); });
+    uptimeEventSource.onerror = () => {
+        scheduleFrontendOfflineMark('uptime_sse_disconnected');
+        disconnectUptimeEvents();
+        scheduleUptimeReconnect();
+    };
 }
 
 function getStatusValue(status) {
@@ -1106,6 +1268,7 @@ function stopTrackerFallbackPolling() { if (trackerFallbackInterval) { clearInte
 function startTrackerFallbackPolling() {
     if (trackerFallbackInterval) return;
     setServerStatus('offline');
+    scheduleFrontendOfflineMark('tracker_sse_disconnected');
     trackerFallbackInterval = setInterval(() => {
         fetchTrackingData(false);
         requestUptimeSync();
@@ -1121,7 +1284,7 @@ function connectTrackerEvents() {
     try { trackerEventSource = new EventSource(`${LOCAL_TRACKER_EVENTS_ENDPOINT}?token=${encodeURIComponent(token)}`); } catch(e) { startTrackerFallbackPolling(); scheduleTrackerReconnect(); return; }
     trackerEventSource.onopen = () => {
         stopTrackerFallbackPolling();
-        setServerStatus('connected');
+        markFrontendOnline('tracker_sse_connected');
         document.getElementById('errorArea').classList.add('hidden');
         requestUptimeSync(true);
     };
@@ -1131,12 +1294,18 @@ function connectTrackerEvents() {
             maybeProcessTrackingData(p.trackingData || []);
             if (p.uptimeData) applyServerUptimeData({ uptimeData: p.uptimeData });
             persistLiveSnapshot(p.trackingData || allTrackingData || [], p.uptimeData || latestUptimeSnapshot || null);
+            markFrontendOnline('tracker_sse_payload');
             hideStatusBanner();
             if (!p.uptimeData) requestUptimeSync();
         } catch(e) {}
     });
-    trackerEventSource.addEventListener('heartbeat', () => {});
-    trackerEventSource.onerror = () => { disconnectTrackerEvents(); startTrackerFallbackPolling(); scheduleTrackerReconnect(); };
+    trackerEventSource.addEventListener('heartbeat', () => { markFrontendOnline('tracker_sse_heartbeat'); });
+    trackerEventSource.onerror = () => {
+        scheduleFrontendOfflineMark('tracker_sse_disconnected');
+        disconnectTrackerEvents();
+        startTrackerFallbackPolling();
+        scheduleTrackerReconnect();
+    };
 }
 
 function disconnectAuthEvents() { if (authEventSource) { authEventSource.close(); authEventSource = null; } if (authReconnectTimer) { clearTimeout(authReconnectTimer); authReconnectTimer = null; } }
@@ -1176,10 +1345,12 @@ async function fetchTrackingData(showLoading = true) {
         maybeProcessTrackingData(data.trackingData || [], true);
         if (data.uptimeData) applyServerUptimeData({ uptimeData: data.uptimeData });
         persistLiveSnapshot(data.trackingData || [], data.uptimeData || latestUptimeSnapshot || null);
+        markFrontendOnline('tracker_poll_success');
         hideStatusBanner();
         document.getElementById('errorArea').classList.add('hidden');
     } catch (error) {
         setServerStatus('offline');
+        scheduleFrontendOfflineMark('tracker_poll_failed');
         document.getElementById('errorMessage').textContent = `Failed to load: ${error.message}`;
         document.getElementById('errorArea').classList.remove('hidden');
         const restored = restoreSnapshotIfAvailable();
