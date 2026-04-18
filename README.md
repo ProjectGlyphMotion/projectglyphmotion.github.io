@@ -57,8 +57,8 @@ cp .env.example .env
 ├── token.json                  # Google Drive API token file (for authenticated access)
 ├── videos.json                 # JSON file containing metadata for processed videos (links, titles, etc.)
 ├── tracking_data.json          # JSON file containing detailed tracking data for each processed video (object counts, timestamps, etc.)
-├── benchmark.html # Benchmarking results and performance metrics for the object tracking system
-├── changelogs.html # Detailed changelogs documenting updates, improvements, and fixes across different versions of the project
+├── benchmark.html              # Benchmarking results and performance metrics for the object tracking system
+├── changelogs.html             # Detailed changelogs documenting updates, improvements, and fixes across different versions of the project
 ├── .gitignore                  # Specifies files and directories to ignore in Git
 ├── README.md                   # Project overview and setup instructions
 └──LICENSE                      # Project license file
