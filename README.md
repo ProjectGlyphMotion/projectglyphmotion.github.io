@@ -7,12 +7,31 @@
 
 [Our Website](https://projectglyphmotion.studio/) 
 
+### Secrets Configuration
+
+All runtime secrets are now loaded from a single external `.env` file.
+
+1. Create a real env file from the template:
+
+```bash
+cp .env.example .env
+```
+
+2. Fill required values in `.env`:
+- `TELEGRAM_BOT_TOKEN`
+- `JWT_SECRET_KEY`
+- `GITHUB_ACCESS_TOKEN` (and/or `GITHUB_PAT` for `web_server_public.py`)
+- `GITHUB_USERNAME`
+- `GITHUB_REPO_NAME`
+
+3. Keep `.env` private. It is ignored by git via `.gitignore`.
+
 ### Here Is Our File Structure 
 
 ```bash
 ├── index.html                  # Main web interface (frontend)
 ├── admin.html                  # Admin login page
-├── admin_tracker.html          # Admin dashboard for tracking processed videos and request origins
+├── admin_tracker.html          # Admin dashboard for tracking processed videos and request origins and other analytics like uptime, etc.
 ├── manifest.json               # PWA: Web App Manifest for installability
 ├── service-worker.js           # PWA: Service Worker for offline capabilities and caching
 ├── images/
@@ -37,7 +56,9 @@
 ├── web_server_public.py        # Python script to run the Flask web server and Cloudflare Tunnel (Automation of the whole backend)
 ├── token.json                  # Google Drive API token file (for authenticated access)
 ├── videos.json                 # JSON file containing metadata for processed videos (links, titles, etc.)
-├── tracking_data.json          # JSON file containing tracking data for processed videos (IP Address, Lat/Lon and object IDs, timestamps, etc.)
+├── tracking_data.json          # JSON file containing detailed tracking data for each processed video (object counts, timestamps, etc.)
+├── benchmark.html # Benchmarking results and performance metrics for the object tracking system
+├── changelogs.html # Detailed changelogs documenting updates, improvements, and fixes across different versions of the project
 ├── .gitignore                  # Specifies files and directories to ignore in Git
 ├── README.md                   # Project overview and setup instructions
 └──LICENSE                      # Project license file

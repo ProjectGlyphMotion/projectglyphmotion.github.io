@@ -7,20 +7,20 @@ import json
 import threading
 import signal
 import psutil # For checking if processes are running
+from env_config import get_env
 
 # --- Configuration ---
-# IMPORTANT: Fill these out!
-GITHUB_REPO_NAME = "Project-GlyphMotion" # Your GitHub username
-GITHUB_REPO_NAME = "Project-GlyphMotion" # Your GitHub repository name
-GITHUB_PAT = "YOUR_ACTUAL_GITHUB_PAT" # <--- IMPORTANT: Replace with your actual GitHub Personal Access Token (with 'repo' scope)
-GITHUB_BRANCH = "main" # Your GitHub Pages branch (usually 'main' or 'master')
+GITHUB_USERNAME = get_env("GITHUB_USERNAME", "ProjectGlyphMotion")
+GITHUB_REPO_NAME = get_env("GITHUB_REPO_NAME", "ProjectGlyphMotion.github.io")
+GITHUB_PAT = get_env("GITHUB_PAT") or get_env("GITHUB_ACCESS_TOKEN")
+GITHUB_BRANCH = get_env("GITHUB_BRANCH", "main")
 
 # Cloudflare Tunnel Configuration
 # Tunnel Name (must match the name used when you ran 'cloudflared tunnel create')
-CLOUDFLARE_TUNNEL_NAME = "project-glyph-motion-org-tunnel" # Change this to your actual tunnel name 
+CLOUDFLARE_TUNNEL_NAME = get_env("CLOUDFLARE_TUNNEL_NAME", "project-glyph-motion-org-tunnel")
 # Your custom domain that you configured with Cloudflare Tunnel
 # This MUST match the 'hostname' in your config.yml and the CNAME record in Cloudflare DNS
-CLOUDFLARE_CUSTOM_DOMAIN = "projectglyphmotion.studio" # Change this to your actual custom domain
+CLOUDFLARE_CUSTOM_DOMAIN = get_env("CLOUDFLARE_CUSTOM_DOMAIN", "projectglyphmotion.studio")
 
 # Local Server Configuration
 TG_PY_SCRIPT = "tg.py"
@@ -191,6 +191,10 @@ def main():
     signal.signal(signal.SIGTERM, cleanup_processes) # kill command
 
     print("--- Starting Public Tracker Automation ---")
+
+    if not GITHUB_PAT:
+        print("❌ GITHUB_PAT (or GITHUB_ACCESS_TOKEN) is not configured. Set it in .env before running this script.")
+        return
 
     # 1. Start tg.py
     if not start_tg_py():

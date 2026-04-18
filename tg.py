@@ -25,6 +25,7 @@ import shutil  # For moving cached preview files
 import mimetypes
 import atexit
 from urllib.parse import urlparse, parse_qs
+from env_config import get_env
 
 # Import the gh.py script
 from gh import update_github_pages_with_video, delete_video_from_drive_and_github, get_commit_details
@@ -35,7 +36,7 @@ from recon_integration import update_recon_index_scores
 from admin_auth import authenticate_admin, get_session_expiry_time, update_admin_credential_in_file, verify_password, ADMIN_CREDENTIALS, SESSION_TIMEOUT_ENABLED, SESSION_DURATION_DAYS
 
 # --- Configuration ---
-TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # Replace with your bot token
+TELEGRAM_BOT_TOKEN = get_env("TELEGRAM_BOT_TOKEN")
 USE_GITHUB_PAGES = True  # Switch to enable/disable GitHub Pages integration (set to True to use gh.py)
 OUTPUT_SUBDIRECTORY = "output"
 INPUT_SUBDIRECTORY = "input"
@@ -56,12 +57,14 @@ FRAME_RESTRICTION_VALUE = 20000 # Max allowed frames for video processing
 FFPROBE_TIMEOUT_SECONDS = 10 # Timeout for ffprobe command in seconds
 
 # JWT Secret Key (VERY IMPORTANT: Replace with a strong, random key in production!)
-JWT_SECRET_KEY = 'YOUR_JWT_SECRET_KEY_HERE' # Generate a secure key, e.g., using os.urandom(32) and base64 encoding
+JWT_SECRET_KEY = get_env("JWT_SECRET_KEY", "")
 
 # Master Admin Usernames (only these users can trigger global logout and other master actions)
 # These users must also exist in ADMIN_CREDENTIALS in admin_auth.py
 # FIX: Changed this to a set of individual strings for each master admin.
-MASTER_ADMIN_USERNAMES = {"ExampleAdmin1", "ExampleAdmin2"} # Add more usernames to this set if you have multiple master admins, e.g., {"ExampleAdmin1", "another_master_admin"}
+MASTER_ADMIN_USERNAMES = {"SHITIJ.dev", "sayann70"} # Add more usernames to this set if you have multiple master admins, e.g., {"ExampleAdmin1", "another_master_admin"}
+
+# --- AdSense Configuration (New) ---
 # Global flag to enable/disable ads for all users (including non-admins)
 _ADS_ENABLED_GLOBALLY = False # Default to False, can be changed by master admin
 
@@ -4317,13 +4320,16 @@ def main():
     start_preview_cleanup_scheduler()
     logger.info("Preview cleanup scheduler started")
 
-    # Ensure JWT_SECRET_KEY is not the default placeholder
+    if not TELEGRAM_BOT_TOKEN:
+        logger.error("TELEGRAM_BOT_TOKEN is not configured. Set it in environment or .env before starting tg.py.")
+        return
+
+    # Ensure JWT_SECRET_KEY is available
     global JWT_SECRET_KEY
-    if JWT_SECRET_KEY == 'YOUR_VERY_SECRET_JWT_KEY_HERE':
-        logger.error("!!! WARNING: JWT_SECRET_KEY is still the default placeholder. Please change it to a strong, random key for security. !!!")
-        # For demonstration, generate a temporary one if not set, but warn
+    if not JWT_SECRET_KEY:
+        logger.warning("JWT_SECRET_KEY is not configured. Generating a temporary key for this process.")
         JWT_SECRET_KEY = os.urandom(32).hex()
-        logger.warning(f"Generated a temporary JWT_SECRET_KEY: {JWT_SECRET_KEY}. CHANGE THIS IN PRODUCTION!")
+        logger.warning("Set JWT_SECRET_KEY in .env for stable and secure auth across restarts.")
 
     web_asyncio_loop = asyncio.new_event_loop()
     web_asyncio_thread = threading.Thread(target=run_async_loop, args=(web_asyncio_loop,), daemon=True)

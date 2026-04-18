@@ -6,6 +6,7 @@ import time
 import asyncio
 from datetime import datetime
 from typing import Tuple, Optional, Callable
+from env_config import get_env
 
 # Google Drive API imports
 from google.oauth2.credentials import Credentials
@@ -22,45 +23,25 @@ from github.GithubException import GithubException
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- Configuration (IMPORTANT: Use Environment Variables for Production) ---
-# Hardcoded values will be used first, environment variables as fallback.
-# For deployment, strongly consider using only environment variables for security.
+# --- Configuration (loaded from .env/environment) ---
 
 # Google Drive API
 GOOGLE_DRIVE_SCOPES = ['https://www.googleapis.com/auth/drive.file']
-# Hardcoded path for client_secret.json (replace with your actual path if different)
-_HARDCODED_GOOGLE_DRIVE_CLIENT_SECRET_FILE = 'client_secret.json'
-GOOGLE_DRIVE_CLIENT_SECRET_FILE = _HARDCODED_GOOGLE_DRIVE_CLIENT_SECRET_FILE or os.getenv('GOOGLE_DRIVE_CLIENT_SECRET_FILE', 'client_secret.json')
+GOOGLE_DRIVE_CLIENT_SECRET_FILE = get_env('GOOGLE_DRIVE_CLIENT_SECRET_FILE', 'client_secret.json')
 
-# Hardcoded path for token.json (replace with your actual path if different)
-_HARDCODED_GOOGLE_DRIVE_TOKEN_FILE = 'token.json'
-GOOGLE_DRIVE_TOKEN_FILE = _HARDCODED_GOOGLE_DRIVE_TOKEN_FILE or os.getenv('GOOGLE_DRIVE_TOKEN_FILE', 'token.json')
+GOOGLE_DRIVE_TOKEN_FILE = get_env('GOOGLE_DRIVE_TOKEN_FILE', 'token.json')
 
-# Name of the parent folder in Google Drive for processed videos
-# Changed to support nested path
-GOOGLE_DRIVE_OUTPUT_FOLDER_NAME = 'ObjectTrackerMaster/output'
+GOOGLE_DRIVE_OUTPUT_FOLDER_NAME = get_env('GOOGLE_DRIVE_OUTPUT_FOLDER_NAME', 'ObjectTrackerMaster/output')
 
 
-# GitHub API
-# Hardcoded Personal Access Token (REPLACE WITH YOUR ACTUAL TOKEN)
-# WARNING: Exposing PAT directly in code is not recommended for production.
-# Use environment variables or a secure secret management system.
-_HARDCODED_GITHUB_ACCESS_TOKEN = "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN_HERE" 
-GITHUB_ACCESS_TOKEN = _HARDCODED_GITHUB_ACCESS_TOKEN if _HARDCODED_GITHUB_ACCESS_TOKEN != "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN_HERE" else os.getenv('GITHUB_ACCESS_TOKEN')
+GITHUB_ACCESS_TOKEN = get_env('GITHUB_ACCESS_TOKEN')
 if not GITHUB_ACCESS_TOKEN or GITHUB_ACCESS_TOKEN == "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN_HERE":
     logger.error("GITHUB_ACCESS_TOKEN is not set or is still the placeholder. GitHub operations will fail!")
 
-# Hardcoded GitHub username (REPLACE WITH YOUR ACTUAL USERNAME)
-_HARDCODED_GITHUB_USERNAME = "ProjectGlyphMotion" # <--- CHANGE THIS TO YOUR GITHUB USERNAME
-# Note: This should be your GitHub username, not an email.
-GITHUB_USERNAME = _HARDCODED_GITHUB_USERNAME if _HARDCODED_GITHUB_USERNAME != "YOUR_GITHUB_USERNAME_HERE" else os.getenv('GITHUB_USERNAME')
+GITHUB_USERNAME = get_env('GITHUB_USERNAME', 'ProjectGlyphMotion')
+GITHUB_REPO_NAME = get_env('GITHUB_REPO_NAME', 'ProjectGlyphMotion.github.io')
 
-# Hardcoded GitHub repository name (REPLACE WITH YOUR ACTUAL REPO NAME)
-_HARDCODED_GITHUB_REPO_NAME = "ProjectGlyphMotion.github.io" # <--- CHANGE THIS TO YOUR REPO NAME
-GITHUB_REPO_NAME = _HARDCODED_GITHUB_REPO_NAME if _HARDCODED_GITHUB_REPO_NAME != "YOUR_GITHUB_REPO_NAME_HERE" else os.getenv('GITHUB_REPO_NAME')
-
-# Branch to commit to (usually 'main' or 'master' for GitHub Pages)
-GITHUB_BRANCH = 'main'
+GITHUB_BRANCH = get_env('GITHUB_BRANCH', 'main')
 # Path to the JSON file in your GitHub repository that stores video metadata
 GITHUB_VIDEOS_JSON_PATH = 'videos.json'
 
