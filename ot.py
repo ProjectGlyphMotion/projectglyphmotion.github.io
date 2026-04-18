@@ -527,6 +527,7 @@ def parse_arguments():
     parser.add_argument("--roi_height", type=float, default=1.0, help="ROI height (0-1 normalized).")
     parser.add_argument("--roi_show_overlay", type=str, default="true", help="Show semi-transparent overlay outside ROI (true/false).")
     parser.add_argument("--roi_overlay_opacity", type=int, default=DEFAULT_ROI_OVERLAY_OPACITY, help="ROI overlay opacity (0-100).")
+    parser.add_argument("--gdrive_auto_transcoded", type=str, default="false", help="Whether uploaded output auto-transcoded on Google Drive (true/false).")
     
     return parser.parse_args()
 
@@ -838,6 +839,8 @@ def start_ffmpeg_video_encoder(output_path, width, height, fps, vf_filter_string
             "-cq", str(FFMPEG_CRF_VALUE),
             "-b:v", "0",
             "-pix_fmt", "yuv420p",
+            "-metadata", "major_brand=mp42",
+            "-metadata", "compatible_brands=isomiso2avc1mp41",
             output_path
         ])
     else:
@@ -846,6 +849,8 @@ def start_ffmpeg_video_encoder(output_path, width, height, fps, vf_filter_string
             "-preset", FFMPEG_PRESET,
             "-crf", str(FFMPEG_CRF_VALUE),
             "-pix_fmt", "yuv420p",
+            "-metadata", "major_brand=mp42",
+            "-metadata", "compatible_brands=isomiso2avc1mp41",
             output_path
         ])
 
@@ -901,6 +906,8 @@ def process_audio_ffmpeg(video_source_path, temp_silent_video_path, final_output
         "-c:a", "aac",
         "-strict", "experimental", # Needed for some AAC encoders
         "-b:a", "192k", # Audio bitrate, adjust as needed
+        "-metadata", "major_brand=mp42",
+        "-metadata", "compatible_brands=isomiso2avc1mp41",
         "-shortest",
         final_output_video_temp
     ]
@@ -1004,6 +1011,7 @@ def main():
         except Exception as e: print(f"[DEBUG] Error GPUtil priming: {e}")
 
     args = parse_arguments()
+    gdrive_auto_transcoded = args.gdrive_auto_transcoded.lower() == 'true'
 
     FFMPEG_VIDEO_CODEC = str(args.codec or FFMPEG_VIDEO_CODEC).strip() or FFMPEG_VIDEO_CODEC
     FFMPEG_PRESET = str(args.preset or FFMPEG_PRESET).strip() or FFMPEG_PRESET
@@ -1091,6 +1099,7 @@ def main():
                 video_filename=os.path.basename(args.input_video),
                 normalization_triggered=bool(recon_flags.get("normalization_triggered")),
                 normalization_reasons=recon_flags.get("normalization_reasons", []),
+                gdrive_auto_transcoded=gdrive_auto_transcoded,
             )
             append_recon_index_row(project_root, intake_row)
         else:
@@ -1760,6 +1769,7 @@ def main():
                 normalization_reasons=recon_flags.get("normalization_reasons", []),
                 vmaf_score=final_stats.get("VMAF", "") if 'final_stats' in locals() else "",
                 mota_score=final_stats.get("MOTA_Score", "") if 'final_stats' in locals() else "",
+                gdrive_auto_transcoded=gdrive_auto_transcoded,
             )
             append_recon_index_row(project_root, post_process_row)
         except Exception as recon_csv_error:
