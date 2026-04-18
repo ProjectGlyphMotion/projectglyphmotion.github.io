@@ -14,6 +14,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from googleapiclient.errors import HttpError
 
 # GitHub API imports
 from github import Github, InputGitTreeElement
@@ -269,6 +270,17 @@ def delete_from_google_drive(service, file_id: str) -> bool:
         service.files().delete(fileId=file_id).execute()
         logger.info(f"Successfully deleted file with ID: {file_id} from Google Drive.")
         return True
+    except HttpError as e:
+        # Idempotency: deleting an already-missing Drive file should not fail the overall delete flow.
+        status = getattr(e, "status_code", None) or getattr(getattr(e, "resp", None), "status", None)
+        if status == 404:
+            logger.warning(
+                f"Google Drive file already missing (treated as deleted): {file_id}. "
+                f"Continuing GitHub cleanup."
+            )
+            return True
+        logger.error(f"Error deleting file with ID: {file_id} from Google Drive: {e}", exc_info=True)
+        return False
     except Exception as e:
         logger.error(f"Error deleting file with ID: {file_id} from Google Drive: {e}", exc_info=True)
         return False
@@ -521,67 +533,129 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
 
     return await asyncio.to_thread(_run_update_flow)
 
-async def delete_video_from_drive_and_github(file_id: str) -> bool:
+async def delete_video_from_drive_and_github(
+    file_id: Optional[str] = None,
+    commit_sha: Optional[str] = None,
+    video_title: Optional[str] = None,
+    video_timestamp: Optional[int] = None,
+) -> bool:
     """
     Deletes a video from Google Drive and removes its entry from videos.json on GitHub.
     """
     def _run_delete_flow() -> bool:
-        logger.info(f"Initiating deletion for Google Drive File ID: {file_id}")
+        logger.info(
+            "Initiating deletion request with identifiers: "
+            f"file_id={file_id}, commit_sha={commit_sha}, "
+            f"title={video_title}, timestamp={video_timestamp}"
+        )
 
-        # 1. Authenticate Google Drive
+        if not any([file_id, commit_sha, video_title]):
+            logger.error("Deletion requires at least one identifier (file_id, commit_sha, or title).")
+            return False
+
+        # 1. Try Google Drive deletion first, but never abort GitHub cleanup on Drive-side failures.
+        drive_delete_success = False
         drive_service = authenticate_google_drive()
         if not drive_service:
-            logger.error("Google Drive authentication failed. Aborting video deletion.")
-            return False
+            logger.warning("Google Drive authentication failed. Continuing with GitHub cleanup only.")
+        else:
+            if file_id:
+                drive_delete_success = delete_from_google_drive(drive_service, file_id)
+                if not drive_delete_success:
+                    logger.warning(
+                        f"Could not delete file {file_id} from Google Drive. "
+                        "Continuing with GitHub cleanup to keep frontend state consistent."
+                    )
+            else:
+                logger.info("No direct Drive file ID provided; Drive deletion will use matched videos.json entries.")
 
-        # 2. Delete file from Google Drive
-        drive_delete_success = delete_from_google_drive(drive_service, file_id)
-        if not drive_delete_success:
-            logger.error(f"Failed to delete file {file_id} from Google Drive. Aborting GitHub update.")
-            return False
-
-        # 3. Authenticate GitHub
+        # 2. Authenticate GitHub
         g = authenticate_github()
         if not g:
-            logger.error("GitHub authentication failed. Aborting GitHub update for deletion.")
+            logger.error("GitHub authentication failed. Cannot clean up videos.json.")
             return False
 
         repo = get_github_repo(g)
         if not repo:
-            logger.error("Could not access GitHub repository. Aborting GitHub update for deletion.")
+            logger.error("Could not access GitHub repository. Cannot clean up videos.json.")
             return False
 
-        # 4. Fetch existing videos.json content
+        # 3. Fetch existing videos.json content
         existing_content = get_github_file_content(repo, GITHUB_VIDEOS_JSON_PATH, GITHUB_BRANCH)
         videos_data = []
         if existing_content:
             try:
                 videos_data = json.loads(existing_content)
                 if not isinstance(videos_data, list):
-                    logger.warning(f"{GITHUB_VIDEOS_JSON_PATH} content is not a list. Cannot delete entry.")
-                    return False
+                    logger.warning(f"{GITHUB_VIDEOS_JSON_PATH} content is not a list. Treating as empty list for delete safety.")
+                    videos_data = []
             except json.JSONDecodeError:
-                logger.error(f"Error decoding existing {GITHUB_VIDEOS_JSON_PATH}. Cannot delete entry.")
-                return False
+                logger.warning(f"Error decoding existing {GITHUB_VIDEOS_JSON_PATH}. Treating as empty list for delete safety.")
+                videos_data = []
         else:
-            logger.warning(f"{GITHUB_VIDEOS_JSON_PATH} is empty or not found. No entry to delete.")
-            return False
+            logger.warning(f"{GITHUB_VIDEOS_JSON_PATH} is empty or not found. Nothing to delete from GitHub list.")
+            # Idempotent success: Drive was attempted above; frontend state is already effectively clean.
+            return True
 
-        # 5. Filter out the video entry
-        original_video_title = "Unknown Video"
+        # 4. Filter out the video entry
+        original_video_title = video_title or "Unknown Video"
         initial_count = len(videos_data)
-        new_videos_data = [video for video in videos_data if video.get("googleDriveFileId") != file_id]
+        matched_entries = []
+
+        def _matches(video: dict) -> bool:
+            video_file_id = str(video.get("googleDriveFileId") or "").strip()
+            video_commit_sha = str(video.get("commitSha") or "").strip()
+            video_title_value = str(video.get("title") or "").strip()
+
+            matches_file_id = bool(file_id and video_file_id == str(file_id).strip())
+            matches_commit_sha = bool(commit_sha and video_commit_sha == str(commit_sha).strip())
+
+            matches_title = bool(video_title and video_title_value == str(video_title).strip())
+            matches_title_and_timestamp = False
+            if matches_title and video_timestamp is not None:
+                try:
+                    matches_title_and_timestamp = int(video.get("timestamp")) == int(video_timestamp)
+                except Exception:
+                    matches_title_and_timestamp = False
+
+            # Priority: exact file_id/commitSha. Title requires timestamp when provided.
+            return matches_file_id or matches_commit_sha or matches_title_and_timestamp or (matches_title and video_timestamp is None)
+
+        for video in videos_data:
+            if _matches(video):
+                matched_entries.append(video)
+
+        matched_drive_ids = [
+            str(entry.get("googleDriveFileId") or "").strip()
+            for entry in matched_entries
+            if entry.get("googleDriveFileId")
+        ]
+
+        if drive_service and not file_id and matched_drive_ids:
+            for matched_drive_id in matched_drive_ids:
+                deleted = delete_from_google_drive(drive_service, matched_drive_id)
+                if not deleted:
+                    logger.warning(
+                        f"Could not delete matched Drive file {matched_drive_id}. Continuing with GitHub cleanup."
+                    )
+
+        new_videos_data = [video for video in videos_data if not _matches(video)]
         
         if len(new_videos_data) < initial_count:
             # Find the title of the deleted video for the commit message
-            deleted_video_entry = next((video for video in videos_data if video.get("googleDriveFileId") == file_id), None)
+            deleted_video_entry = matched_entries[0] if matched_entries else None
             if deleted_video_entry:
                 original_video_title = deleted_video_entry.get("title", original_video_title)
             
             new_json_content = json.dumps(new_videos_data, indent=4)
-            commit_message = f"Delete processed video: {original_video_title} (ID: {file_id})"
+            identifier_hint = commit_sha or file_id or f"{video_title or 'unknown'}"
+            if commit_sha:
+                short_ref = str(commit_sha)[:7]
+                commit_message = f"Delete processed video: {original_video_title} (ref {short_ref})"
+            else:
+                commit_message = f"Delete processed video: {original_video_title} (ref: {identifier_hint})"
 
-            # 6. Commit updated videos.json to GitHub
+            # 5. Commit updated videos.json to GitHub
             github_commit_success = update_and_commit_github_file(repo, GITHUB_VIDEOS_JSON_PATH, new_json_content, commit_message, GITHUB_BRANCH)
             
             if github_commit_success:
@@ -591,8 +665,12 @@ async def delete_video_from_drive_and_github(file_id: str) -> bool:
                 logger.error(f"Failed to commit updated {GITHUB_VIDEOS_JSON_PATH} after deleting from Drive.")
                 return False
         else:
-            logger.warning(f"Video with ID {file_id} not found in {GITHUB_VIDEOS_JSON_PATH}. No changes to commit.")
-            return False
+            logger.warning(
+                f"No matching entry found in {GITHUB_VIDEOS_JSON_PATH} for "
+                f"file_id={file_id}, commit_sha={commit_sha}, title={video_title}, timestamp={video_timestamp}. "
+                "Treating as already deleted (idempotent success)."
+            )
+            return True
 
     return await asyncio.to_thread(_run_delete_flow)
 

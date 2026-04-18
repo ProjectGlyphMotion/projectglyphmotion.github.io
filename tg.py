@@ -103,7 +103,7 @@ logging.getLogger("telegram").setLevel(logging.INFO)
 _current_processing_status: Union[str, None] = None # Start with None, so frontend hides initially
 _status_lock = threading.Lock() # To protect _current_processing_status from race conditions
 _tracking_data: list = [] # List to hold processed video tracking data
-_tracking_data_lock = threading.Lock() # To protect _tracking_data from race conditions
+_tracking_data_lock = threading.RLock() # Re-entrant lock to avoid deadlocks in nested save paths
 _uptime_data: dict = {}
 _uptime_data_lock = threading.Lock()
 _uptime_monitor_stop_event = threading.Event()
@@ -170,6 +170,37 @@ _active_processing_job: Dict[str, Any] = {
 
 _active_async_processes_lock = threading.Lock()
 _active_async_processes: Dict[int, Dict[str, Any]] = {}
+
+# Deletion queue state: serialize delete operations to avoid concurrent GitHub/Drive mutation races.
+_delete_queue_lock = threading.Lock()
+_delete_request_queue: list = []
+_delete_worker_running = False
+
+
+def _enqueue_delete_request(job: Dict[str, Any]) -> int:
+    """Appends a delete job and returns its 1-based queue position."""
+    with _delete_queue_lock:
+        _delete_request_queue.append(job)
+        # Include active in-flight worker job in position so queued status is intuitive.
+        in_flight = 1 if _delete_worker_running else 0
+        return len(_delete_request_queue) + in_flight
+
+
+def _try_start_delete_worker() -> bool:
+    """Marks delete worker as running if not already active."""
+    global _delete_worker_running
+    with _delete_queue_lock:
+        if _delete_worker_running:
+            return False
+        _delete_worker_running = True
+        return True
+
+
+def _stop_delete_worker() -> None:
+    """Marks delete worker as stopped."""
+    global _delete_worker_running
+    with _delete_queue_lock:
+        _delete_worker_running = False
 
 
 def is_benchmarking_enabled() -> bool:
@@ -3821,29 +3852,52 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 post_body = self.rfile.read(content_length)
                 data = json.loads(post_body.decode('utf-8'))
                 file_id = data.get('googleDriveFileId')
+                commit_sha = data.get('commitSha')
+                video_title = data.get('videoTitle')
+                video_timestamp = data.get('videoTimestamp')
 
-                if not file_id:
-                    self.send_api_response(400, {"message": "googleDriveFileId is required for deletion."})
+                if not any([file_id, commit_sha, video_title]):
+                    self.send_api_response(400, {"message": "At least one identifier is required for deletion (googleDriveFileId, commitSha, or videoTitle)."})
                     return
 
-                logger.info(f"Received delete request for Google Drive File ID: {file_id} from admin: {admin_payload.get('username')}")
+                logger.info(
+                    f"Received delete request from admin '{admin_payload.get('username')}': "
+                    f"file_id={file_id}, commit_sha={commit_sha}, title={video_title}, timestamp={video_timestamp}"
+                )
                 
                 class WebProgressReporter:
                     async def edit_text(self, message):
                         set_processing_status(message)
 
-                web_progress_reporter_instance = WebProgressReporter()
-                set_processing_status(f"Initiating deletion for video ID: {file_id}...")
+                status_ref = file_id or commit_sha or video_title or "unknown"
+                queue_position = _enqueue_delete_request({
+                    "file_id": file_id,
+                    "commit_sha": commit_sha,
+                    "video_title": video_title,
+                    "video_timestamp": video_timestamp,
+                    "status_ref": status_ref,
+                    "reporter": WebProgressReporter(),
+                })
+
+                set_processing_status(
+                    f"Queued deletion for video reference: {status_ref} (queue position {queue_position})."
+                )
 
                 main_loop = self.server.main_asyncio_loop
-                
-                delete_future = asyncio.run_coroutine_threadsafe(
-                    self._perform_delete_operation(file_id, web_progress_reporter_instance),
-                    main_loop
+                if _try_start_delete_worker():
+                    delete_future = asyncio.run_coroutine_threadsafe(
+                        self._process_delete_queue(),
+                        main_loop
+                    )
+                    delete_future.add_done_callback(lambda future: _log_scheduled_future_error(future, "delete_video_queue_worker"))
+
+                self.send_api_response(
+                    200,
+                    {
+                        "message": f"Deletion queued for video reference: {status_ref}.",
+                        "queuePosition": queue_position,
+                    }
                 )
-                delete_future.add_done_callback(lambda future: _log_scheduled_future_error(future, "delete_video"))
-                
-                self.send_api_response(200, {"message": f"Deletion initiated for video ID: {file_id}. Gallery will update shortly."})
 
             except json.JSONDecodeError:
                 self.send_api_response(400, {"message": "Invalid JSON payload."})
@@ -4128,28 +4182,92 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         else:
             self.send_api_response(404, {"message": "Not Found"})
 
-    async def _perform_delete_operation(self, file_id: str, progress_reporter):
+    async def _perform_delete_operation(self, file_id: str, progress_reporter, commit_sha: str = None, video_title: str = None, video_timestamp: int = None, reset_status_when_done: bool = True):
         """Helper to run the deletion in the asyncio loop."""
         try:
-            success = await delete_video_from_drive_and_github(file_id)
+            success = await delete_video_from_drive_and_github(
+                file_id=file_id,
+                commit_sha=commit_sha,
+                video_title=video_title,
+                video_timestamp=video_timestamp,
+            )
+            status_ref = file_id or commit_sha or video_title or "unknown"
             if success:
-                await progress_reporter.edit_text(f"Successfully deleted video with ID: {file_id}.")
+                await progress_reporter.edit_text(f"Successfully deleted video with reference: {status_ref}.")
                 # Remove from tracking data as well
                 with _tracking_data_lock:
                     global _tracking_data
-                    _tracking_data = [entry for entry in _tracking_data if entry.get('googleDriveFileId') != file_id] # Assuming file_id can be used as unique ID for tracking
+                    def _is_match(entry):
+                        if file_id and entry.get('googleDriveFileId') == file_id:
+                            return True
+                        if commit_sha and entry.get('commitSha') == commit_sha:
+                            return True
+                        if video_title and entry.get('title') == video_title:
+                            if video_timestamp is None:
+                                return True
+                            try:
+                                return int(entry.get('timestamp')) == int(video_timestamp)
+                            except Exception:
+                                return False
+                        return False
+
+                    _tracking_data = [entry for entry in _tracking_data if not _is_match(entry)]
                     save_tracking_data()
-                logger.info(f"Deletion process completed successfully for {file_id}.")
+                logger.info(f"Deletion process completed successfully for reference {status_ref}.")
             else:
-                await progress_reporter.edit_text(f"Failed to delete video with ID: {file_id}. Check server logs.")
-                logger.error(f"Deletion process failed for {file_id}.")
+                await progress_reporter.edit_text(f"Failed to delete video with reference: {status_ref}. Check server logs.")
+                logger.error(f"Deletion process failed for reference {status_ref}.")
         except Exception as e:
             await progress_reporter.edit_text(f"An unexpected error occurred during deletion: {e}")
-            logger.error(f"Unhandled exception during deletion for {file_id}: {e}", exc_info=True)
+            logger.error(f"Unhandled exception during deletion for {file_id or commit_sha or video_title}: {e}", exc_info=True)
         finally:
-            # We use a short delay of 2 seconds here to avoid the status message from 
-            # flashing repeatedly in the frontend's 2-second polling loop.
-            reset_status_after_delay(2)
+            if reset_status_when_done:
+                # We use a short delay here to avoid status flicker in polling UIs.
+                reset_status_after_delay(2)
+
+    async def _process_delete_queue(self):
+        """Sequentially processes queued delete jobs to avoid concurrent Drive/GitHub mutation races."""
+        processed_count = 0
+        try:
+            while True:
+                with _delete_queue_lock:
+                    if not _delete_request_queue:
+                        break
+                    job = _delete_request_queue.pop(0)
+                    remaining = len(_delete_request_queue)
+
+                status_ref = job.get("status_ref") or job.get("file_id") or job.get("commit_sha") or job.get("video_title") or "unknown"
+                set_processing_status(
+                    f"Deletion queue running: {status_ref} ({remaining} remaining after this)."
+                )
+
+                await self._perform_delete_operation(
+                    job.get("file_id"),
+                    job.get("reporter"),
+                    commit_sha=job.get("commit_sha"),
+                    video_title=job.get("video_title"),
+                    video_timestamp=job.get("video_timestamp"),
+                    reset_status_when_done=False,
+                )
+                processed_count += 1
+        except Exception as queue_error:
+            logger.error(f"Unhandled exception in delete queue worker: {queue_error}", exc_info=True)
+        finally:
+            _stop_delete_worker()
+            # If new jobs arrived while we were shutting down, spin a new worker immediately.
+            with _delete_queue_lock:
+                has_pending = bool(_delete_request_queue)
+
+            if has_pending and _try_start_delete_worker():
+                follow_up = asyncio.run_coroutine_threadsafe(
+                    self._process_delete_queue(),
+                    self.server.main_asyncio_loop
+                )
+                follow_up.add_done_callback(lambda future: _log_scheduled_future_error(future, "delete_video_queue_worker_followup"))
+                return
+
+            set_processing_status(None)
+            logger.info(f"Delete queue drained. Processed {processed_count} job(s). Global status reset to None.")
 
 
     def do_GET(self):
