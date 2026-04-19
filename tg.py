@@ -1,7 +1,9 @@
 import logging
 import sys
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+import html
+from collections import defaultdict
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 import os
 import subprocess
 import asyncio
@@ -14,7 +16,7 @@ import socketserver
 import json
 import concurrent.futures
 import cgi
-from typing import Union, Optional, Any, Dict
+from typing import Union, Optional, Any, Dict, Callable, Awaitable
 import requests
 import jwt # New import for JWT
 import datetime # New import for JWT expiry
@@ -37,7 +39,11 @@ from admin_auth import authenticate_admin, get_session_expiry_time, update_admin
 
 # --- Configuration ---
 TELEGRAM_BOT_TOKEN = get_env("TELEGRAM_BOT_TOKEN")
+TELEGRAM_BOT_API_BASE_URL = get_env("TELEGRAM_BOT_API_BASE_URL", "").strip()
+TELEGRAM_BOT_API_BASE_FILE_URL = get_env("TELEGRAM_BOT_API_BASE_FILE_URL", "").strip()
+TELEGRAM_BOT_API_LOCAL_MODE = get_env("TELEGRAM_BOT_API_LOCAL_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}
 USE_GITHUB_PAGES = True  # Switch to enable/disable GitHub Pages integration (set to True to use gh.py)
+PUBLIC_WEBSITE_URL = get_env("PUBLIC_WEBSITE_URL", "https://projectglyphmotion.github.io/")
 OUTPUT_SUBDIRECTORY = "output"
 INPUT_SUBDIRECTORY = "input"
 WEB_SERVER_PORT = 5000 # Port for the local web server
@@ -45,6 +51,7 @@ TRACKING_SUBDIRECTORY = "tracking"
 LEGACY_TRACKING_DATA_FILE = 'tracking_data.json'
 TRACKING_DATA_FILE = os.path.join(TRACKING_SUBDIRECTORY, 'tracking_data.json')
 UPTIME_DATA_FILE = os.path.join(TRACKING_SUBDIRECTORY, 'uptime_data.json')
+TELEGRAM_CHAT_LOG_FILE = os.path.join(TRACKING_SUBDIRECTORY, 'telegram_chat_logs.jsonl')
 UPTIME_MAX_EVENTS = 200000
 UPTIME_HEARTBEAT_INTERVAL_SECONDS = 5
 UPTIME_OFFLINE_INFER_MULTIPLIER = 2.5
@@ -63,6 +70,7 @@ JWT_SECRET_KEY = get_env("JWT_SECRET_KEY", "")
 # These users must also exist in ADMIN_CREDENTIALS in admin_auth.py
 # FIX: Changed this to a set of individual strings for each master admin.
 MASTER_ADMIN_USERNAMES = {"SHITIJ.dev", "sayann70"} # Add more usernames to this set if you have multiple master admins, e.g., {"ExampleAdmin1", "another_master_admin"}
+MASTER_ADMIN_USER_IDS = {188357894, 1883578947, 915418821}
 
 # --- AdSense Configuration (New) ---
 # Global flag to enable/disable ads for all users (including non-admins)
@@ -95,9 +103,10 @@ os.makedirs(TRACKING_SUBDIRECTORY, exist_ok=True)
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-logging.getLogger("httpx").setLevel(logging.INFO)
-logging.getLogger("telegram.ext.Application").setLevel(logging.INFO)
-logging.getLogger("telegram").setLevel(logging.INFO)
+# Suppress polling/request spam while keeping bot interaction logs from this module visible.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram.ext.Application").setLevel(logging.WARNING)
+logging.getLogger("telegram").setLevel(logging.WARNING)
 
 # --- Global variable for web server status and tracking data ---
 _current_processing_status: Union[str, None] = None # Start with None, so frontend hides initially
@@ -110,6 +119,7 @@ _uptime_monitor_stop_event = threading.Event()
 _uptime_monitor_thread: Optional[threading.Thread] = None
 _admin_tracker_landing_sessions: Dict[str, float] = {}
 _admin_tracker_landing_sessions_lock = threading.Lock()
+_telegram_chat_log_lock = threading.Lock()
 
 # List to keep track of invalidated JWTs (for immediate logout)
 # In a real-world app, this would be a persistent store like a database or Redis.
@@ -164,9 +174,20 @@ _active_processing_job: Dict[str, Any] = {
     "startedAt": 0,
     "cancelRequested": False,
     "ownerClientId": "",
+    "ownerClientIp": "",
     "ownerUsername": "",
     "ownerIsAdmin": False,
+    "ownerSource": "",
 }
+_last_processing_cancellation_ts = 0.0
+_telegram_network_error_last_logged_at = 0.0
+_telegram_network_error_suppressed_count = 0
+
+_processing_queue_lock = threading.Lock()
+_processing_request_queue: list = []
+_processing_queue_worker_running = False
+_processing_duration_history_seconds: list[float] = []
+_processing_duration_history_limit = 20
 
 _active_async_processes_lock = threading.Lock()
 _active_async_processes: Dict[int, Dict[str, Any]] = {}
@@ -295,8 +316,10 @@ def _snapshot_active_processing_job() -> Dict[str, Any]:
         started_at = int(_active_processing_job.get("startedAt") or 0)
         cancel_requested = bool(_active_processing_job.get("cancelRequested"))
         owner_client_id = (_active_processing_job.get("ownerClientId") or "").strip()
+        owner_client_ip = (_active_processing_job.get("ownerClientIp") or "").strip()
         owner_username = (_active_processing_job.get("ownerUsername") or "").strip()
         owner_is_admin = bool(_active_processing_job.get("ownerIsAdmin"))
+        owner_source = (_active_processing_job.get("ownerSource") or "").strip().lower()
         is_active = bool(job_id and future and not future.done())
         return {
             "jobId": job_id if is_active else "",
@@ -304,8 +327,10 @@ def _snapshot_active_processing_job() -> Dict[str, Any]:
             "startedAt": started_at if is_active else 0,
             "cancelRequested": cancel_requested if is_active else False,
             "ownerClientId": owner_client_id if is_active else "",
+            "ownerClientIp": owner_client_ip if is_active else "",
             "ownerUsername": owner_username if is_active else "",
             "ownerIsAdmin": owner_is_admin if is_active else False,
+            "ownerSource": owner_source if is_active else "",
         }
 
 
@@ -319,8 +344,10 @@ def _clear_active_processing_job_if_matches(job_id: str) -> None:
             "startedAt": 0,
             "cancelRequested": False,
             "ownerClientId": "",
+            "ownerClientIp": "",
             "ownerUsername": "",
             "ownerIsAdmin": False,
+            "ownerSource": "",
         })
 
 
@@ -328,8 +355,10 @@ def _register_processing_future(
     job_id: str,
     future: concurrent.futures.Future,
     owner_client_id: str = "",
+    owner_client_ip: str = "",
     owner_username: str = "",
     owner_is_admin: bool = False,
+    owner_source: str = "",
 ) -> None:
     with _processing_job_lock:
         _active_processing_job.update({
@@ -338,8 +367,10 @@ def _register_processing_future(
             "startedAt": int(time.time()),
             "cancelRequested": False,
             "ownerClientId": (owner_client_id or "").strip(),
+            "ownerClientIp": (owner_client_ip or "").strip(),
             "ownerUsername": (owner_username or "").strip(),
             "ownerIsAdmin": bool(owner_is_admin),
+            "ownerSource": (owner_source or "").strip().lower(),
         })
 
     def _on_done(done_future: concurrent.futures.Future):
@@ -352,7 +383,133 @@ def _register_processing_future(
     future.add_done_callback(_on_done)
 
 
+def _record_processing_duration(duration_seconds: float) -> None:
+    duration = float(duration_seconds or 0)
+    if duration <= 0:
+        return
+    with _processing_queue_lock:
+        _processing_duration_history_seconds.append(duration)
+        if len(_processing_duration_history_seconds) > _processing_duration_history_limit:
+            del _processing_duration_history_seconds[:-_processing_duration_history_limit]
+
+
+def _average_processing_duration_seconds() -> int:
+    with _processing_queue_lock:
+        values = list(_processing_duration_history_seconds)
+    if not values:
+        return 420
+    return max(30, int(sum(values) / len(values)))
+
+
+def _snapshot_processing_queue(requester_client_id: str = "", requester_client_ip: str = "") -> Dict[str, Any]:
+    active_job = _snapshot_active_processing_job()
+    requester_id = (requester_client_id or "").strip()
+    requester_ip = (requester_client_ip or "").strip()
+    with _processing_queue_lock:
+        queue_copy = [
+            {
+                "requestId": item.get("requestId", ""),
+                "ownerClientId": item.get("ownerClientId", ""),
+                "ownerClientIp": item.get("ownerClientIp", ""),
+                "ownerUsername": item.get("ownerUsername", ""),
+                "queuedAt": int(item.get("queuedAt") or 0),
+            }
+            for item in _processing_request_queue
+        ]
+
+    waiting_count = len(queue_copy)
+    active_in_flight = 1 if active_job.get("isActive") else 0
+    requester_queue_index = -1
+    if requester_id or requester_ip:
+        for idx, item in enumerate(queue_copy):
+            owner_id = (item.get("ownerClientId") or "").strip()
+            owner_ip = (item.get("ownerClientIp") or "").strip()
+            id_match = bool(requester_id and owner_id and owner_id == requester_id)
+            ip_match = bool(requester_ip and owner_ip and owner_ip == requester_ip)
+            if id_match or ip_match:
+                requester_queue_index = idx
+                break
+
+    requester_queue_position = 0
+    requester_jobs_ahead = 0
+    active_owner_id = (active_job.get("ownerClientId") or "").strip()
+    active_owner_ip = (active_job.get("ownerClientIp") or "").strip()
+    active_id_match = bool(requester_id and active_owner_id and active_owner_id == requester_id)
+    active_ip_match = bool(requester_ip and active_owner_ip and active_owner_ip == requester_ip)
+    if active_in_flight and (active_id_match or active_ip_match):
+        requester_queue_position = 1
+        requester_jobs_ahead = 0
+    elif requester_queue_index >= 0:
+        requester_queue_position = requester_queue_index + 1 + active_in_flight
+        requester_jobs_ahead = requester_queue_index + active_in_flight
+
+    avg_seconds = _average_processing_duration_seconds()
+    active_remaining_seconds = 0
+    if active_in_flight:
+        started_at = int(active_job.get("startedAt") or 0)
+        if started_at > 0:
+            elapsed = max(0, int(time.time()) - started_at)
+            active_remaining_seconds = max(0, avg_seconds - elapsed)
+        else:
+            active_remaining_seconds = max(1, avg_seconds)
+
+    benchmark_in_progress = False
+    benchmark_eta_seconds = 0
+    with _benchmark_lock:
+        benchmark_in_progress = bool(_benchmark_in_progress)
+        try:
+            benchmark_eta_seconds = max(0, int(_benchmark_progress.get("etaSeconds") or 0))
+        except Exception:
+            benchmark_eta_seconds = 0
+        benchmark_stage = str(_benchmark_progress.get("stage") or "idle")
+        benchmark_pct = int(_benchmark_progress.get("progressPct") or 0)
+
+    # If benchmark ETA is unknown but benchmark is running, keep a conservative floor.
+    if benchmark_in_progress and benchmark_eta_seconds <= 0:
+        benchmark_eta_seconds = 90
+
+    estimated_wait_seconds = (waiting_count * avg_seconds) + active_remaining_seconds + benchmark_eta_seconds
+
+    requester_wait_seconds = 0
+    if requester_queue_position > 0:
+        if requester_queue_position == 1:
+            requester_wait_seconds = benchmark_eta_seconds
+        elif requester_queue_index >= 0:
+            requester_wait_seconds = (requester_queue_index * avg_seconds) + active_remaining_seconds + benchmark_eta_seconds
+
+    queue_status_line = ""
+    if waiting_count > 0:
+        if requester_queue_position > 0:
+            queue_status_line = (
+                f"Queue active: {waiting_count} waiting | Your position: {requester_queue_position} "
+                f"(~{_format_eta_seconds(requester_wait_seconds) or 'soon'})"
+            )
+        else:
+            queue_status_line = (
+                f"Queue active: {waiting_count} waiting "
+                f"(~{_format_eta_seconds(estimated_wait_seconds) or 'soon'} total)"
+            )
+
+    return {
+        "activeInFlight": active_in_flight,
+        "waitingCount": waiting_count,
+        "queueTotal": waiting_count + active_in_flight,
+        "estimatedWaitSeconds": estimated_wait_seconds,
+        "activeRemainingSeconds": active_remaining_seconds,
+        "averageJobSeconds": avg_seconds,
+        "benchmarkInProgress": benchmark_in_progress,
+        "benchmarkEtaSeconds": benchmark_eta_seconds,
+        "benchmarkStage": benchmark_stage,
+        "benchmarkProgressPct": benchmark_pct,
+        "requesterQueuePosition": requester_queue_position,
+        "requesterJobsAhead": requester_jobs_ahead,
+        "requesterEstimatedWaitSeconds": requester_wait_seconds,
+        "queueStatusLine": queue_status_line,
+    }
+
+
 def _cancel_processing_job(job_id: Optional[str]) -> Dict[str, Any]:
+    global _last_processing_cancellation_ts
     active_future = None
     active_job_id = ""
     with _processing_job_lock:
@@ -372,6 +529,7 @@ def _cancel_processing_job(job_id: Optional[str]) -> Dict[str, Any]:
 
     if not cancelled:
         set_processing_status("⛔ Cancellation requested. Stopping current processing...")
+    _last_processing_cancellation_ts = time.time()
     return {
         "ok": True,
         "reason": "cancel_requested",
@@ -394,8 +552,12 @@ def _can_requester_cancel_active_job(active_job_snapshot: Dict[str, Any], reques
     if requester.get("isAdmin"):
         return True
     owner_client_id = (active_job_snapshot.get("ownerClientId") or "").strip()
+    owner_client_ip = (active_job_snapshot.get("ownerClientIp") or "").strip()
     requester_client_id = (requester.get("clientId") or "").strip()
-    return bool(owner_client_id and requester_client_id and owner_client_id == requester_client_id)
+    requester_client_ip = (requester.get("clientIp") or "").strip()
+    id_match = bool(owner_client_id and requester_client_id and owner_client_id == requester_client_id)
+    ip_match = bool(owner_client_ip and requester_client_ip and owner_client_ip == requester_client_ip)
+    return id_match or ip_match
 
 
 def run_async_loop(loop: asyncio.AbstractEventLoop):
@@ -422,34 +584,99 @@ def _schedule_processing_job(
     coroutine,
     operation_name: str,
     owner_client_id: str = "",
+    owner_client_ip: str = "",
     owner_username: str = "",
     owner_is_admin: bool = False,
+    owner_source: str = "web",
 ) -> tuple[Optional[str], Optional[concurrent.futures.Future], Optional[str]]:
     """
-    Schedules a processing coroutine if no active processing job is running.
-    Returns (job_id, future, error_message).
+    Enqueues a processing coroutine into the global FIFO worker.
+    Returns (job_id, future, error_message). Future is attached once execution starts.
     """
-    with _processing_job_lock:
-        active_future = _active_processing_job.get("future")
-        active_job_id = _active_processing_job.get("jobId") or ""
-        if active_future and not active_future.done() and active_job_id:
-            try:
-                coroutine.close()
-            except Exception:
-                pass
-            return None, None, f"Another processing job is already running ({active_job_id})."
+    global _processing_queue_worker_running
 
-    job_id = _new_processing_job_id()
-    future = asyncio.run_coroutine_threadsafe(coroutine, main_loop)
-    _register_processing_future(
-        job_id,
-        future,
-        owner_client_id=owner_client_id,
-        owner_username=owner_username,
-        owner_is_admin=owner_is_admin,
-    )
-    future.add_done_callback(lambda f: _log_scheduled_future_error(f, operation_name))
-    return job_id, future, None
+    if not coroutine:
+        return None, None, "No processing coroutine provided."
+
+    request_id = _new_processing_job_id()
+    queued_job = {
+        "requestId": request_id,
+        "mainLoop": main_loop,
+        "coroutine": coroutine,
+        "operationName": operation_name,
+        "ownerClientId": (owner_client_id or "").strip(),
+        "ownerClientIp": (owner_client_ip or "").strip(),
+        "ownerUsername": (owner_username or "").strip(),
+        "ownerIsAdmin": bool(owner_is_admin),
+        "ownerSource": (owner_source or "web").strip().lower(),
+        "queuedAt": int(time.time()),
+    }
+
+    with _processing_queue_lock:
+        _processing_request_queue.append(queued_job)
+
+    def _queue_worker() -> None:
+        global _processing_queue_worker_running
+        while True:
+            with _processing_queue_lock:
+                has_waiting_jobs = bool(_processing_request_queue)
+                if not has_waiting_jobs:
+                    _processing_queue_worker_running = False
+                    return
+
+            with _benchmark_lock:
+                benchmark_busy = bool(_benchmark_in_progress)
+            if benchmark_busy:
+                # Hold queued processing until benchmark fully completes.
+                time.sleep(0.4)
+                continue
+
+            with _processing_queue_lock:
+                next_job = _processing_request_queue.pop(0)
+
+            started_at = time.time()
+            job_loop = next_job.get("mainLoop")
+            job_coro = next_job.get("coroutine")
+            job_id = next_job.get("requestId") or _new_processing_job_id()
+            op_name = next_job.get("operationName") or "queued_processing_job"
+            future = asyncio.run_coroutine_threadsafe(job_coro, job_loop)
+
+            _register_processing_future(
+                job_id,
+                future,
+                owner_client_id=next_job.get("ownerClientId") or "",
+                owner_client_ip=next_job.get("ownerClientIp") or "",
+                owner_username=next_job.get("ownerUsername") or "",
+                owner_is_admin=bool(next_job.get("ownerIsAdmin")),
+                owner_source=next_job.get("ownerSource") or "web",
+            )
+
+            if time.time() - float(_last_processing_cancellation_ts or 0) <= 30:
+                owner_name = (next_job.get("ownerUsername") or "requester").strip() or "requester"
+                set_processing_status(f"Previous video cancelled. Starting next queued video for {owner_name}...")
+            future.add_done_callback(lambda f, name=op_name: _log_scheduled_future_error(f, name))
+
+            try:
+                future.result()
+            except concurrent.futures.CancelledError:
+                logger.info(f"Queued processing job '{job_id}' cancelled.")
+            except Exception as queue_job_error:
+                logger.error(
+                    f"Queued processing job '{job_id}' failed: {queue_job_error}",
+                    exc_info=True,
+                )
+            finally:
+                _record_processing_duration(time.time() - started_at)
+
+    with _processing_queue_lock:
+        should_start_worker = not _processing_queue_worker_running
+        if should_start_worker:
+            _processing_queue_worker_running = True
+
+    if should_start_worker:
+        threading.Thread(target=_queue_worker, daemon=True).start()
+
+    return request_id, None, None
 
 
 def _register_async_process(process: asyncio.subprocess.Process, label: str) -> None:
@@ -852,6 +1079,22 @@ def sanitize_filename_value(filename: str, fallback_prefix: str = "uploaded_vide
         safe_name = f"{fallback_prefix}_{int(time.time())}.mp4"
     return safe_name
 
+
+def persist_uploaded_field_to_input(upload_field, fallback_prefix: str = "uploaded_video") -> str:
+    """Persists a cgi.FieldStorage file payload to INPUT_SUBDIRECTORY and returns saved path."""
+    filename = resolve_uploaded_filename(upload_field, fallback_prefix=fallback_prefix)
+    safe_name = sanitize_filename_value(filename, fallback_prefix=fallback_prefix)
+    target_path = os.path.join(INPUT_SUBDIRECTORY, safe_name)
+    if os.path.exists(target_path):
+        stem, ext = os.path.splitext(safe_name)
+        target_path = os.path.join(INPUT_SUBDIRECTORY, f"{stem}_{int(time.time())}{ext or '.mp4'}")
+
+    if hasattr(upload_field.file, "seek"):
+        upload_field.file.seek(0)
+    with open(target_path, "wb") as output_file:
+        shutil.copyfileobj(upload_field.file, output_file)
+    return target_path
+
 def invalidate_token(token: str):
     """Adds a token to the invalidated list."""
     with _token_invalidation_lock:
@@ -946,6 +1189,10 @@ def get_status_payload(requester: Optional[Dict[str, Any]] = None) -> dict:
 
     active_job = _snapshot_active_processing_job()
     requester_info = requester or {}
+    queue_snapshot = _snapshot_processing_queue(
+        requester_client_id=requester_info.get("clientId", ""),
+        requester_client_ip=requester_info.get("clientIp", ""),
+    )
     with _benchmark_lock:
         benchmark_progress = dict(_benchmark_progress)
         benchmark_in_progress = bool(_benchmark_in_progress)
@@ -981,6 +1228,13 @@ def get_status_payload(requester: Optional[Dict[str, Any]] = None) -> dict:
         "benchmarkInProgress": benchmark_in_progress,
         "benchmarkProgress": benchmark_progress,
         "benchmarkStatusLine": benchmark_one_line,
+        "queueWaitingCount": queue_snapshot.get("waitingCount", 0),
+        "queueTotalCount": queue_snapshot.get("queueTotal", 0),
+        "queueEstimatedWaitSeconds": queue_snapshot.get("estimatedWaitSeconds", 0),
+        "queueStatusLine": queue_snapshot.get("queueStatusLine", ""),
+        "requesterQueuePosition": queue_snapshot.get("requesterQueuePosition", 0),
+        "requesterJobsAhead": queue_snapshot.get("requesterJobsAhead", 0),
+        "requesterEstimatedWaitSeconds": queue_snapshot.get("requesterEstimatedWaitSeconds", 0),
     }
 
 def reset_status_after_delay(delay_seconds: int = 5):
@@ -1381,12 +1635,12 @@ def get_client_ip(handler):
     if x_forwarded_for:
         # X-Forwarded-For can contain multiple IPs, the client's IP is usually the first
         ip = x_forwarded_for.split(',')[0].strip()
-        logger.info(f"Client IP (X-Forwarded-For): {ip}")
+        logger.debug(f"Client IP (X-Forwarded-For): {ip}")
         return ip
     
     # Fallback to direct client address
     ip = handler.client_address[0]
-    logger.info(f"Client IP (Direct Connection): {ip}")
+    logger.debug(f"Client IP (Direct Connection): {ip}")
     return ip
 
 def get_geolocation_data(ip_address: str) -> dict:
@@ -1787,11 +2041,23 @@ async def _stream_output_and_update_message(
                 if adaptive_line_regex.search(full_line):
                     logger.debug(f"[{stream_name} full line] {full_line}")
                 else:
-                    logger.info(f"[{stream_name} full line] {full_line}")
+                    # Keep terminal noise lower for heavy tracker output while preserving diagnostics in DEBUG.
+                    if stream_name in ("ot_stdout", "ot_stderr"):
+                        logger.debug(f"[{stream_name} full line] {full_line}")
+                    else:
+                        logger.info(f"[{stream_name} full line] {full_line}")
                 if "ERROR" in full_line:
                     if progress_message_obj and context: # Only send new Telegram message if context is available
                         try:
-                            await context.bot.send_message(chat_id=progress_message_obj.chat_id, text=f"Error from {stream_name}: {full_line}")
+                            with _status_lock:
+                                status_text = (_current_processing_status or "").lower()
+                            active_snapshot = _snapshot_active_processing_job()
+                            cancellation_active = bool(active_snapshot.get("cancelRequested")) or ("cancel" in status_text)
+                            known_cancel_noise = (
+                                "ffmpeg video encoding failed with exit code 255" in full_line.lower()
+                            )
+                            if not cancellation_active and not known_cancel_noise:
+                                await context.bot.send_message(chat_id=progress_message_obj.chat_id, text=f"Error from {stream_name}: {full_line}")
                         except Exception as e:
                             logger.warning(f"Could not send new Telegram message for error: {e}")
                 current_line_buffer = ""
@@ -2078,7 +2344,7 @@ async def run_tracking_script_and_stream_output(
 
 
 # --- Unified Video Processing Function ---
-async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_file_upload: bool, progress_message_obj=None, telegram_context=None, client_ip: str = "N/A", geolocation_info: dict = None, roi_params: dict = None, original_filename: str = None, allowed_classes: list = None, confidence_threshold: float = None):
+async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_file_upload: bool, progress_message_obj=None, telegram_context=None, client_ip: str = "N/A", geolocation_info: dict = None, roi_params: dict = None, original_filename: str = None, allowed_classes: list = None, confidence_threshold: float = None, on_tracking_complete: Optional[Callable[[str, str], Awaitable[None]]] = None, on_publish_complete: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None):
     """
     Unified function to process video, upload to GDrive, and update GitHub Pages.
     progress_message_obj is the actual Telegram message object to edit (for Telegram)
@@ -2281,7 +2547,17 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
         reset_status_after_delay() # Reset status after failure
         return False
 
-    video_title_for_gh = os.path.splitext(input_filename)[0].replace('_', ' ').title()
+    if on_tracking_complete:
+        try:
+            if progress_message_obj:
+                await progress_message_obj.edit_text("✅ Processing complete. Sending result back to Telegram chat...")
+            set_processing_status("Processing complete. Sending result to Telegram chat...")
+            await on_tracking_complete(local_output_path, input_filename)
+        except Exception as callback_error:
+            logger.warning(f"Unable to deliver processed video back to Telegram chat: {callback_error}")
+
+    # Preserve original filename stem for reliable source tracing (avoid random title transforms).
+    video_title_for_gh = os.path.splitext(input_filename)[0]
     video_description_for_gh = f"Object tracking results for {input_filename}"
     
     commit_sha = None # Initialize commit_sha here
@@ -2432,11 +2708,28 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
             
             # --- Add tracking entry after successful GitHub update ---
             if commit_sha: # Only add if commit_sha is available
+                owner_snapshot = _snapshot_active_processing_job()
+                owner_source = str(owner_snapshot.get("ownerSource") or "").strip().lower()
+                owner_client_id = str(owner_snapshot.get("ownerClientId") or "").strip()
+                owner_username = str(owner_snapshot.get("ownerUsername") or "").strip()
+                owner_telegram_id = ""
+                if owner_client_id.startswith("tg:"):
+                    candidate = owner_client_id.split(":", 1)[1].strip()
+                    if candidate.isdigit():
+                        owner_telegram_id = candidate
+
+                if not owner_source:
+                    owner_source = "telegram" if str(client_ip).startswith("TelegramUser:") else "web"
+
                 tracking_entry = {
                     "timestamp": int(time.time()),
                     "videoTitle": video_title_for_gh,
                     "commitSha": commit_sha,
                     "ipAddress": client_ip,
+                    "source": owner_source,
+                    "ownerClientId": owner_client_id,
+                    "ownerUsername": owner_username,
+                    "ownerTelegramId": owner_telegram_id,
                     "googleDriveFileId": None,
                     "driveDownloadUrl": drive_download_url or "",
                     "geolocation": { # Nested geolocation details
@@ -2477,6 +2770,17 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
 
             if not is_benchmarking_enabled():
                 reset_status_after_delay() # Reset status after success only when benchmark mode is off
+
+            if on_publish_complete:
+                try:
+                    await on_publish_complete({
+                        "videoTitle": video_title_for_gh,
+                        "commitSha": commit_sha or "",
+                        "driveDownloadUrl": drive_download_url or "",
+                        "websiteUrl": PUBLIC_WEBSITE_URL,
+                    })
+                except Exception as publish_callback_error:
+                    logger.warning(f"Failed post-publish callback: {publish_callback_error}")
             return True
         else:
             if progress_message_obj:
@@ -2505,22 +2809,763 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
 # --- Telegram Command Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /start command."""
+    _log_telegram_incoming_message(update, handler_name="start")
     await update.message.reply_text(
-        "👋 Welcome to the Video Tracking Master Bot!\n\n"
-        "I can process videos for object tracking. "
-        "To get started, simply send me a video link using the /track command."
+        "👋 Welcome to <b>Project GlyphMotion Bot</b>!\n\n"
+        "I process object-tracking videos from Telegram uploads and direct URLs.\n\n"
+        "✅ <b>Accepted inputs</b>\n"
+        "1) Telegram video messages\n"
+        "2) Telegram documents that contain a real video stream\n"
+        "3) <code>/track &lt;video_url&gt;</code> (including YouTube links)\n\n"
+        "❌ Non-video files are rejected.\n\n"
+        "Use <code>/checkqueue</code> anytime to see your queue position.\n"
+        "Use <code>/help</code> for the full command list.",
+        parse_mode='HTML'
     )
+
+
+def _telegram_user_display_name(user) -> str:
+    if not user:
+        return "unknown"
+    full_name = " ".join(part for part in [user.first_name, user.last_name] if part).strip()
+    return full_name or (user.username or "unknown")
+
+
+def _safe_log_preview(value: Any, max_len: int = 220) -> str:
+    text = str(value or "").replace("\n", " ").replace("\r", " ").strip()
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 3] + "..."
+
+
+def _extract_telegram_message_payload(update: Update) -> Dict[str, Any]:
+    msg = update.effective_message
+    user = update.effective_user
+    chat = update.effective_chat
+
+    payload: Dict[str, Any] = {
+        "messageId": getattr(msg, "message_id", None),
+        "chatId": getattr(chat, "id", None),
+        "chatType": getattr(chat, "type", None),
+        "userId": getattr(user, "id", None),
+        "username": getattr(user, "username", None),
+        "fullName": _telegram_user_display_name(user),
+        "isAdmin": bool(_is_telegram_master_admin(update)),
+        "text": (getattr(msg, "text", "") or ""),
+        "caption": (getattr(msg, "caption", "") or ""),
+        "hasLocation": bool(getattr(msg, "location", None)),
+        "video": None,
+        "document": None,
+        "command": "",
+    }
+
+    if msg and msg.video:
+        payload["video"] = {
+            "fileId": getattr(msg.video, "file_id", ""),
+            "fileName": getattr(msg.video, "file_name", ""),
+            "mimeType": getattr(msg.video, "mime_type", ""),
+            "duration": getattr(msg.video, "duration", None),
+            "fileSize": getattr(msg.video, "file_size", None),
+            "width": getattr(msg.video, "width", None),
+            "height": getattr(msg.video, "height", None),
+        }
+    if msg and msg.document:
+        payload["document"] = {
+            "fileId": getattr(msg.document, "file_id", ""),
+            "fileName": getattr(msg.document, "file_name", ""),
+            "mimeType": getattr(msg.document, "mime_type", ""),
+            "fileSize": getattr(msg.document, "file_size", None),
+        }
+
+    text = payload["text"]
+    if isinstance(text, str) and text.startswith("/"):
+        payload["command"] = text.split()[0]
+
+    return payload
+
+
+def _append_telegram_chat_log(entry: Dict[str, Any]) -> None:
+    try:
+        with _telegram_chat_log_lock:
+            with open(TELEGRAM_CHAT_LOG_FILE, 'a', encoding='utf-8') as log_file:
+                log_file.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception as log_error:
+        logger.warning(f"Failed writing telegram chat log file: {log_error}")
+
+
+def _log_telegram_incoming_message(update: Update, handler_name: str) -> None:
+    payload = _extract_telegram_message_payload(update)
+    role = "ADMIN" if payload.get("isAdmin") else "USER"
+    text_preview = _safe_log_preview(payload.get("text") or payload.get("caption") or "")
+    has_video = bool(payload.get("video"))
+    has_document = bool(payload.get("document"))
+    media_kind = "video" if has_video else ("document" if has_document else "text")
+
+    logger.info(
+        f"TG_INCOMING role={role} handler={handler_name} user_id={payload.get('userId')} "
+        f"username={payload.get('username') or 'N/A'} chat_id={payload.get('chatId')} media={media_kind} "
+        f"text='{text_preview}'"
+    )
+
+    _append_telegram_chat_log({
+        "ts": int(time.time()),
+        "tsIso": datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z"),
+        "direction": "incoming",
+        "handler": handler_name,
+        "payload": payload,
+    })
+
+
+def _log_telegram_interaction(update: Update, action: str, media_kind: str = "", note: str = "") -> None:
+    user = update.effective_user
+    message = update.effective_message
+    chat = update.effective_chat
+    location_text = "N/A"
+    if message and message.location:
+        location_text = f"{message.location.latitude:.6f},{message.location.longitude:.6f}"
+
+    user_id = getattr(user, "id", "N/A")
+    username = getattr(user, "username", "") or "N/A"
+    full_name = _telegram_user_display_name(user)
+    chat_id = getattr(chat, "id", "N/A")
+    dc_id = getattr(user, "dc_id", None) or "N/A"
+    detail_suffix = f" note={note}" if note else ""
+
+    # Telegram Bot API does not expose real user IPs to bots.
+    logger.debug(
+        f"TG_INTERACTION action={action} media={media_kind or 'N/A'} user_id={user_id} "
+        f"name={full_name} username={username} chat_id={chat_id} dc_id={dc_id} "
+        f"ip=N/A location={location_text}{detail_suffix}"
+    )
+
+    _append_telegram_chat_log({
+        "ts": int(time.time()),
+        "tsIso": datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z"),
+        "direction": "interaction",
+        "action": action,
+        "mediaKind": media_kind or "N/A",
+        "note": note,
+        "payload": _extract_telegram_message_payload(update),
+    })
+
+
+def _telegram_is_supported_video_document(document) -> bool:
+    if not document:
+        return False
+    mime_type = (getattr(document, "mime_type", "") or "").lower()
+    if mime_type.startswith("video/"):
+        return True
+    file_name = (getattr(document, "file_name", "") or "").lower()
+    allowed_ext = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".mpeg", ".mpg", ".3gp"}
+    _, ext = os.path.splitext(file_name)
+    return ext in allowed_ext
+
+
+async def _telegram_file_contains_video_stream(local_file_path: str) -> bool:
+    cmd = [
+        "ffprobe", "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=codec_type",
+        "-of", "default=nokey=1:noprint_wrappers=1",
+        local_file_path,
+    ]
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        **_start_new_session_kwargs()
+    )
+    _register_async_process(process, "ffprobe-telegram-upload")
+    try:
+        stdout, _ = await asyncio.wait_for(process.communicate(), timeout=FFPROBE_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        await _terminate_async_process(process, "ffprobe-telegram-upload")
+        return False
+    finally:
+        _unregister_async_process(process)
+
+    if process.returncode != 0:
+        return False
+    stream_marker = stdout.decode("utf-8", errors="ignore").strip().lower()
+    return stream_marker == "video"
+
+
+async def _send_processed_video_to_telegram(message, processed_video_path: str, source_name: str) -> None:
+    if not message or not os.path.exists(processed_video_path):
+        raise FileNotFoundError(f"Processed file missing: {processed_video_path}")
+
+    caption = f"🎬 Processed result for: {source_name}"
+    try:
+        with open(processed_video_path, "rb") as video_file:
+            await message.reply_video(video=video_file, caption=caption, read_timeout=180, write_timeout=180)
+        return
+    except Exception as video_send_error:
+        logger.warning(f"reply_video failed, retrying as document: {video_send_error}")
+
+    with open(processed_video_path, "rb") as doc_file:
+        await message.reply_document(document=doc_file, caption=caption, read_timeout=180, write_timeout=180)
+
+
+class TelegramProgressReporter:
+    """Edits a Telegram status message with light throttling and retry handling."""
+
+    def __init__(self, message_obj):
+        self._message = message_obj
+        self.chat_id = getattr(message_obj, "chat_id", None)
+        self._last_text = ""
+        self._last_sent_at = 0.0
+        self._reply_markup = None
+        self._lock = asyncio.Lock()
+
+    def set_reply_markup(self, reply_markup) -> None:
+        self._reply_markup = reply_markup
+
+    async def edit_text(self, text: str) -> None:
+        candidate = str(text or "").strip()
+        if not candidate:
+            return
+
+        async with self._lock:
+            now = time.time()
+            is_terminal = any(
+                marker in candidate.lower()
+                for marker in ("complete", "failed", "cancel", "rejected", "error")
+            )
+            if candidate == self._last_text:
+                return
+            if (now - self._last_sent_at) < 0.75 and not is_terminal:
+                return
+
+            try:
+                await self._message.edit_text(candidate, reply_markup=self._reply_markup)
+                self._last_text = candidate
+                self._last_sent_at = time.time()
+            except Exception as send_error:
+                # Avoid hard-failing processing on transient Telegram edit issues.
+                logger.debug(f"Telegram status edit skipped: {send_error}")
+
+    async def push_text(self, text: str) -> None:
+        """Sends a fresh message in chat for key state transitions.
+        Bots cannot force client-side scrolling, but new messages are the closest UX equivalent.
+        """
+        candidate = str(text or "").strip()
+        if not candidate:
+            return
+        try:
+            await self._message.reply_text(candidate)
+        except Exception as send_error:
+            logger.debug(f"Telegram transition push skipped: {send_error}")
+
+
+def _telegram_cancel_keyboard(
+    target_user_id: str,
+    confirm: bool = False,
+    source_message_id: Optional[int] = None,
+) -> InlineKeyboardMarkup:
+    safe_target = str(target_user_id or "")
+    safe_source = ""
+    try:
+        if source_message_id is not None:
+            safe_source = str(int(source_message_id))
+    except Exception:
+        safe_source = ""
+
+    callback_suffix = f":{safe_target}:{safe_source}"
+    if confirm:
+        return InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("Confirm Cancel", callback_data=f"tg_cancel:yes{callback_suffix}"),
+                InlineKeyboardButton("Keep Running", callback_data=f"tg_cancel:no{callback_suffix}"),
+            ]
+        ])
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Cancel Current", callback_data=f"tg_cancel:ask{callback_suffix}")]
+    ])
+
+
+def _telegram_client_id(update: Update) -> str:
+    user_id = getattr(update.effective_user, "id", "")
+    return f"tg:{user_id}" if user_id else ""
+
+
+def _telegram_username(update: Update) -> str:
+    user = update.effective_user
+    if not user:
+        return "telegram_user"
+    return _telegram_user_display_name(user)
+
+
+def _telegram_queue_message(client_id: str) -> str:
+    snap = _snapshot_processing_queue(requester_client_id=client_id)
+    waiting = int(snap.get("waitingCount") or 0)
+    active = int(snap.get("activeInFlight") or 0)
+    total = int(snap.get("queueTotal") or 0)
+    position = int(snap.get("requesterQueuePosition") or 0)
+    ahead = int(snap.get("requesterJobsAhead") or 0)
+    eta_text = _format_eta_seconds(snap.get("requesterEstimatedWaitSeconds"))
+    benchmark_busy = bool(snap.get("benchmarkInProgress"))
+    benchmark_eta_text = _format_eta_seconds(snap.get("benchmarkEtaSeconds"))
+    benchmark_stage = str(snap.get("benchmarkStage") or "running")
+    benchmark_pct = int(snap.get("benchmarkProgressPct") or 0)
+
+    if active == 0 and waiting == 0:
+        if benchmark_busy:
+            bench_line = f"Benchmark running ({benchmark_stage} {benchmark_pct}%)"
+            if benchmark_eta_text:
+                bench_line += f". Approx wait before processing starts: {benchmark_eta_text}."
+            return f"Global queue: idle for processing, but {bench_line}"
+        return "Global queue: idle (0 processing, 0 waiting)."
+
+    if position > 0:
+        if position == 1:
+            if benchmark_busy and active == 0:
+                return (
+                    f"Global queue: {active} processing, {waiting} waiting (total {total}). "
+                    f"Benchmark is running ({benchmark_stage} {benchmark_pct}%). "
+                    "Your video is queued and will start right after benchmark completes."
+                    + (f" Estimated wait: {eta_text}." if eta_text else "")
+                )
+            if active == 0:
+                return (
+                    f"Global queue: {active} processing, {waiting} waiting (total {total}). "
+                    "Your video is next and will start shortly."
+                    + (f" Estimated wait: {eta_text}." if eta_text else "")
+                )
+            return (
+                f"Global queue: {active} processing, {waiting} waiting (total {total}). "
+                "Your video is being processed."
+            )
+        benchmark_suffix = ""
+        if benchmark_busy:
+            benchmark_suffix = (
+                f" Benchmark running ({benchmark_stage} {benchmark_pct}%)."
+                + (f" Benchmark ETA: {benchmark_eta_text}." if benchmark_eta_text else "")
+            )
+        return (
+            f"Global queue: {active} processing, {waiting} waiting (total {total}). "
+            f"Your position: {position}. "
+            f"Jobs before you: {ahead}."
+            + (f" Estimated wait: {eta_text}." if eta_text else "")
+            + benchmark_suffix
+        )
+
+    if benchmark_busy:
+        return (
+            f"Global queue: {active} processing, {waiting} waiting (total {total}). "
+            f"Benchmark running ({benchmark_stage} {benchmark_pct}%)."
+            + (f" Benchmark ETA: {benchmark_eta_text}." if benchmark_eta_text else "")
+        )
+    return f"Global queue: {active} processing, {waiting} waiting (total {total})."
+
+
+async def _telegram_live_queue_status_updater(
+    progress_reporter: TelegramProgressReporter,
+    client_id: str,
+    job_id: str,
+) -> None:
+    """Keeps queued Telegram status messages live until this request starts processing.
+
+    Designed to be low-load: only pushes edits when queue state meaningfully changes,
+    with adaptive sleep intervals and sparse heartbeats.
+    """
+    started_at = time.time()
+    last_signature = ""
+    last_emit_at = 0.0
+    last_mode = ""
+
+    while (time.time() - started_at) < 1800:
+        queue_snapshot = _snapshot_processing_queue(requester_client_id=client_id)
+        active_snapshot = _snapshot_active_processing_job()
+        active_owner_client = (active_snapshot.get("ownerClientId") or "").strip()
+        active_job_id = (active_snapshot.get("jobId") or "").strip()
+        requester_position = int(queue_snapshot.get("requesterQueuePosition") or 0)
+        waiting_count = int(queue_snapshot.get("waitingCount") or 0)
+        active_in_flight = int(queue_snapshot.get("activeInFlight") or 0)
+        eta_seconds = int(queue_snapshot.get("requesterEstimatedWaitSeconds") or 0)
+        benchmark_busy = bool(queue_snapshot.get("benchmarkInProgress"))
+        # 15s bucketing prevents unnecessary edits due to tiny ETA fluctuations.
+        eta_bucket = eta_seconds // 10
+
+        signature = f"{active_in_flight}|{waiting_count}|{requester_position}|{active_job_id}|{eta_bucket}|{int(benchmark_busy)}"
+        should_emit = signature != last_signature or (time.time() - last_emit_at) >= 20.0
+
+        mode = "processing" if (active_snapshot.get("isActive") and active_owner_client == client_id and active_job_id == job_id) else ("benchmark_wait" if (benchmark_busy and requester_position > 0 and active_in_flight == 0) else "queued")
+        if mode != last_mode:
+            if mode == "benchmark_wait":
+                await progress_reporter.push_text("Queue update: benchmark is running now. Your video will start immediately after benchmark completion.")
+            elif mode == "processing":
+                await progress_reporter.push_text("Queue update: your video has started processing now.")
+            last_mode = mode
+
+        if active_snapshot.get("isActive") and active_owner_client == client_id and active_job_id == job_id:
+            if should_emit:
+                await progress_reporter.edit_text(f"Queued status update\nJob ID: {job_id}\n{_telegram_queue_message(client_id)}")
+            break
+
+        if requester_position <= 0 and active_job_id != job_id:
+            break
+
+        if should_emit:
+            await progress_reporter.edit_text(
+                f"Queued status update\nJob ID: {job_id}\n{_telegram_queue_message(client_id)}"
+            )
+            last_signature = signature
+            last_emit_at = time.time()
+
+        # Near-realtime cadence.
+        sleep_seconds = 1.0
+        await asyncio.sleep(sleep_seconds)
+
+
+def _is_telegram_master_admin(update: Update) -> bool:
+    user = update.effective_user
+    if not user:
+        return False
+    user_id = int(getattr(user, "id", 0) or 0)
+    if user_id and user_id in MASTER_ADMIN_USER_IDS:
+        return True
+    username = (getattr(user, "username", "") or "").strip()
+    return bool(username and username in MASTER_ADMIN_USERNAMES)
+
+
+async def admin_active_job_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    _log_telegram_incoming_message(update, handler_name="admin_active_job")
+    if not _is_telegram_master_admin(update):
+        await update.message.reply_text("Admin-only command.")
+        return
+
+    active = _snapshot_active_processing_job()
+    if not active.get("isActive"):
+        await update.message.reply_text("No active job.")
+        return
+
+    msg = (
+        f"active_job: {active.get('jobId')}\n"
+        f"owner: {active.get('ownerUsername') or 'unknown'}\n"
+        f"source: {active.get('ownerSource') or 'unknown'}\n"
+        f"owner_ip: {active.get('ownerClientIp') or 'N/A'}\n"
+        f"cancel_requested: {bool(active.get('cancelRequested'))}"
+    )
+    await update.message.reply_text(msg)
+
+
+def _can_telegram_cancel_active_job(active_job_snapshot: Dict[str, Any], telegram_client_id: str, is_admin: bool) -> bool:
+    if not active_job_snapshot.get("isActive"):
+        return False
+    # Telegram /cancelcurrent only applies to Telegram-origin active jobs.
+    if (active_job_snapshot.get("ownerSource") or "") != "telegram":
+        return False
+    if is_admin:
+        return True
+    owner_client_id = (active_job_snapshot.get("ownerClientId") or "").strip()
+    requester_client_id = (telegram_client_id or "").strip()
+    return bool(owner_client_id and requester_client_id and owner_client_id == requester_client_id)
+
+
+async def _enqueue_telegram_processing_job(
+    *,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    processing_coroutine,
+    operation_name: str,
+    progress_reporter: TelegramProgressReporter,
+) -> tuple[bool, str]:
+    loop = asyncio.get_running_loop()
+    client_id = _telegram_client_id(update)
+    job_id, _, schedule_error = _schedule_processing_job(
+        loop,
+        processing_coroutine,
+        operation_name,
+        owner_client_id=client_id,
+        owner_username=_telegram_username(update),
+        owner_is_admin=False,
+        owner_source="telegram",
+    )
+    if schedule_error:
+        return False, schedule_error
+
+    requester_user_id = str(getattr(update.effective_user, "id", "") or "")
+    source_message_id = getattr(progress_reporter._message, "message_id", None)
+    progress_reporter.set_reply_markup(
+        _telegram_cancel_keyboard(
+            requester_user_id,
+            confirm=False,
+            source_message_id=source_message_id,
+        )
+    )
+    queue_message = _telegram_queue_message(client_id)
+    await progress_reporter.edit_text(f"Accepted and queued. Job ID: {job_id}\n{queue_message}")
+    asyncio.create_task(_telegram_live_queue_status_updater(progress_reporter, client_id, str(job_id)))
+    return True, job_id
+
+
+def _cancel_current_telegram_job_for_requester(update: Update) -> tuple[bool, str]:
+    active_job = _snapshot_active_processing_job()
+    requester_client_id = _telegram_client_id(update)
+    requester_is_admin = _is_telegram_master_admin(update)
+
+    if not active_job.get("isActive"):
+        return False, "No active processing task is running right now."
+
+    owner_source = (active_job.get("ownerSource") or "").strip().lower()
+    owner_name = (active_job.get("ownerUsername") or "unknown").strip()
+    active_job_id = active_job.get("jobId") or "unknown"
+
+    if owner_source != "telegram":
+        return False, "Active task is from web. /cancelcurrent only controls Telegram tasks."
+
+    if not _can_telegram_cancel_active_job(active_job, requester_client_id, requester_is_admin):
+        return False, (
+            f"Active Telegram task belongs to {owner_name} (job {active_job_id}). "
+            "Only the owner or a Telegram master admin can cancel it."
+        )
+
+    cancel_result = _cancel_processing_job(active_job_id)
+    if not cancel_result.get("ok"):
+        return False, f"Could not cancel active Telegram task (job {active_job_id}). It may have already completed."
+
+    return True, (
+        f"Cancel signal sent for Telegram task {active_job_id} owned by {owner_name}. "
+        "Next queued task will start automatically."
+    )
+
+
+async def telegram_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if not query:
+        return
+
+    await query.answer()
+    data = str(query.data or "")
+    parts = data.split(":")
+    if len(parts) < 3 or parts[0] != "tg_cancel":
+        return
+
+    action = parts[1]
+    target_user_id = parts[2]
+    source_message_id = None
+    try:
+        source_message_id = int(parts[3]) if len(parts) > 3 and parts[3] else None
+    except Exception:
+        source_message_id = None
+    requester_user_id = str(getattr(update.effective_user, "id", "") or "")
+    requester_is_admin = _is_telegram_master_admin(update)
+
+    if (target_user_id and requester_user_id != target_user_id) and not requester_is_admin:
+        await query.answer("Not allowed for this message.", show_alert=True)
+        return
+
+    if action == "ask":
+        if source_message_id is None:
+            source_message_id = getattr(query.message, "message_id", None)
+        await query.message.reply_text(
+            "Confirm cancellation?",
+            reply_markup=_telegram_cancel_keyboard(
+                target_user_id,
+                confirm=True,
+                source_message_id=source_message_id,
+            )
+        )
+        return
+    if action == "no":
+        await query.edit_message_reply_markup(
+            reply_markup=_telegram_cancel_keyboard(
+                target_user_id,
+                confirm=False,
+                source_message_id=source_message_id,
+            )
+        )
+        return
+    if action != "yes":
+        return
+
+    ok, message = _cancel_current_telegram_job_for_requester(update)
+
+    if ok and source_message_id and getattr(query.message, "chat_id", None):
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=query.message.chat_id,
+                message_id=source_message_id,
+                reply_markup=None,
+            )
+        except Exception as clear_original_error:
+            logger.debug(f"Could not clear original Telegram cancel button: {clear_original_error}")
+
+    await query.edit_message_reply_markup(reply_markup=None)
+    await query.message.reply_text(message)
+
+
+async def _process_telegram_video_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    media_kind = ""
+    file_id = ""
+    proposed_filename = ""
+
+    if message.video:
+        media_kind = "video"
+        file_id = message.video.file_id
+        proposed_filename = message.video.file_name or f"telegram_video_{message.message_id}.mp4"
+    elif message.document:
+        if not _telegram_is_supported_video_document(message.document):
+            _log_telegram_interaction(update, action="rejected", media_kind="document", note="non_video_document")
+            await message.reply_text(
+                "❌ Rejected. Only Telegram video messages or documents containing real video files are allowed."
+            )
+            return
+        media_kind = "video_document"
+        file_id = message.document.file_id
+        proposed_filename = message.document.file_name or f"telegram_video_document_{message.message_id}.mp4"
+    else:
+        _log_telegram_interaction(update, action="rejected", media_kind="attachment", note="unsupported_type")
+        await message.reply_text(
+            "❌ Unsupported attachment. Send only a Telegram video or a video document."
+        )
+        return
+
+    _log_telegram_interaction(update, action="accepted", media_kind=media_kind)
+    progress_message = await message.reply_text("✅ Video accepted. Downloading from Telegram...")
+    progress_reporter = TelegramProgressReporter(progress_message)
+
+    try:
+        tg_file = await context.bot.get_file(file_id)
+    except Exception as get_file_error:
+        error_text = str(get_file_error or "")
+        logger.error(f"Failed to fetch Telegram file metadata: {error_text}")
+        if "too big" in error_text.lower():
+            await progress_reporter.edit_text(
+                "❌ Telegram returned: File is too big.\n"
+                "This upload could not be fetched through current Bot API limits.\n"
+                "Use /track with a direct video URL, or upload a smaller/compressed file.\n"
+                "For large uploads (up to 2GB), run this bot against a local Telegram Bot API server."
+            )
+        else:
+            await progress_reporter.edit_text("❌ Failed to retrieve your file from Telegram. Please try again.")
+        return
+
+    # Improve filename quality when Telegram message metadata lacks the original name.
+    if proposed_filename.startswith("telegram_video_") or proposed_filename.startswith("telegram_video_document_"):
+        remote_path = str(getattr(tg_file, "file_path", "") or "").strip()
+        remote_base = os.path.basename(remote_path) if remote_path else ""
+        if remote_base and "." in remote_base:
+            proposed_filename = remote_base
+
+    safe_filename = sanitize_filename_value(proposed_filename, fallback_prefix=f"telegram_{message.message_id}")
+    if not os.path.splitext(safe_filename)[1]:
+        safe_filename = f"{safe_filename}.mp4"
+    local_input_path = os.path.join(INPUT_SUBDIRECTORY, safe_filename)
+
+    try:
+        await tg_file.download_to_drive(custom_path=local_input_path)
+    except Exception as download_error:
+        logger.error(f"Failed downloading Telegram upload: {download_error}")
+        await progress_reporter.edit_text("❌ Failed to download your upload. Please retry.")
+        return
+
+    if not await _telegram_file_contains_video_stream(local_input_path):
+        _log_telegram_interaction(update, action="rejected", media_kind=media_kind, note="ffprobe_no_video_stream")
+        try:
+            os.remove(local_input_path)
+        except OSError:
+            pass
+        await progress_reporter.edit_text(
+            "❌ Rejected. The uploaded file does not contain a valid video stream."
+        )
+        return
+
+    user_id = getattr(update.effective_user, "id", "unknown")
+    geolocation_info = {}
+    if message.location:
+        geolocation_info = {
+            "status": "success",
+            "message": "User-shared Telegram location",
+            "lat": message.location.latitude,
+            "lon": message.location.longitude,
+        }
+
+    async def _notify_tracking_complete(processed_video_path: str, original_input_name: str) -> None:
+        await _send_processed_video_to_telegram(message, processed_video_path, original_input_name)
+        await message.reply_text(
+            f"Your processed video is ready. It will be available on the website soon as well: {PUBLIC_WEBSITE_URL}",
+            disable_web_page_preview=True,
+        )
+
+    async def _notify_publish_complete(payload: Dict[str, Any]) -> None:
+        # Tracking completion message already includes website hint/link.
+        return
+
+    async def _run_telegram_processing_job() -> None:
+        processing_ok = await process_video_unified(
+            local_input_path,
+            True,
+            progress_reporter,
+            context,
+            client_ip=f"TelegramUser:{user_id}",
+            geolocation_info=geolocation_info,
+            original_filename=safe_filename,
+            on_tracking_complete=_notify_tracking_complete,
+            on_publish_complete=_notify_publish_complete,
+        )
+        if not processing_ok:
+            await message.reply_text("⚠️ Processing could not be completed. Please check your file and try again.")
+        else:
+            _log_telegram_interaction(update, action="completed", media_kind=media_kind)
+
+    enqueue_ok, enqueue_info = await _enqueue_telegram_processing_job(
+        update=update,
+        context=context,
+        processing_coroutine=_run_telegram_processing_job(),
+        operation_name="telegram_uploaded_video",
+        progress_reporter=progress_reporter,
+    )
+    if not enqueue_ok:
+        await progress_reporter.edit_text(f"❌ Could not queue your upload: {enqueue_info}")
 
 async def track_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /track command to initiate video processing."""
+    _log_telegram_incoming_message(update, handler_name="track_command")
     if len(context.args) == 1:
         video_url = context.args[0]
+        _log_telegram_interaction(update, action="accepted", media_kind="url", note="track_command")
         initial_message = await update.message.reply_text(f"🔗 Received your video link: `{video_url}`\n\n"
                                         "🚀 Starting the download process now. Please wait...",
                                         parse_mode='Markdown')
-        # For Telegram requests, client_ip and geolocation_info are not directly available here
-        # or relevant for the web-based tracker, so we pass defaults.
-        await process_video_unified(video_url, False, initial_message, context, client_ip="Telegram User", geolocation_info={})
+        progress_reporter = TelegramProgressReporter(initial_message)
+
+        async def _notify_tracking_complete(processed_video_path: str, original_input_name: str) -> None:
+            await _send_processed_video_to_telegram(update.message, processed_video_path, original_input_name)
+            await update.message.reply_text(
+                f"Your processed video is ready. It will be available on the website soon as well: {PUBLIC_WEBSITE_URL}",
+                disable_web_page_preview=True,
+            )
+
+        async def _notify_publish_complete(payload: Dict[str, Any]) -> None:
+            # Tracking completion message already includes website hint/link.
+            return
+
+        async def _run_telegram_url_job() -> None:
+            await process_video_unified(
+                video_url,
+                False,
+                progress_reporter,
+                context,
+                client_ip=f"TelegramUser:{getattr(update.effective_user, 'id', 'unknown')}",
+                geolocation_info={},
+                on_tracking_complete=_notify_tracking_complete,
+                on_publish_complete=_notify_publish_complete,
+            )
+
+        enqueue_ok, enqueue_info = await _enqueue_telegram_processing_job(
+            update=update,
+            context=context,
+            processing_coroutine=_run_telegram_url_job(),
+            operation_name="telegram_track_url",
+            progress_reporter=progress_reporter,
+        )
+        if not enqueue_ok:
+            await progress_reporter.edit_text(f"❌ Could not queue URL job: {enqueue_info}")
     else:
         await update.message.reply_text(
             "❌ Invalid usage. Please provide a video link.\n"
@@ -2529,15 +3574,636 @@ async def track_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
 
+
+async def check_queue_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Returns global queue state and current user's queue position."""
+    _log_telegram_incoming_message(update, handler_name="check_queue")
+    client_id = _telegram_client_id(update)
+    queue_message = _telegram_queue_message(client_id)
+    await update.message.reply_text(queue_message)
+
+
+def _read_runtime_snapshot() -> Dict[str, str]:
+    cpu_label = "N/A"
+    mem_label = "N/A"
+    workers_label = "N/A"
+
+    try:
+        load1, load5, _ = os.getloadavg()
+        cpu_count = max(1, int(os.cpu_count() or 1))
+        util_est = min(100.0, max(0.0, (load1 / cpu_count) * 100.0))
+        cpu_label = f"~{util_est:.1f}% (load1={load1:.2f}, load5={load5:.2f}, cores={cpu_count})"
+    except Exception:
+        pass
+
+    try:
+        mem_info: Dict[str, int] = {}
+        with open('/proc/meminfo', 'r', encoding='utf-8') as mem_file:
+            for line in mem_file:
+                parts = line.split(':', 1)
+                if len(parts) != 2:
+                    continue
+                key = parts[0].strip()
+                raw_val = parts[1].strip().split(' ')[0]
+                if raw_val.isdigit():
+                    mem_info[key] = int(raw_val)
+
+        total_kb = mem_info.get('MemTotal', 0)
+        avail_kb = mem_info.get('MemAvailable', 0)
+        if total_kb > 0 and avail_kb >= 0:
+            used_kb = max(0, total_kb - avail_kb)
+            used_pct = (used_kb / total_kb) * 100.0
+            total_gb = total_kb / (1024 * 1024)
+            used_gb = used_kb / (1024 * 1024)
+            mem_label = f"{used_pct:.1f}% ({used_gb:.1f}/{total_gb:.1f} GB)"
+    except Exception:
+        pass
+
+    try:
+        active_proc = len(_snapshot_async_processes())
+        with _processing_queue_lock:
+            waiting_jobs = len(_processing_request_queue)
+        active_job = _snapshot_active_processing_job()
+        workers_label = f"active_job={1 if active_job.get('isActive') else 0}, async_proc={active_proc}, queue_waiting={waiting_jobs}"
+    except Exception:
+        pass
+
+    return {
+        "cpu": cpu_label,
+        "memory": mem_label,
+        "workers": workers_label,
+    }
+
+
+def _telegram_runtime_ping_message(update: Update) -> str:
+    client_id = _telegram_client_id(update)
+    queue = _snapshot_processing_queue(requester_client_id=client_id)
+    uptime_seconds = 0
+    current_status = "off"
+    with _uptime_data_lock:
+        _repair_uptime_data_locked()
+        current_status = _sanitize_uptime_status(_uptime_data.get("currentStatus"))
+        sessions = _uptime_data.get("sessions", [])
+        if isinstance(sessions, list):
+            for session in reversed(sessions):
+                if isinstance(session, dict) and session.get("endTs") is None:
+                    start_ts = float(session.get("startTs") or 0)
+                    if start_ts > 0:
+                        uptime_seconds = max(0, int(time.time() - start_ts))
+                    break
+
+    active_job = _snapshot_active_processing_job()
+    state = "online" if current_status == "on" else "offline"
+    position = int(queue.get("requesterQueuePosition") or 0)
+    waiting = int(queue.get("waitingCount") or 0)
+    queue_total = int(queue.get("queueTotal") or 0)
+    avg_job_seconds = _average_processing_duration_seconds()
+    estimated_drain_seconds = max(0, queue_total * max(1, avg_job_seconds))
+    estimated_drain_text = _format_eta_seconds(estimated_drain_seconds) or "soon"
+    eta = _format_eta_seconds(queue.get("requesterEstimatedWaitSeconds"))
+    uptime_text = _format_eta_seconds(uptime_seconds) or "0s"
+
+    if position > 0:
+        queue_line = f"queue: position {position}, waiting {waiting}" + (f", eta {eta}" if eta else "")
+    else:
+        queue_line = f"queue: waiting {waiting}"
+
+    active_line = "none"
+    if active_job.get("isActive"):
+        active_line = f"{active_job.get('jobId')} ({active_job.get('ownerSource') or 'unknown'})"
+
+    runtime_snapshot = _read_runtime_snapshot()
+    cpu_line = runtime_snapshot.get("cpu", "N/A")
+    mem_line = runtime_snapshot.get("memory", "N/A")
+    worker_line = runtime_snapshot.get("workers", "N/A")
+
+    safe_state = html.escape(state)
+    safe_uptime = html.escape(uptime_text)
+    safe_queue_line = html.escape(queue_line)
+    safe_active_line = html.escape(active_line)
+    safe_drain = html.escape(estimated_drain_text)
+    safe_cpu = html.escape(cpu_line)
+    safe_mem = html.escape(mem_line)
+    safe_workers = html.escape(worker_line)
+
+    return (
+        f"📡 <b>GlyphMotion Runtime</b>\n"
+        f"• <b>Status:</b> <code>{safe_state}</code>\n"
+        f"• <b>Uptime:</b> <code>{safe_uptime}</code>\n"
+        f"• <b>Queue:</b> <code>{safe_queue_line}</code>\n"
+        f"• <b>Queue Drain ETA:</b> <code>{safe_drain}</code>\n"
+        f"• <b>Active Job:</b> <code>{safe_active_line}</code>\n"
+        f"• <b>CPU:</b> <code>{safe_cpu}</code>\n"
+        f"• <b>Memory:</b> <code>{safe_mem}</code>\n"
+        f"• <b>Workers:</b> <code>{safe_workers}</code>"
+    )
+
+
+def _telegram_myjob_message(update: Update) -> str:
+    client_id = _telegram_client_id(update)
+    queue = _snapshot_processing_queue(requester_client_id=client_id)
+    active = _snapshot_active_processing_job()
+
+    position = int(queue.get("requesterQueuePosition") or 0)
+    ahead = int(queue.get("requesterJobsAhead") or 0)
+    waiting = int(queue.get("waitingCount") or 0)
+    eta = _format_eta_seconds(queue.get("requesterEstimatedWaitSeconds")) or "soon"
+    active_source = (active.get("ownerSource") or "").strip().lower()
+    active_owner = (active.get("ownerUsername") or "unknown").strip()
+
+    if position <= 0:
+        return (
+            "🎯 <b>Your Job Status</b>\n"
+            f"• <b>State:</b> <code>no active/queued job found</code>\n"
+            f"• <b>Global waiting:</b> <code>{waiting}</code>\n"
+            "Tip: send a video or use <code>/track &lt;url&gt;</code>."
+        )
+
+    if position == 1 and active.get("isActive"):
+        return (
+            "🎯 <b>Your Job Status</b>\n"
+            "• <b>State:</b> <code>processing now</code>\n"
+            f"• <b>Global waiting:</b> <code>{waiting}</code>\n"
+            f"• <b>Current owner:</b> <code>{active_owner}</code> ({active_source or 'unknown'})"
+        )
+
+    return (
+        "🎯 <b>Your Job Status</b>\n"
+        f"• <b>State:</b> <code>queued</code>\n"
+        f"• <b>Position:</b> <code>{position}</code>\n"
+        f"• <b>Jobs ahead:</b> <code>{ahead}</code>\n"
+        f"• <b>Estimated wait:</b> <code>{eta}</code>"
+    )
+
+
+def _telegram_admin_stats_message(update: Update) -> str:
+    queue = _snapshot_processing_queue(requester_client_id=_telegram_client_id(update))
+    active = _snapshot_active_processing_job()
+    with _benchmark_lock:
+        bench_on = bool(_benchmark_in_progress)
+        bench_stage = str(_benchmark_progress.get("stage") or "idle")
+        bench_pct = int(_benchmark_progress.get("progressPct") or 0)
+
+    waiting = int(queue.get("waitingCount") or 0)
+    total = int(queue.get("queueTotal") or 0)
+    active_line = "none"
+    if active.get("isActive"):
+        active_line = (
+            f"{active.get('jobId')} | {active.get('ownerUsername') or 'unknown'} | "
+            f"{active.get('ownerSource') or 'unknown'}"
+        )
+
+    return (
+        "🛠️ <b>Admin Runtime Snapshot</b>\n"
+        f"• <b>Queue total:</b> <code>{total}</code>\n"
+        f"• <b>Waiting:</b> <code>{waiting}</code>\n"
+        f"• <b>Active:</b> <code>{active_line}</code>\n"
+        f"• <b>Benchmark:</b> <code>{'running' if bench_on else 'idle'}</code>"
+        + (f" (<code>{bench_stage} {bench_pct}%</code>)" if bench_on else "")
+    )
+
+
+def _load_latest_benchmark_record() -> Optional[Dict[str, Any]]:
+    benchmark_path = 'benchmark_data.json'
+    if not os.path.exists(benchmark_path):
+        return None
+    try:
+        with open(benchmark_path, 'r', encoding='utf-8') as benchmark_file:
+            payload = json.load(benchmark_file)
+        if isinstance(payload, dict):
+            records = payload.get('records')
+            if isinstance(records, list) and records:
+                first = records[0]
+                return first if isinstance(first, dict) else None
+    except Exception as benchmark_read_error:
+        logger.warning(f"Could not read latest benchmark record: {benchmark_read_error}")
+    return None
+
+
+def _first_present_number(record: Dict[str, Any], keys: list[str]) -> Optional[float]:
+    for key in keys:
+        if key not in record:
+            continue
+        value = record.get(key)
+        try:
+            return float(value)
+        except Exception:
+            continue
+    return None
+
+
+def _format_metric_value(value: Optional[float], decimals: int = 3) -> str:
+    if value is None:
+        return "N/A"
+    return f"{value:.{decimals}f}"
+
+
+def _latest_video_message() -> str:
+    with _tracking_data_lock:
+        latest = _tracking_data[0] if _tracking_data else None
+    if not isinstance(latest, dict):
+        return "No processed videos found yet."
+
+    title = str(latest.get('videoTitle') or 'unknown')
+    commit_sha = str(latest.get('commitSha') or '')
+    short_sha = commit_sha[:10] if commit_sha else 'N/A'
+    ts = int(latest.get('timestamp') or 0)
+    when = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc).isoformat() if ts > 0 else "N/A"
+    drive_url = str(latest.get('driveDownloadUrl') or "")
+    drive_line = f"\n• <b>Drive:</b> <a href=\"{html.escape(drive_url)}\">open</a>" if drive_url else ""
+
+    return (
+        "🎬 <b>Latest Processed Video</b>\n"
+        f"• <b>Title:</b> <code>{html.escape(title)}</code>\n"
+        f"• <b>Commit:</b> <code>{html.escape(short_sha)}</code>\n"
+        f"• <b>Time (UTC):</b> <code>{html.escape(when)}</code>"
+        f"{drive_line}"
+    )
+
+
+def _limits_message() -> str:
+    return (
+        "📏 <b>Input Rules & Limits</b>\n"
+        "• Telegram accepts: <code>video</code> and <code>video documents</code> only\n"
+        f"• Frame restriction: <code>{'ON' if FRAME_RESTRICTION_ENABLED else 'OFF'}</code>"
+        + (f" (max <code>{int(FRAME_RESTRICTION_VALUE)}</code> frames)" if FRAME_RESTRICTION_ENABLED else "")
+        + "\n"
+        "• If Telegram returns <code>File is too big</code>, use <code>/track &lt;direct_video_url&gt;</code>\n"
+        "• For larger Telegram media support (up to 2GB), use a local Telegram Bot API server\n"
+        "• Processed video is sent in Telegram first, then published to website"
+    )
+
+
+def _benchmark_message() -> str:
+    benchmark_path = 'benchmark_data.json'
+    if not os.path.exists(benchmark_path):
+        return "No benchmark records found yet."
+
+    try:
+        with open(benchmark_path, 'r', encoding='utf-8') as benchmark_file:
+            payload = json.load(benchmark_file)
+    except Exception as benchmark_read_error:
+        logger.warning(f"Could not read benchmark_data.json: {benchmark_read_error}")
+        return "Could not read benchmark data right now."
+
+    if not isinstance(payload, dict):
+        return "Benchmark data format is invalid."
+
+    aggregates = payload.get("aggregates") if isinstance(payload.get("aggregates"), dict) else {}
+    record_count = int(payload.get("recordCount") or 0)
+    generated_at = str(payload.get("generatedAt") or "N/A")
+
+    def _agg_avg(field: str) -> Optional[float]:
+        slot = aggregates.get(field)
+        if not isinstance(slot, dict):
+            return None
+        value = slot.get("avg")
+        try:
+            return float(value)
+        except Exception:
+            return None
+
+    vmaf = _agg_avg("VMAF") or _agg_avg("vmaf")
+    mota = _agg_avg("MOTA_Score") or _agg_avg("mota_score")
+    ssim = _agg_avg("SSIM") or _agg_avg("ssim")
+    psnr = _agg_avg("PSNR") or _agg_avg("psnr")
+    map50 = _agg_avg("mAP@0.5") or _agg_avg("mAP@50")
+    avg_jitter = _agg_avg("Latency_Jitter_ms")
+    avg_pipeline_fps = _agg_avg("Avg_Pipeline_FPS")
+
+    return (
+        "📊 <b>Overall Benchmark (Dashboard Aggregate)</b>\n"
+        f"• <b>Generated:</b> <code>{html.escape(generated_at)}</code>\n"
+        f"• <b>Records:</b> <code>{record_count}</code>\n"
+        f"• <b>VMAF avg:</b> <code>{_format_metric_value(vmaf, 3)}</code>\n"
+        f"• <b>MOTA avg:</b> <code>{_format_metric_value(mota, 3)}</code>\n"
+        f"• <b>SSIM avg:</b> <code>{_format_metric_value(ssim, 4)}</code>\n"
+        f"• <b>PSNR avg:</b> <code>{_format_metric_value(psnr, 3)}</code>\n"
+        f"• <b>mAP@50 avg:</b> <code>{_format_metric_value(map50, 4)}</code>\n"
+        f"• <b>Avg Latency Jitter (ms):</b> <code>{_format_metric_value(avg_jitter, 3)}</code>\n"
+        f"• <b>Avg Pipeline FPS:</b> <code>{_format_metric_value(avg_pipeline_fps, 3)}</code>"
+    )
+
+
+def _extract_telegram_id_from_tracking_entry(entry: Dict[str, Any]) -> str:
+    owner_telegram_id = str(entry.get("ownerTelegramId") or "").strip()
+    if owner_telegram_id.isdigit():
+        return owner_telegram_id
+
+    owner_client_id = str(entry.get("ownerClientId") or "").strip()
+    if owner_client_id.startswith("tg:"):
+        candidate = owner_client_id.split(":", 1)[1].strip()
+        if candidate.isdigit():
+            return candidate
+
+    ip_address = str(entry.get("ipAddress") or "").strip()
+    if ip_address.startswith("TelegramUser:"):
+        candidate = ip_address.split(":", 1)[1].strip()
+        if candidate.isdigit():
+            return candidate
+
+    return ""
+
+
+def _load_telegram_user_directory(max_lines: int = 20000) -> Dict[str, Dict[str, str]]:
+    users: Dict[str, Dict[str, str]] = {}
+    if not os.path.exists(TELEGRAM_CHAT_LOG_FILE):
+        return users
+
+    try:
+        with open(TELEGRAM_CHAT_LOG_FILE, 'r', encoding='utf-8') as log_file:
+            recent_lines = log_file.readlines()[-max_lines:]
+    except Exception as read_error:
+        logger.warning(f"Could not read Telegram chat log file for user directory: {read_error}")
+        return users
+
+    for raw_line in recent_lines:
+        raw_line = raw_line.strip()
+        if not raw_line:
+            continue
+        try:
+            item = json.loads(raw_line)
+        except Exception:
+            continue
+        payload = item.get("payload") if isinstance(item, dict) else None
+        if not isinstance(payload, dict):
+            continue
+
+        user_id_raw = payload.get("userId")
+        if user_id_raw is None:
+            continue
+        user_id = str(user_id_raw).strip()
+        if not user_id:
+            continue
+
+        username = str(payload.get("username") or "").strip()
+        full_name = str(payload.get("fullName") or "").strip()
+        users[user_id] = {
+            "username": username,
+            "fullName": full_name,
+        }
+
+    return users
+
+
+def _collect_telegram_processed_groups() -> list[Dict[str, Any]]:
+    with _tracking_data_lock:
+        tracking_snapshot = list(_tracking_data)
+
+    user_directory = _load_telegram_user_directory()
+    grouped: Dict[str, Dict[str, Any]] = {}
+
+    for entry in tracking_snapshot:
+        if not isinstance(entry, dict):
+            continue
+
+        source = str(entry.get("source") or "").strip().lower()
+        if not source:
+            source = "telegram" if str(entry.get("ipAddress") or "").startswith("TelegramUser:") else "web"
+        if source != "telegram":
+            continue
+
+        video_title = str(entry.get("videoTitle") or "unknown")
+        ts = int(entry.get("timestamp") or 0)
+
+        tg_id = _extract_telegram_id_from_tracking_entry(entry)
+        directory_item = user_directory.get(tg_id, {}) if tg_id else {}
+        username = str(directory_item.get("username") or "").strip()
+        full_name = str(directory_item.get("fullName") or entry.get("ownerUsername") or "").strip() or "unknown"
+
+        profile_link = ""
+        if username:
+            profile_link = f"https://t.me/{username}"
+        elif tg_id:
+            profile_link = f"tg://user?id={tg_id}"
+
+        actor_key = f"telegram:{tg_id or full_name}"
+        actor_label = full_name
+        actor_meta = {
+            "source": "telegram",
+            "telegramId": tg_id or "N/A",
+            "username": username or "N/A",
+            "profileLink": profile_link or "N/A",
+        }
+
+        slot = grouped.get(actor_key)
+        if not slot:
+            slot = {
+                "label": actor_label,
+                "meta": actor_meta,
+                "videos": [],
+            }
+            grouped[actor_key] = slot
+
+        slot["videos"].append({
+            "title": video_title,
+            "timestamp": ts,
+        })
+
+    return sorted(
+        grouped.values(),
+        key=lambda g: max((v.get("timestamp") or 0) for v in g.get("videos", [])),
+        reverse=True,
+    )
+
+
+def _processedby_keyboard(current_page: int, total_pages: int) -> InlineKeyboardMarkup:
+    prev_target = current_page - 1 if current_page > 0 else current_page
+    next_target = current_page + 1 if current_page < (total_pages - 1) else current_page
+
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Previous", callback_data=f"processedby:{prev_target}"),
+            InlineKeyboardButton(f"{current_page + 1}/{total_pages}", callback_data="processedby:noop"),
+            InlineKeyboardButton("Next", callback_data=f"processedby:{next_target}"),
+        ]
+    ])
+
+
+def _admin_processed_by_message(page: int = 0, page_size: int = 2) -> tuple[str, Optional[InlineKeyboardMarkup]]:
+    ordered_groups = _collect_telegram_processed_groups()
+
+    if not ordered_groups:
+        return "No Telegram-processed videos found yet.", None
+
+    total = len(ordered_groups)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page_index = max(0, min(page, total_pages - 1))
+    start = page_index * page_size
+    end = start + page_size
+    page_groups = ordered_groups[start:end]
+
+    lines = [
+        "👤 <b>Telegram Processed Videos by User</b>",
+        f"Page <code>{page_index + 1}/{total_pages}</code> • Users <code>{start + 1}-{min(end, total)}</code> of <code>{total}</code>",
+    ]
+    per_actor_video_limit = 2
+    for index, group in enumerate(page_groups, start=start + 1):
+        meta = group.get("meta", {})
+        videos = sorted(group.get("videos", []), key=lambda v: int(v.get("timestamp") or 0), reverse=True)
+        latest_ts = int(videos[0].get("timestamp") or 0) if videos else 0
+        latest_iso = datetime.datetime.fromtimestamp(latest_ts, tz=datetime.timezone.utc).isoformat() if latest_ts > 0 else "N/A"
+
+        lines.append(
+            f"\n<b>{index}. {html.escape(str(group.get('label') or 'unknown'))}</b>"
+        )
+        lines.append(f"• source: <code>{html.escape(str(meta.get('source') or 'unknown'))}</code>")
+        lines.append(f"• telegram_id: <code>{html.escape(str(meta.get('telegramId') or 'N/A'))}</code>")
+        lines.append(f"• username: <code>{html.escape(str(meta.get('username') or 'N/A'))}</code>")
+        profile_link = str(meta.get('profileLink') or 'N/A')
+        if profile_link.startswith("http"):
+            lines.append(f"• profile: <a href=\"{html.escape(profile_link)}\">open</a>")
+        else:
+            lines.append(f"• profile: <code>{html.escape(profile_link)}</code>")
+        lines.append(f"• videos_processed: <code>{len(videos)}</code>")
+        lines.append(f"• latest_utc: <code>{html.escape(latest_iso)}</code>")
+        if videos:
+            shown = videos[:per_actor_video_limit]
+            for video in shown:
+                title = _safe_log_preview(str(video.get('title') or 'unknown'), max_len=90)
+                lines.append(f"  - {html.escape(title)}")
+            if len(videos) > per_actor_video_limit:
+                lines.append(f"  - ... and {len(videos) - per_actor_video_limit} more")
+
+    message = "\n".join(lines)
+    if len(message) > 3800:
+        message = message[:3780] + "\n... (truncated)"
+    return message, _processedby_keyboard(page_index, total_pages)
+
+
+async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Returns online status, queue status and uptime snapshot."""
+    _log_telegram_incoming_message(update, handler_name="ping")
+    await update.message.reply_text(_telegram_runtime_ping_message(update), parse_mode='HTML')
+
+
+async def myjob_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Returns requester-specific active/queue status."""
+    _log_telegram_incoming_message(update, handler_name="myjob")
+    await update.message.reply_text(_telegram_myjob_message(update), parse_mode='HTML')
+
+
+async def limits_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Shows Telegram input limits and guidance."""
+    _log_telegram_incoming_message(update, handler_name="limits")
+    await update.message.reply_text(_limits_message(), parse_mode='HTML')
+
+
+async def latest_video_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Shows latest processed/published video metadata."""
+    _log_telegram_incoming_message(update, handler_name="latestvideo")
+    await update.message.reply_text(_latest_video_message(), parse_mode='HTML', disable_web_page_preview=True)
+
+
+async def latest_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Alias for latest processed/published video metadata."""
+    _log_telegram_incoming_message(update, handler_name="latest")
+    await update.message.reply_text(_latest_video_message(), parse_mode='HTML', disable_web_page_preview=True)
+
+
+async def admin_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Returns compact runtime stats for Telegram master admins."""
+    _log_telegram_incoming_message(update, handler_name="adminstats")
+    if not _is_telegram_master_admin(update):
+        await update.message.reply_text("Admin-only command.")
+        return
+    await update.message.reply_text(_telegram_admin_stats_message(update), parse_mode='HTML')
+
+
+async def benchmark_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Returns latest benchmark metrics for admins."""
+    _log_telegram_incoming_message(update, handler_name="benchmark")
+    if not _is_telegram_master_admin(update):
+        await update.message.reply_text("Admin-only command.")
+        return
+    await update.message.reply_text(_benchmark_message(), parse_mode='HTML')
+
+
+async def overall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Alias for overall benchmark aggregate metrics."""
+    _log_telegram_incoming_message(update, handler_name="overall")
+    if not _is_telegram_master_admin(update):
+        await update.message.reply_text("Admin-only command.")
+        return
+    await update.message.reply_text(_benchmark_message(), parse_mode='HTML')
+
+
+async def processed_by_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Shows admin report of who processed which videos by source/user."""
+    _log_telegram_incoming_message(update, handler_name="processedby")
+    if not _is_telegram_master_admin(update):
+        await update.message.reply_text("Admin-only command.")
+        return
+    message, keyboard = _admin_processed_by_message(page=0)
+    await update.message.reply_text(
+        message,
+        parse_mode='HTML',
+        disable_web_page_preview=True,
+        reply_markup=keyboard,
+    )
+
+
+async def processed_by_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles previous/next pagination for /processedby report."""
+    query = update.callback_query
+    if not query:
+        return
+
+    await query.answer()
+    if not _is_telegram_master_admin(update):
+        await query.answer("Admin-only action.", show_alert=True)
+        return
+
+    payload = str(query.data or "")
+    parts = payload.split(":", 1)
+    if len(parts) != 2 or parts[0] != "processedby":
+        return
+
+    token = parts[1].strip().lower()
+    if token == "noop":
+        return
+
+    try:
+        page = int(token)
+    except Exception:
+        page = 0
+
+    message, keyboard = _admin_processed_by_message(page=page)
+    await query.edit_message_text(
+        message,
+        parse_mode='HTML',
+        disable_web_page_preview=True,
+        reply_markup=keyboard,
+    )
+
+
+async def cancel_current_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancels currently running Telegram processing task for owner or Telegram master admin."""
+    _log_telegram_incoming_message(update, handler_name="cancel_current")
+    ok, message = _cancel_current_telegram_job_for_requester(update)
+    await update.message.reply_text(message)
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /help command."""
+    _log_telegram_incoming_message(update, handler_name="help")
     help_text = (
-        "💡 <b>Here's how to use me:</b>\n\n"
-        "➡️ <code>/track &lt;video_url&gt;</code>: <b>Provide a direct link to a video file.</b>\n"
-        "I will download it, perform object tracking, and then provide you with a download link to the processed video.\n\n"
+        "💡 <b>Here's how to use me:</b>\n"
+        "➡️ Send a <b>Telegram video</b> directly in chat, or send a <b>video document</b>.\n"
+        "➡️ <code>/track &lt;video_url&gt;</code>: Provide a direct video URL, including YouTube links.\n"
+        "➡️ <code>/checkqueue</code>: Show current queue and your position.\n"
+        "➡️ <code>/myjob</code>: Show your current job state (processing/queued/idle).\n"
+        "➡️ <code>/ping</code>: Show live bot status, queue and uptime.\n"
+        "➡️ <code>/latestvideo</code> (alias: <code>/latest</code>): Show latest processed/published video details.\n"
+        "➡️ <code>/limits</code>: Show upload rules and size guidance.\n"
+        "➡️ <code>/cancelcurrent</code>: Cancel the current Telegram task (owner or Telegram master admin only).\n"
+        "➡️ <code>/activejob</code> (admin): Show active processing owner/source details.\n"
+        "➡️ <code>/adminstats</code> (admin): Show queue/active/benchmark runtime summary.\n"
+        "➡️ <code>/benchmark</code> (admin, alias: <code>/overall</code>): Show overall benchmark aggregates (dashboard-level).\n"
+        "➡️ <code>/processedby</code> (admin): Telegram-only processed-by list with Previous/Next pages.\n"
+        "I validate that uploads contain a true video stream, process the file, send the processed result back in chat, and then publish it to the website.\n"
         "<b>For example:</b>\n"
-        "<code>/track https://videos.pexels.com/video-files/example.mp4</code>\n\n"
-        "Please ensure the video link is publicly accessible."
+        "<code>/track https://www.youtube.com/watch?v=dQw4w9WgXcQ</code>\n"
+        "Only video inputs are accepted. Non-video files are rejected."
     )
     await update.message.reply_text(
         help_text,
@@ -2546,16 +4212,34 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles unknown commands."""
+    _log_telegram_incoming_message(update, handler_name="unknown_command")
     await update.message.reply_text(
         "🤔 Sorry, I don't understand that command.\n"
         "Please use /help to see the available commands."
     )
 
-async def handle_non_command_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles any text messages that are not commands."""
-    await update.message.reply_text(
-        "👋 Hi there! I'm a bot designed to track objects in videos.\n"
-        "To see what I can do, please use the /help command."
+async def handle_non_command_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Routes non-command messages: accept only Telegram video/video-document, reject other attachments."""
+    message = update.effective_message
+    if not message:
+        return
+
+    _log_telegram_incoming_message(update, handler_name="non_command")
+
+    if message.video or message.document:
+        await _process_telegram_video_message(update, context)
+        return
+
+    if message.effective_attachment:
+        _log_telegram_interaction(update, action="rejected", media_kind="attachment", note="unsupported_attachment")
+        await message.reply_text(
+            "❌ Unsupported file type. Send only Telegram videos or video documents."
+        )
+        return
+
+    await message.reply_text(
+        "👋 Send a Telegram video (or video document) to start processing.\n"
+        "Use /help for full usage details or /checkqueue to view queue status."
     )
 
 
@@ -2582,7 +4266,8 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             '/admin_tracker_data',
             '/admin_uptime_data',
             '/admin_tracker_land',
-        ) and (self.command == 'GET' or self.command == 'HEAD' or self.command == 'POST'):
+            '/cancel_video_processing',
+        ) and (self.command == 'GET' or self.command == 'HEAD' or self.command == 'POST' or self.command == 'OPTIONS'):
             return
 
         # Chunk uploads are high-frequency; suppress per-chunk request lines to avoid log spam.
@@ -2633,7 +4318,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         self._set_cors_headers()
         self.send_header('Content-Length', '0') # No content for OPTIONS
         self.end_headers()
-        logger.info("Handled OPTIONS preflight request.")
+        logger.debug("Handled OPTIONS preflight request.")
 
     # Renamed _send_response to send_api_response to avoid conflict and be more explicit
     def send_api_response(self, status_code, data):
@@ -2684,8 +4369,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         if resolved:
             return resolved
 
-        # Reject weak identity fallbacks (IP/User-Agent) because they can collide across users.
-        # A missing client id means owner-based cancel auth cannot be trusted for non-admins.
+        # Client id remains preferred; IP fallback is used separately for ownership continuity.
         return ""
 
     def _decode_optional_admin_payload(self) -> dict | None:
@@ -2703,8 +4387,10 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
     def _get_request_actor(self) -> dict:
         admin_payload = self._decode_optional_admin_payload()
         username = admin_payload.get('username') if admin_payload else ''
+        client_ip = get_client_ip(self)
         return {
             "clientId": self._get_client_id(),
+            "clientIp": client_ip,
             "isAdmin": bool(admin_payload),
             "username": username or "",
         }
@@ -3273,29 +4959,44 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     ),
                     "complete_chunked_upload",
                     owner_client_id=requester.get("clientId", ""),
+                    owner_client_ip=requester.get("clientIp", ""),
                     owner_username=requester.get("username", ""),
                     owner_is_admin=requester.get("isAdmin", False),
+                    owner_source="web",
                 )
 
                 if schedule_error:
-                    active_job_snapshot = _snapshot_active_processing_job()
                     if os.path.exists(assembled_input_path):
                         try:
                             os.remove(assembled_input_path)
                         except OSError:
                             pass
-                    self.send_api_response(409, {
+                    self.send_api_response(500, {
                         "success": False,
                         "message": schedule_error,
-                        "processingActive": True,
-                        "activeProcessingJobId": active_job_snapshot.get("jobId", "")
                     })
                     return
 
+                queue_snapshot = _snapshot_processing_queue(
+                    requester_client_id=requester.get("clientId", ""),
+                    requester_client_ip=requester.get("clientIp", ""),
+                )
+                requester_position = int(queue_snapshot.get("requesterQueuePosition") or 0)
+                queued = requester_position > 1
+                queue_message = queue_snapshot.get("queueStatusLine") or ""
+
                 self.send_api_response(200, {
                     "success": True,
-                    "message": "Chunked upload assembled and processing initiated.",
-                    "jobId": job_id
+                    "message": (
+                        f"Chunked upload accepted. {queue_message}"
+                        if queue_message else
+                        "Chunked upload accepted and processing initiated."
+                    ),
+                    "jobId": job_id,
+                    "queued": queued,
+                    "queuePosition": requester_position,
+                    "queueWaitingCount": queue_snapshot.get("waitingCount", 0),
+                    "queueEstimatedWaitSeconds": queue_snapshot.get("requesterEstimatedWaitSeconds", 0),
                 })
             except json.JSONDecodeError:
                 self.send_api_response(400, {"success": False, "message": "Invalid JSON payload."})
@@ -3439,7 +5140,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     is_file_upload = True  # Treat cached file as a file upload
                     logger.info(f"Processing with cached video: {cached_video_path}")
                 elif video_file is not None and getattr(video_file, 'file', None) is not None:
-                    video_source = video_file
+                    video_source = persist_uploaded_field_to_input(video_file, fallback_prefix="web_upload")
                     is_file_upload = True
                 else:
                     video_source = video_url
@@ -3460,22 +5161,37 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                     ),
                     "process_web_video",
                     owner_client_id=requester.get("clientId", ""),
+                    owner_client_ip=requester.get("clientIp", ""),
                     owner_username=requester.get("username", ""),
                     owner_is_admin=requester.get("isAdmin", False),
+                    owner_source="web",
                 )
 
                 if schedule_error:
-                    active_job_snapshot = _snapshot_active_processing_job()
-                    self.send_api_response(409, {
+                    self.send_api_response(500, {
                         "message": schedule_error,
-                        "processingActive": True,
-                        "activeProcessingJobId": active_job_snapshot.get("jobId", "")
                     })
                     return
 
+                queue_snapshot = _snapshot_processing_queue(
+                    requester_client_id=requester.get("clientId", ""),
+                    requester_client_ip=requester.get("clientIp", ""),
+                )
+                requester_position = int(queue_snapshot.get("requesterQueuePosition") or 0)
+                queued = requester_position > 1
+                queue_message = queue_snapshot.get("queueStatusLine") or ""
+
                 self.send_api_response(200, {
-                    "message": "Processing initiated. Check GitHub Pages for updates.",
-                    "jobId": job_id
+                    "message": (
+                        f"Request accepted. {queue_message}"
+                        if queue_message else
+                        "Processing initiated. Check GitHub Pages for updates."
+                    ),
+                    "jobId": job_id,
+                    "queued": queued,
+                    "queuePosition": requester_position,
+                    "queueWaitingCount": queue_snapshot.get("waitingCount", 0),
+                    "queueEstimatedWaitSeconds": queue_snapshot.get("requesterEstimatedWaitSeconds", 0),
                 })
 
             except Exception as e:
@@ -4436,7 +6152,6 @@ def main():
     
     # Start the preview cleanup scheduler (removes abandoned preview files)
     start_preview_cleanup_scheduler()
-    logger.info("Preview cleanup scheduler started")
 
     if not TELEGRAM_BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN is not configured. Set it in environment or .env before starting tg.py.")
@@ -4460,28 +6175,69 @@ def main():
 
     def _build_telegram_application() -> Application:
         # Build app with longer timeouts (60s to tolerate transient network delays)
-        app = (Application.builder()
-               .token(TELEGRAM_BOT_TOKEN)
-               .read_timeout(60)
-               .write_timeout(60)
-               .connect_timeout(60)
-               .pool_timeout(60)
-               .build())
+        app_builder = (Application.builder()
+                       .token(TELEGRAM_BOT_TOKEN)
+                       .read_timeout(60)
+                       .write_timeout(60)
+                       .connect_timeout(60)
+                       .pool_timeout(60))
+
+        if TELEGRAM_BOT_API_BASE_URL:
+            app_builder = app_builder.base_url(TELEGRAM_BOT_API_BASE_URL)
+            logger.info(f"Using custom Telegram Bot API base URL: {TELEGRAM_BOT_API_BASE_URL}")
+        if TELEGRAM_BOT_API_BASE_FILE_URL:
+            app_builder = app_builder.base_file_url(TELEGRAM_BOT_API_BASE_FILE_URL)
+            logger.info(f"Using custom Telegram Bot API file URL: {TELEGRAM_BOT_API_BASE_FILE_URL}")
+        if TELEGRAM_BOT_API_LOCAL_MODE:
+            app_builder = app_builder.local_mode(True)
+            logger.info("Telegram bot is running in local Bot API mode.")
+
+        app = app_builder.build()
 
         async def telegram_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
             """Catches Telegram polling/network errors gracefully instead of logging raw tracebacks."""
             from telegram.error import NetworkError, TimedOut
+            global _telegram_network_error_last_logged_at, _telegram_network_error_suppressed_count
             err = context.error
             if isinstance(err, (NetworkError, TimedOut)):
-                logger.warning(f"Telegram polling network error (will retry): {type(err).__name__}: {err}")
+                now = time.time()
+                err_text = str(err or "").strip()
+                # Avoid warning spam on transient empty connect errors.
+                if now - _telegram_network_error_last_logged_at < 30:
+                    _telegram_network_error_suppressed_count += 1
+                    logger.debug(f"Telegram transient network error suppressed: {type(err).__name__}: {err_text}")
+                    return
+
+                suppressed = _telegram_network_error_suppressed_count
+                _telegram_network_error_suppressed_count = 0
+                _telegram_network_error_last_logged_at = now
+
+                suffix = f" (suppressed {suppressed} similar events)" if suppressed > 0 else ""
+                logger.warning(
+                    f"Telegram polling network error (auto-recovering): {type(err).__name__}: {err_text or 'transient connect issue'}{suffix}"
+                )
             else:
                 logger.error(f"Unhandled Telegram error: {err}", exc_info=context.error)
 
         app.add_error_handler(telegram_error_handler)
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CommandHandler("track", track_command))
+        app.add_handler(CommandHandler("checkqueue", check_queue_command))
+        app.add_handler(CommandHandler("myjob", myjob_command))
+        app.add_handler(CommandHandler("latestvideo", latest_video_command))
+        app.add_handler(CommandHandler("latest", latest_command))
+        app.add_handler(CommandHandler("limits", limits_command))
+        app.add_handler(CommandHandler("ping", ping_command))
+        app.add_handler(CommandHandler("cancelcurrent", cancel_current_command))
+        app.add_handler(CommandHandler("activejob", admin_active_job_command))
+        app.add_handler(CommandHandler("adminstats", admin_stats_command))
+        app.add_handler(CommandHandler("benchmark", benchmark_command))
+        app.add_handler(CommandHandler("overall", overall_command))
+        app.add_handler(CommandHandler("processedby", processed_by_command))
         app.add_handler(CommandHandler("help", help_command))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_non_command_text))
+        app.add_handler(CallbackQueryHandler(telegram_cancel_callback, pattern=r"^tg_cancel:"))
+        app.add_handler(CallbackQueryHandler(processed_by_callback, pattern=r"^processedby:"))
+        app.add_handler(MessageHandler(~filters.COMMAND, handle_non_command_message))
         app.add_handler(MessageHandler(filters.COMMAND, unknown_command))
         return app
 
@@ -4490,12 +6246,15 @@ def main():
 
     try:
         while True:
+            telegram_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(telegram_loop)
             app = _build_telegram_application()
             logger.info("Telegram Bot started. Listening for updates...")
             try:
                 app.run_polling(
                     drop_pending_updates=first_start,
                     bootstrap_retries=-1,
+                    close_loop=False,
                 )
                 logger.info("Telegram polling exited normally.")
                 break
@@ -4510,6 +6269,15 @@ def main():
                 time.sleep(retry_delay_seconds)
                 retry_delay_seconds = min(retry_delay_seconds * 2, 60)
             finally:
+                try:
+                    if not telegram_loop.is_closed():
+                        telegram_loop.close()
+                except Exception as close_error:
+                    logger.debug(f"Telegram loop close skipped: {close_error}")
+                try:
+                    asyncio.set_event_loop(None)
+                except Exception:
+                    pass
                 first_start = False
     finally:
         stop_uptime_monitor()

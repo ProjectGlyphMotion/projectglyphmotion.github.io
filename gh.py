@@ -364,6 +364,135 @@ def update_and_commit_github_file(repo, file_path, new_content, commit_message, 
 
     return None
 
+
+def _load_videos_json_and_sha(repo, branch: str) -> tuple[list, Optional[str]]:
+    """Loads videos.json list and current blob SHA (if file exists)."""
+    try:
+        contents = repo.get_contents(GITHUB_VIDEOS_JSON_PATH, ref=branch)
+        raw = contents.decoded_content.decode('utf-8')
+        parsed = json.loads(raw) if raw else []
+        if not isinstance(parsed, list):
+            parsed = []
+        return parsed, contents.sha
+    except Exception:
+        return [], None
+
+
+def _video_entries_match(a: dict, b: dict) -> bool:
+    """Best-effort identity matching for videos.json entries."""
+    a_drive = str(a.get("googleDriveFileId") or "").strip()
+    b_drive = str(b.get("googleDriveFileId") or "").strip()
+    if a_drive and b_drive and a_drive == b_drive:
+        return True
+
+    a_commit = str(a.get("commitSha") or "").strip()
+    b_commit = str(b.get("commitSha") or "").strip()
+    if a_commit and b_commit and a_commit == b_commit:
+        return True
+
+    a_download = str(a.get("downloadUrl") or "").strip()
+    b_download = str(b.get("downloadUrl") or "").strip()
+    if a_download and b_download and a_download == b_download:
+        return True
+
+    a_embed = str(a.get("embedUrl") or "").strip()
+    b_embed = str(b.get("embedUrl") or "").strip()
+    if a_embed and b_embed and a_embed == b_embed:
+        return True
+
+    a_title = str(a.get("title") or "").strip()
+    b_title = str(b.get("title") or "").strip()
+    a_ts = int(a.get("timestamp") or 0)
+    b_ts = int(b.get("timestamp") or 0)
+    return bool(a_title and b_title and a_title == b_title and a_ts > 0 and b_ts > 0 and abs(a_ts - b_ts) <= 5)
+
+
+def _merge_video_entry(existing: dict, incoming: dict) -> dict:
+    merged = dict(existing or {})
+    for key, value in incoming.items():
+        if value is None:
+            continue
+        if isinstance(value, str) and value.strip() == "":
+            continue
+        merged[key] = value
+    if "timestamp" in incoming:
+        try:
+            merged["timestamp"] = int(incoming.get("timestamp") or merged.get("timestamp") or int(time.time()))
+        except Exception:
+            pass
+    return merged
+
+
+def upsert_video_entry_merge_safe(
+    repo,
+    entry: dict,
+    commit_message: str,
+    branch: str,
+    max_retries: int = 6,
+) -> Optional[str]:
+    """Upserts a video entry into videos.json with conflict-safe merge retries."""
+    candidate = dict(entry or {})
+    for attempt in range(1, max_retries + 1):
+        videos, sha = _load_videos_json_and_sha(repo, branch)
+
+        if not isinstance(videos, list):
+            videos = []
+
+        match_index = -1
+        for idx, current in enumerate(videos):
+            if isinstance(current, dict) and _video_entries_match(current, candidate):
+                match_index = idx
+                break
+
+        if match_index >= 0:
+            merged = _merge_video_entry(videos[match_index], candidate)
+            del videos[match_index]
+            videos.insert(0, merged)
+        else:
+            videos.insert(0, candidate)
+
+        content = json.dumps(videos, indent=4)
+        try:
+            if sha:
+                commit = repo.update_file(GITHUB_VIDEOS_JSON_PATH, commit_message, content, sha, branch=branch)
+            else:
+                commit = repo.create_file(GITHUB_VIDEOS_JSON_PATH, commit_message, content, branch=branch)
+            commit_sha = commit['commit'].sha
+            logger.info(
+                f"Upserted videos.json entry for '{candidate.get('title', 'unknown')}' "
+                f"on attempt {attempt}/{max_retries}. Commit SHA: {commit_sha}"
+            )
+            return commit_sha
+        except GithubException as e:
+            status = getattr(e, "status", None)
+            is_conflict = status == 409 or "does not match" in str(e).lower()
+            if is_conflict and attempt < max_retries:
+                delay = 0.4 * attempt
+                logger.warning(
+                    f"Conflict while upserting videos.json (attempt {attempt}/{max_retries}). "
+                    f"Retrying in {delay:.1f}s..."
+                )
+                time.sleep(delay)
+                continue
+            logger.error(f"Failed upserting videos.json entry: {e}", exc_info=True)
+            return None
+        except Exception as e:
+            logger.error(f"Failed upserting videos.json entry: {e}", exc_info=True)
+            return None
+
+    return None
+
+
+def _video_entry_exists(repo, branch: str, entry: dict) -> bool:
+    """Checks whether videos.json already contains an entry matching candidate identity."""
+    videos, _ = _load_videos_json_and_sha(repo, branch)
+    if not isinstance(videos, list):
+        return False
+    for current in videos:
+        if isinstance(current, dict) and _video_entries_match(current, entry):
+            return True
+    return False
+
 def get_commit_details(commit_sha: str):
     """
     Fetches details for a given commit SHA from GitHub.
@@ -456,21 +585,7 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
             logger.error("Could not access GitHub repository. Aborting GitHub Pages update.")
             return False, None, None
 
-        # 5. Fetch existing videos.json content
-        existing_content = get_github_file_content(repo, GITHUB_VIDEOS_JSON_PATH, GITHUB_BRANCH)
-        videos_data = []
-        if existing_content:
-            try:
-                videos_data = json.loads(existing_content)
-                if not isinstance(videos_data, list): # Ensure it's a list
-                    logger.warning(f"{GITHUB_VIDEOS_JSON_PATH} content is not a list. Initializing as empty list.")
-                    videos_data = []
-            except json.JSONDecodeError:
-                logger.error(f"Error decoding existing {GITHUB_VIDEOS_JSON_PATH}. Initializing as empty list.")
-                videos_data = []
-
-        # 6. Prepare new video entry
-        # Initially, commitSha is None. It will be updated in a second commit.
+        # 5. Prepare new video entry
         new_video_entry = {
             "title": original_video_title,
             "description": description,
@@ -478,13 +593,8 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
             "downloadUrl": web_view_link, # Provide webViewLink for direct download/view
             "timestamp": int(time.time()), # Unix timestamp for sorting
             "googleDriveFileId": file_id, # Store for potential future management
-            "commitSha": None # Placeholder for commit SHA
+            "commitSha": "" # Kept empty to avoid mandatory second commit backfill.
         }
-
-        # Add the new video entry to the beginning of the list (most recent first)
-        videos_data.insert(0, new_video_entry)
-
-        new_json_content = json.dumps(videos_data, indent=4)
         commit_message = f"Add processed video: {original_video_title}"
 
         # Notify caller that upload is done and we're now committing to GitHub
@@ -494,42 +604,49 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
             except Exception:
                 pass
 
-        # 7. Commit updated videos.json to GitHub (initial commit)
-        initial_commit_sha = update_and_commit_github_file(repo, GITHUB_VIDEOS_JSON_PATH, new_json_content, commit_message, GITHUB_BRANCH)
+        # 6. Merge-safe upsert into videos.json (initial publish commit)
+        initial_commit_sha = upsert_video_entry_merge_safe(
+            repo,
+            new_video_entry,
+            commit_message,
+            GITHUB_BRANCH,
+        )
 
-        if initial_commit_sha:
-            logger.info(f"Successfully created initial commit for '{original_video_title}'. SHA: {initial_commit_sha}")
-            
-            # Fetch the updated content (which now includes the new video)
-            updated_content_after_first_commit = get_github_file_content(repo, GITHUB_VIDEOS_JSON_PATH, GITHUB_BRANCH)
-            if updated_content_after_first_commit:
-                updated_videos_data = json.loads(updated_content_after_first_commit)
-                # Find the video we just added (it's the first one, or by file_id) and set its commitSha
-                for video in updated_videos_data:
-                    if video.get("googleDriveFileId") == file_id and video.get("commitSha") is None:
-                        video["commitSha"] = initial_commit_sha # Use the SHA from the first commit
-                        break
-                
-                final_json_content = json.dumps(updated_videos_data, indent=4)
-                final_commit_message = f"Update commit SHA for: {original_video_title} (ref {initial_commit_sha[:7]})"
-                
-                # Commit the file again with the commit SHA included
-                final_commit_success = update_and_commit_github_file(repo, GITHUB_VIDEOS_JSON_PATH, final_json_content, final_commit_message, GITHUB_BRANCH)
-                if final_commit_success:
-                    logger.info(f"Successfully updated commit SHA for video: {original_video_title}")
-                    return True, initial_commit_sha, web_view_link # Return success, initial commit SHA, and download URL
-                else:
-                    logger.warning(
-                        f"Could not backfill commitSha in videos.json for '{original_video_title}'. "
-                        "Primary video publish already succeeded; continuing without failing the request."
-                    )
-                    return True, initial_commit_sha, web_view_link
-            else:
-                logger.error("Could not fetch updated videos.json content after initial commit.")
-                return False, None, None
-        else:
+        if not initial_commit_sha:
             logger.error("Failed to make initial commit for new video entry.")
             return False, None, None
+
+        logger.info(f"Successfully created initial commit for '{original_video_title}'. SHA: {initial_commit_sha}")
+
+        # 7. Self-check and recovery: verify entry presence after publish; recover only if missing.
+        if _video_entry_exists(repo, GITHUB_BRANCH, new_video_entry):
+            logger.info(f"Publish verification passed for '{original_video_title}' in videos.json.")
+            return True, initial_commit_sha, web_view_link
+
+        logger.warning(
+            f"Publish verification failed for '{original_video_title}'. "
+            "Attempting single recovery upsert."
+        )
+        recovery_entry = dict(new_video_entry)
+        recovery_entry["commitSha"] = initial_commit_sha
+        recovery_commit_sha = upsert_video_entry_merge_safe(
+            repo,
+            recovery_entry,
+            f"Recover missing video entry: {original_video_title}",
+            GITHUB_BRANCH,
+        )
+        if recovery_commit_sha and _video_entry_exists(repo, GITHUB_BRANCH, recovery_entry):
+            logger.info(
+                f"Recovery upsert succeeded for '{original_video_title}'. "
+                f"Recovery commit SHA: {recovery_commit_sha}"
+            )
+            return True, initial_commit_sha, web_view_link
+
+        logger.error(
+            f"Recovery upsert failed verification for '{original_video_title}'. "
+            "Aborting to avoid silent publish drift."
+        )
+        return False, None, None
 
     return await asyncio.to_thread(_run_update_flow)
 

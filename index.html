@@ -5132,6 +5132,7 @@
             const suppressingCancelledStatus = isCancelledStatus && Date.now() < suppressCancelledStatusUntilMs;
             const currentStatus = suppressingCancelledStatus ? '' : rawStatus;
             const benchmarkStatusLine = (data.benchmarkStatusLine || '').trim();
+            const queueStatusLine = (data.queueStatusLine || '').trim();
             const backendSignaledCompletion = !!data.processingComplete;
             const legacyCompletionText =
                 currentStatus.includes('Object tracking and GitHub Pages update complete!') ||
@@ -5144,16 +5145,19 @@
             currentProcessingJobId = (data.activeProcessingJobId || '').trim();
             const processingActive = !!data.processingActive || !!data.benchmarkInProgress;
             const canCancelActiveJob = !!data.canCancelActiveJob;
+            const requesterQueuePosition = Number(data.requesterQueuePosition || 0);
+            const requesterOwnsActiveSlot = requesterQueuePosition === 1 && !!data.processingActive;
 
             if (cancelProcessingButton) {
-                cancelProcessingButton.classList.toggle('hidden', !processingActive || !canCancelActiveJob);
+                const shouldShowCancel = processingActive && (canCancelActiveJob || requesterOwnsActiveSlot);
+                cancelProcessingButton.classList.toggle('hidden', !shouldShowCancel);
                 const cancelLabel = cancelProcessingButton.querySelector('.track-button-content span');
                 if (cancelLabel) {
                     cancelLabel.textContent = data.cancelRequested
                         ? 'Cancellation Requested...'
                         : 'Cancel Current Processing';
                 }
-                cancelProcessingButton.disabled = !!data.cancelRequested || !canCancelActiveJob;
+                cancelProcessingButton.disabled = !!data.cancelRequested || !shouldShowCancel;
             }
 
             if (benchmarkModePill && benchmarkModeText) {
@@ -5173,11 +5177,25 @@
                 }
             }
 
+            const trackLabel = trackButton ? trackButton.querySelector('.track-button-content span') : null;
+            trackButton.classList.remove('hidden');
             if (benchmarkInProgress) {
                 trackButton.disabled = true;
-            } else if (processingActive) {
-                trackButton.disabled = true;
+                if (trackLabel) {
+                    trackLabel.textContent = 'Benchmark In Progress...';
+                }
+                trackButton.title = 'Processing is temporarily locked while benchmark finishes.';
             } else {
+                if (trackLabel) {
+                    if (requesterQueuePosition > 1) {
+                        trackLabel.textContent = `Queued #${requesterQueuePosition}`;
+                    } else if (requesterQueuePosition === 1 && data.processingActive) {
+                        trackLabel.textContent = 'Processing Your Video...';
+                    } else {
+                        trackLabel.textContent = 'Start Tracking';
+                    }
+                }
+                trackButton.title = '';
                 trackButton.disabled = false;
             }
 
@@ -5189,12 +5207,17 @@
             }
 
             const isDeleteStatus = currentStatus.includes('Successfully deleted video') || currentStatus.includes('Failed to delete video');
+            const effectiveStatus = currentStatus || queueStatusLine;
 
-            if (currentStatus) {
+            if (effectiveStatus) {
                 if (isDeleteStatus && lastDeleteStatusShown === currentStatus) {
                     liveProcessingStatusDiv.classList.add('hidden');
                 } else {
-                    liveStatusMessage.textContent = currentStatus;
+                    let composedStatus = effectiveStatus;
+                    if (currentStatus && queueStatusLine) {
+                        composedStatus = `${currentStatus} | ${queueStatusLine}`;
+                    }
+                    liveStatusMessage.textContent = composedStatus;
                     liveProcessingStatusDiv.classList.remove('hidden');
 
                     if (isDeleteStatus) {
@@ -5229,7 +5252,7 @@
                 }
 
                 // While processing is active, keep passive polling off to reduce load.
-                if (!isDeleteStatus && !hasProcessingCompleted) {
+                if (!isDeleteStatus && !hasProcessingCompleted && currentStatus) {
                     stopVideosPollingLoop();
                 }
             } else {
@@ -5243,10 +5266,6 @@
                 }
                 lastDeleteStatusShown = '';
                 isUploadProgressBarRunning = false;
-
-                if (!benchmarkInProgress) {
-                    trackButton.disabled = false;
-                }
 
                 // Resume passive polling once status clears, unless aggressive refresh is still in progress.
                 if (!isAggressivePollingActive) {
@@ -6618,9 +6637,24 @@
 
             suppressCancelledStatusUntilMs = Date.now() + CANCELLED_STATUS_SUPPRESS_WINDOW_MS;
 
+            // Re-check benchmark state from backend to avoid stale local lock state.
+            try {
+                const statusProbe = await fetch(buildStatusUrl(), {
+                    cache: 'no-store',
+                    headers: getIdentityHeaders()
+                });
+                if (statusProbe.ok) {
+                    const latestStatus = await statusProbe.json();
+                    benchmarkInProgress = !!latestStatus.benchmarkInProgress;
+                }
+            } catch (_) {
+                // Non-blocking: fallback to currently known local benchmark state.
+            }
+
             if (benchmarkInProgress) {
                 showError('📊 Benchmark is running. New uploads are temporarily blocked until benchmark completion.');
                 liveStatusMessage.textContent = 'Benchmark in progress — upload blocked.';
+                trackButton.disabled = true;
                 return;
             }
 
@@ -6711,7 +6745,6 @@
                     const errorData = await response.json().catch(() => ({}));
                     if (response.status === 429 || errorData.benchmarkInProgress) {
                         benchmarkInProgress = true;
-                        trackButton.disabled = true;
                     }
                     throw new Error(errorData.message || 'Unknown error from local server.');
                 }
@@ -6725,6 +6758,18 @@
                 
                 // Enhanced success message with Google Drive transcoding guidance
                 let successMessage = responseData.message || 'Processing initiated. Waiting for GitHub commit...';
+                if (responseData.queued && responseData.queuePosition) {
+                    successMessage = `Queued successfully. Position: ${responseData.queuePosition}. ${responseData.message || ''}`.trim();
+                }
+                const trackLabel = trackButton ? trackButton.querySelector('.track-button-content span') : null;
+                if (trackLabel) {
+                    const queuePos = Number(responseData.queuePosition || 0);
+                    if (queuePos > 1) {
+                        trackLabel.textContent = `Queued #${queuePos}`;
+                    } else {
+                        trackLabel.textContent = 'Processing Your Video...';
+                    }
+                }
                 if (isFileUpload) {
                     successMessage += ' 📹 Tip: For faster streaming, open/preview the video on Google Drive to trigger transcoding.';
                 }
@@ -6765,7 +6810,9 @@
                 showError(`Failed to initiate tracking: ${failureHint}`);
                 liveStatusMessage.textContent = `Error: ${failureHint}`;
             } finally {
-                trackButton.disabled = false;
+                if (!benchmarkInProgress) {
+                    trackButton.disabled = false;
+                }
             }
         }
 

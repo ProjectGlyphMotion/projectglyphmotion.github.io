@@ -1529,6 +1529,11 @@
         const STATUS_ENDPOINT = `${NGROK_PUBLIC_URL}/status`;
         const ADMIN_AUTH_EVENTS_ENDPOINT = `${NGROK_PUBLIC_URL}/events/admin_auth`;
         const VIDEOS_JSON_URL = _origin ? `${_origin}/videos.json` : './videos.json';
+        const WEBSITE_VIDEOS_JSON_URLS = [
+            VIDEOS_JSON_URL,
+            'https://projectglyphmotion.studio/videos.json',
+            'https://projectglyphmotion.github.io/videos.json'
+        ];
         const CARD_THUMBNAIL_SIZE = 'w480';
         const STATUS_POLL_INTERVAL_ACTIVE_MS = 700;
         const STATUS_POLL_INTERVAL_IDLE_MS = 2600;
@@ -2778,6 +2783,74 @@
             return result.filter(i => i.embedUrl || i.downloadUrl).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
 
+        function mergeVideosListsByIdentity(lists) {
+            const merged = [];
+            const seen = new Set();
+            (lists || []).forEach((list) => {
+                if (!Array.isArray(list)) return;
+                list.forEach((item) => {
+                    if (!item || typeof item !== 'object') return;
+                    const title = String(item.title || '').trim();
+                    const ts = Number(item.timestamp || 0);
+                    const fileId = String(item.googleDriveFileId || '').trim();
+                    const download = String(item.downloadUrl || '').trim();
+                    const embed = String(item.embedUrl || '').trim();
+                    const key = fileId || download || embed || `${title}|${ts}`;
+                    if (!key || seen.has(key)) return;
+                    seen.add(key);
+                    merged.push(item);
+                });
+            });
+            return merged;
+        }
+
+        async function fetchVideosJsonFromSources(minExpectedTimestamp = 0) {
+            const ts = Date.now();
+            const urls = [...new Set(WEBSITE_VIDEOS_JSON_URLS.map(u => String(u || '').trim()).filter(Boolean))];
+            const primaryUrl = urls[0] || '';
+            const fallbackUrls = urls.slice(1);
+
+            const fetchOne = async (baseUrl) => {
+                const sep = baseUrl.includes('?') ? '&' : '?';
+                const url = `${baseUrl}${sep}_ts=${ts}`;
+                try {
+                    const r = await fetch(url, { cache: 'no-store' });
+                    if (!r.ok) return [];
+                    const payload = await r.json();
+                    return Array.isArray(payload) ? payload : [];
+                } catch (_) {
+                    return [];
+                }
+            };
+
+            const maxTs = (items = []) => {
+                if (!Array.isArray(items) || !items.length) return 0;
+                return items.reduce((acc, item) => Math.max(acc, Number(item?.timestamp || 0)), 0);
+            };
+
+            const primaryItems = primaryUrl ? await fetchOne(primaryUrl) : [];
+            const primaryMaxTs = maxTs(primaryItems);
+            const needsFallback = (
+                !primaryItems.length ||
+                (Number(minExpectedTimestamp) > 0 && primaryMaxTs > 0 && primaryMaxTs < (Number(minExpectedTimestamp) - 120))
+            );
+
+            if (!needsFallback || !fallbackUrls.length) {
+                return primaryItems;
+            }
+
+            // Fallback fetch is sequential to avoid burst fan-out.
+            const collected = [primaryItems];
+            for (const url of fallbackUrls) {
+                const items = await fetchOne(url);
+                collected.push(items);
+                if (items.length && maxTs(items) >= Number(minExpectedTimestamp || 0) - 120) {
+                    break;
+                }
+            }
+            return mergeVideosListsByIdentity(collected);
+        }
+
         function renderVideoGallery(items) {
             const gallery = document.getElementById('videoGallery'); const nv = document.getElementById('noVideos'); gallery.innerHTML = '';
             if (!items.length) { nv.classList.remove('hidden'); return; } nv.classList.add('hidden');
@@ -3002,7 +3075,10 @@
             renderCharts(cachedPayload);
 
             let videos = [];
-            try { const r = await fetch(VIDEOS_JSON_URL, { cache: 'no-cache' }); if (r.ok) videos = await r.json(); } catch (_) { }
+            try {
+                const latestBenchmarkTs = records.reduce((acc, row) => Math.max(acc, Number(row?.timestamp || 0)), 0);
+                videos = await fetchVideosJsonFromSources(latestBenchmarkTs);
+            } catch (_) { }
             const merged = mergeBenchmarkVideos(videos, records); latestMergedVideos = merged;
             renderVideoGallery(merged);
             if (options.reconnectSync) {

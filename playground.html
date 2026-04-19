@@ -1960,6 +1960,7 @@
         let backendStatusPollTimer = null;
         let backendStatusReconnectTimer = null;
         let studioProcessingWatchEnabled = false;
+        let studioBenchmarkInProgress = false;
         let lastStudioStatusCounter = -1;
         let studioProgressPollTimer = null;
         const CLIENT_ID_STORAGE_KEY = 'glyphmotionPlaygroundClientIdV1';
@@ -2216,8 +2217,23 @@
             if (!liveProgressMessage) return;
 
             const statusLine = String(payload?.status || '').trim();
-            const isActive = Boolean(payload?.processingActive) || Boolean(payload?.benchmarkInProgress);
-            const displayLine = statusLine || (isActive ? 'Processing...' : 'Server ready for new uploads.');
+            const queueLine = String(payload?.queueStatusLine || '').trim();
+            studioBenchmarkInProgress = Boolean(payload?.benchmarkInProgress);
+            const isActive = Boolean(payload?.processingActive) || studioBenchmarkInProgress;
+
+            if (studioBenchmarkInProgress) {
+                processBtn.disabled = true;
+                processBtn.innerHTML = '<i class="fas fa-hourglass-half"></i> Benchmark In Progress...';
+                processBtn.title = 'New processing starts after benchmark completes.';
+            } else if (!processBtn.disabled || processBtn.innerText.includes('Benchmark In Progress')) {
+                processBtn.disabled = false;
+                processBtn.innerHTML = '<i class="fas fa-rocket"></i> Process Video';
+                processBtn.title = '';
+            }
+
+            const displayLine = (statusLine && queueLine)
+                ? `${statusLine} | ${queueLine}`
+                : (statusLine || queueLine || (isActive ? 'Processing...' : 'Server ready for new uploads.'));
             const escapedLine = escapeHtml(displayLine);
 
             liveProgressMessage.innerHTML = `<strong>Live backend status:</strong> <span class="font-mono text-xs sm:text-sm">${escapedLine}</span> <a href="index.html" class="underline font-bold">Dashboard</a>`;
@@ -2230,15 +2246,19 @@
             if (Number.isFinite(incomingCounter) && incomingCounter === lastStudioStatusCounter) return;
 
             const statusLine = String(payload.status || '').trim();
+            const queueLine = String(payload.queueStatusLine || '').trim();
             const isActive = Boolean(payload.processingActive) || Boolean(payload.benchmarkInProgress);
 
-            if (!isActive && !statusLine) return;
+            if (!isActive && !statusLine && !queueLine) return;
 
             if (Number.isFinite(incomingCounter)) {
                 lastStudioStatusCounter = incomingCounter;
             }
 
-            const escapedLine = escapeHtml(statusLine || (isActive ? 'Processing...' : 'Waiting for status update...'));
+            const displayLine = (statusLine && queueLine)
+                ? `${statusLine} | ${queueLine}`
+                : (statusLine || queueLine || (isActive ? 'Processing...' : 'Waiting for status update...'));
+            const escapedLine = escapeHtml(displayLine);
             showStatus(
                 `🚀 Processing started!<br><span class="font-mono text-xs sm:text-sm">${escapedLine}</span><br><a href="index.html" class="underline font-bold">Go to Dashboard</a> to monitor progress.`,
                 isActive ? 'info' : 'success'
@@ -2508,10 +2528,15 @@
                 }
                 
                 if (response.ok) {
+                    const data = await response.json().catch(() => ({}));
                     studioProcessingWatchEnabled = true;
                     lastStudioStatusCounter = -1;
                     startStudioProgressPolling();
-                    showStatus('🚀 Processing started! Waiting for live backend progress... <a href="index.html" class="underline font-bold">Go to Dashboard</a> to monitor progress.', 'info');
+                    if (data.queued && data.queuePosition) {
+                        showStatus(`🕒 Queued successfully. Position: ${data.queuePosition}. ${escapeHtml(data.message || '')} <a href="index.html" class="underline font-bold">Go to Dashboard</a> to monitor progress.`, 'info');
+                    } else {
+                        showStatus((data.message || '🚀 Processing started! Waiting for live backend progress...') + ' <a href="index.html" class="underline font-bold">Go to Dashboard</a> to monitor progress.', 'info');
+                    }
                 } else {
                     const data = await response.json().catch(() => ({}));
                     studioProcessingWatchEnabled = false;
@@ -2522,8 +2547,10 @@
                 studioProcessingWatchEnabled = false;
                 showStatus('Network error before backend accepted upload. Usually backend unreachable, unstable connection, or proxy size/time limits.' + fileHint, 'error');
             } finally {
-                processBtn.disabled = false;
-                processBtn.innerHTML = '<i class="fas fa-rocket"></i> Process Video';
+                if (!studioBenchmarkInProgress) {
+                    processBtn.disabled = false;
+                    processBtn.innerHTML = '<i class="fas fa-rocket"></i> Process Video';
+                }
             }
         });
         
