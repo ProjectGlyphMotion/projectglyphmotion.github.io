@@ -493,6 +493,25 @@ def _video_entry_exists(repo, branch: str, entry: dict) -> bool:
             return True
     return False
 
+
+def _video_entry_has_commit_sha(repo, branch: str, entry: dict, expected_commit_sha: str) -> bool:
+    """Checks whether a matched videos.json entry has the expected commitSha persisted."""
+    expected = str(expected_commit_sha or "").strip()
+    if not expected:
+        return False
+
+    videos, _ = _load_videos_json_and_sha(repo, branch)
+    if not isinstance(videos, list):
+        return False
+
+    for current in videos:
+        if not isinstance(current, dict):
+            continue
+        if _video_entries_match(current, entry):
+            current_commit = str(current.get("commitSha") or "").strip()
+            return current_commit == expected
+    return False
+
 def get_commit_details(commit_sha: str):
     """
     Fetches details for a given commit SHA from GitHub.
@@ -618,35 +637,42 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
 
         logger.info(f"Successfully created initial commit for '{original_video_title}'. SHA: {initial_commit_sha}")
 
-        # 7. Self-check and recovery: verify entry presence after publish; recover only if missing.
-        if _video_entry_exists(repo, GITHUB_BRANCH, new_video_entry):
-            logger.info(f"Publish verification passed for '{original_video_title}' in videos.json.")
-            return True, initial_commit_sha, web_view_link
+        # 7. Self-check: ensure entry exists after initial publish commit.
+        if not _video_entry_exists(repo, GITHUB_BRANCH, new_video_entry):
+            logger.error(
+                f"Publish verification failed for '{original_video_title}' after initial upsert. "
+                "Aborting to avoid silent publish drift."
+            )
+            return False, None, None
 
-        logger.warning(
-            f"Publish verification failed for '{original_video_title}'. "
-            "Attempting single recovery upsert."
-        )
-        recovery_entry = dict(new_video_entry)
-        recovery_entry["commitSha"] = initial_commit_sha
-        recovery_commit_sha = upsert_video_entry_merge_safe(
+        # 8. Stamp the entry with the initial commit SHA so admin commit-details always work.
+        stamped_entry = dict(new_video_entry)
+        stamped_entry["commitSha"] = initial_commit_sha
+        metadata_commit_sha = upsert_video_entry_merge_safe(
             repo,
-            recovery_entry,
-            f"Recover missing video entry: {original_video_title}",
+            stamped_entry,
+            f"Stamp commit SHA metadata: {original_video_title}",
             GITHUB_BRANCH,
         )
-        if recovery_commit_sha and _video_entry_exists(repo, GITHUB_BRANCH, recovery_entry):
-            logger.info(
-                f"Recovery upsert succeeded for '{original_video_title}'. "
-                f"Recovery commit SHA: {recovery_commit_sha}"
+        if not metadata_commit_sha:
+            logger.error(
+                f"Failed to stamp commitSha metadata for '{original_video_title}'. "
+                "Aborting to avoid publishing entries without commit identity."
             )
-            return True, initial_commit_sha, web_view_link
+            return False, None, None
 
-        logger.error(
-            f"Recovery upsert failed verification for '{original_video_title}'. "
-            "Aborting to avoid silent publish drift."
+        if not _video_entry_has_commit_sha(repo, GITHUB_BRANCH, stamped_entry, initial_commit_sha):
+            logger.error(
+                f"commitSha verification failed for '{original_video_title}' after metadata stamp commit "
+                f"{metadata_commit_sha}."
+            )
+            return False, None, None
+
+        logger.info(
+            f"Publish verification passed for '{original_video_title}' with commitSha={initial_commit_sha}. "
+            f"Metadata commit SHA: {metadata_commit_sha}"
         )
-        return False, None, None
+        return True, initial_commit_sha, web_view_link
 
     return await asyncio.to_thread(_run_update_flow)
 

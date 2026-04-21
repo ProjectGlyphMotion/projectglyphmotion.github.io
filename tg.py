@@ -2990,20 +2990,36 @@ async def _telegram_file_contains_video_stream(local_file_path: str) -> bool:
     return stream_marker == "video"
 
 
-async def _send_processed_video_to_telegram(message, processed_video_path: str, source_name: str) -> None:
+async def _send_processed_video_to_telegram(message, processed_video_path: str, source_name: str) -> tuple[bool, str]:
+    """Best-effort Telegram delivery for processed output.
+
+    Returns:
+      (True, "video")     when sent as video
+      (True, "document")  when sent as document fallback
+      (False, reason)      when Telegram delivery failed
+    """
     if not message or not os.path.exists(processed_video_path):
-        raise FileNotFoundError(f"Processed file missing: {processed_video_path}")
+        return False, "Processed file missing on server"
 
     caption = f"🎬 Processed result for: {source_name}"
+    first_error = ""
     try:
         with open(processed_video_path, "rb") as video_file:
             await message.reply_video(video=video_file, caption=caption, read_timeout=180, write_timeout=180)
-        return
+        return True, "video"
     except Exception as video_send_error:
-        logger.warning(f"reply_video failed, retrying as document: {video_send_error}")
+        first_error = str(video_send_error or "").strip()
+        logger.warning(f"reply_video failed, retrying as document: {first_error}")
 
-    with open(processed_video_path, "rb") as doc_file:
-        await message.reply_document(document=doc_file, caption=caption, read_timeout=180, write_timeout=180)
+    try:
+        with open(processed_video_path, "rb") as doc_file:
+            await message.reply_document(document=doc_file, caption=caption, read_timeout=180, write_timeout=180)
+        return True, "document"
+    except Exception as doc_send_error:
+        second_error = str(doc_send_error or "").strip()
+        logger.warning(f"reply_document fallback failed: {second_error}")
+        combined = first_error or second_error or "Telegram upload failed"
+        return False, combined
 
 
 class TelegramProgressReporter:
@@ -3486,9 +3502,24 @@ async def _process_telegram_video_message(update: Update, context: ContextTypes.
         }
 
     async def _notify_tracking_complete(processed_video_path: str, original_input_name: str) -> None:
-        await _send_processed_video_to_telegram(message, processed_video_path, original_input_name)
+        delivered, delivery_mode_or_reason = await _send_processed_video_to_telegram(message, processed_video_path, original_input_name)
+        if delivered:
+            await message.reply_text(
+                f"Your processed video is ready. It will be available on the website soon as well: {PUBLIC_WEBSITE_URL}",
+                disable_web_page_preview=True,
+            )
+            return
+
+        reason_text = str(delivery_mode_or_reason or "Telegram upload failed").lower()
+        size_hint = ""
+        if "too big" in reason_text or "file is too big" in reason_text or "entity too large" in reason_text:
+            size_hint = " (likely Telegram file-size limit)"
+
         await message.reply_text(
-            f"Your processed video is ready. It will be available on the website soon as well: {PUBLIC_WEBSITE_URL}",
+            "⚠️ Processing completed, but I could not send the processed file directly in Telegram"
+            f"{size_hint}.\n"
+            f"It will still be published to the website: {PUBLIC_WEBSITE_URL}\n"
+            "Tip: for larger Telegram file delivery, run the bot with local Bot API mode.",
             disable_web_page_preview=True,
         )
 
@@ -3528,6 +3559,10 @@ async def track_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _log_telegram_incoming_message(update, handler_name="track_command")
     if len(context.args) == 1:
         video_url = context.args[0]
+        url_host = (urlparse(video_url).hostname or "").lower()
+        is_youtube_url = ("youtube.com" in url_host) or ("youtu.be" in url_host)
+        yt_delivery_failed = False
+        yt_delivery_failure_reason = ""
         _log_telegram_interaction(update, action="accepted", media_kind="url", note="track_command")
         initial_message = await update.message.reply_text(f"🔗 Received your video link: `{video_url}`\n\n"
                                         "🚀 Starting the download process now. Please wait...",
@@ -3535,15 +3570,55 @@ async def track_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         progress_reporter = TelegramProgressReporter(initial_message)
 
         async def _notify_tracking_complete(processed_video_path: str, original_input_name: str) -> None:
-            await _send_processed_video_to_telegram(update.message, processed_video_path, original_input_name)
+            nonlocal yt_delivery_failed, yt_delivery_failure_reason
+            delivered, delivery_mode_or_reason = await _send_processed_video_to_telegram(update.message, processed_video_path, original_input_name)
+            if delivered:
+                yt_delivery_failed = False
+                yt_delivery_failure_reason = ""
+                await update.message.reply_text(
+                    f"Your processed video is ready. It will be available on the website soon as well: {PUBLIC_WEBSITE_URL}",
+                    disable_web_page_preview=True,
+                )
+                return
+
+            yt_delivery_failed = True
+            yt_delivery_failure_reason = str(delivery_mode_or_reason or "").strip()
+            reason_text = str(delivery_mode_or_reason or "Telegram upload failed").lower()
+            size_hint = ""
+            if "too big" in reason_text or "file is too big" in reason_text or "entity too large" in reason_text:
+                size_hint = " (likely Telegram file-size limit)"
+
             await update.message.reply_text(
-                f"Your processed video is ready. It will be available on the website soon as well: {PUBLIC_WEBSITE_URL}",
+                "⚠️ Processing completed, but I could not send the processed file directly in Telegram"
+                f"{size_hint}.\n"
+                f"It will still be published to the website: {PUBLIC_WEBSITE_URL}\n"
+                "Tip: for larger Telegram file delivery, run the bot with local Bot API mode.",
                 disable_web_page_preview=True,
             )
 
         async def _notify_publish_complete(payload: Dict[str, Any]) -> None:
-            # Tracking completion message already includes website hint/link.
-            return
+            # Only for YouTube URL jobs: if Telegram file delivery failed, provide direct Drive link after publish.
+            if not is_youtube_url or not yt_delivery_failed:
+                return
+
+            drive_link = str(payload.get("driveDownloadUrl") or "").strip()
+            website_link = str(payload.get("websiteUrl") or PUBLIC_WEBSITE_URL).strip()
+            reason_text = yt_delivery_failure_reason or "Telegram delivery failed"
+
+            if drive_link:
+                await update.message.reply_text(
+                    "📎 Telegram could not send your processed YouTube file directly. "
+                    f"Reason: {reason_text}\n"
+                    f"Direct Drive file: {drive_link}",
+                    disable_web_page_preview=True,
+                )
+                return
+
+            await update.message.reply_text(
+                "📎 Telegram could not send your processed YouTube file directly, and direct Drive link was unavailable.\n"
+                f"Please check the website: {website_link}",
+                disable_web_page_preview=True,
+            )
 
         async def _run_telegram_url_job() -> None:
             await process_video_unified(
@@ -3798,6 +3873,48 @@ def _format_metric_value(value: Optional[float], decimals: int = 3) -> str:
     return f"{value:.{decimals}f}"
 
 
+def _normalize_title_key(value: Any) -> str:
+    return re.sub(r'[^a-z0-9]+', '', str(value or '').strip().lower())
+
+
+def _load_benchmark_records() -> list[Dict[str, Any]]:
+    benchmark_path = 'benchmark_data.json'
+    if not os.path.exists(benchmark_path):
+        return []
+    try:
+        with open(benchmark_path, 'r', encoding='utf-8') as benchmark_file:
+            payload = json.load(benchmark_file)
+        if isinstance(payload, dict):
+            records = payload.get('records')
+            if isinstance(records, list):
+                return [r for r in records if isinstance(r, dict)]
+    except Exception as benchmark_read_error:
+        logger.warning(f"Could not read benchmark records: {benchmark_read_error}")
+    return []
+
+
+def _find_matching_benchmark_record(commit_sha: str, title: str) -> Optional[Dict[str, Any]]:
+    records = _load_benchmark_records()
+    if not records:
+        return None
+
+    wanted_commit = str(commit_sha or '').strip()
+    if wanted_commit:
+        for record in records:
+            record_commit = str(record.get('commit_sha') or '').strip()
+            if record_commit and record_commit == wanted_commit:
+                return record
+
+    wanted_title_key = _normalize_title_key(title)
+    if wanted_title_key:
+        for record in records:
+            record_title = str(record.get('video_title') or '')
+            if _normalize_title_key(record_title) == wanted_title_key:
+                return record
+
+    return records[0] if records else None
+
+
 def _latest_video_message() -> str:
     with _tracking_data_lock:
         latest = _tracking_data[0] if _tracking_data else None
@@ -3812,12 +3929,32 @@ def _latest_video_message() -> str:
     drive_url = str(latest.get('driveDownloadUrl') or "")
     drive_line = f"\n• <b>Drive:</b> <a href=\"{html.escape(drive_url)}\">open</a>" if drive_url else ""
 
+    benchmark_record = _find_matching_benchmark_record(commit_sha, title)
+    benchmark_lines = "\n• <b>Latest benchmark:</b> <code>not found yet</code>"
+    if isinstance(benchmark_record, dict):
+        vmaf = _first_present_number(benchmark_record, ["vmaf", "VMAF"])
+        mota = _first_present_number(benchmark_record, ["MOTA_Score", "mota_score", "MOTA", "mota"])
+        ssim = _first_present_number(benchmark_record, ["ssim", "SSIM"])
+        psnr = _first_present_number(benchmark_record, ["psnr", "PSNR"])
+        pipeline_fps = _first_present_number(benchmark_record, ["Avg_Pipeline_FPS", "avg_fps"])
+        latency_ms = _first_present_number(benchmark_record, ["Avg_Latency_ms", "avg_latency_ms"])
+        benchmark_lines = (
+            "\n• <b>Latest benchmark:</b>"
+            f"\n  - VMAF: <code>{_format_metric_value(vmaf, 3)}</code>"
+            f"\n  - MOTA: <code>{_format_metric_value(mota, 3)}</code>"
+            f"\n  - SSIM: <code>{_format_metric_value(ssim, 4)}</code>"
+            f"\n  - PSNR: <code>{_format_metric_value(psnr, 3)}</code>"
+            f"\n  - Avg Pipeline FPS: <code>{_format_metric_value(pipeline_fps, 3)}</code>"
+            f"\n  - Avg Latency (ms): <code>{_format_metric_value(latency_ms, 3)}</code>"
+        )
+
     return (
         "🎬 <b>Latest Processed Video</b>\n"
         f"• <b>Title:</b> <code>{html.escape(title)}</code>\n"
         f"• <b>Commit:</b> <code>{html.escape(short_sha)}</code>\n"
         f"• <b>Time (UTC):</b> <code>{html.escape(when)}</code>"
         f"{drive_line}"
+        f"{benchmark_lines}"
     )
 
 
@@ -4089,14 +4226,8 @@ async def limits_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(_limits_message(), parse_mode='HTML')
 
 
-async def latest_video_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Shows latest processed/published video metadata."""
-    _log_telegram_incoming_message(update, handler_name="latestvideo")
-    await update.message.reply_text(_latest_video_message(), parse_mode='HTML', disable_web_page_preview=True)
-
-
 async def latest_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Alias for latest processed/published video metadata."""
+    """Shows latest processed/published video metadata + latest benchmark metrics."""
     _log_telegram_incoming_message(update, handler_name="latest")
     await update.message.reply_text(_latest_video_message(), parse_mode='HTML', disable_web_page_preview=True)
 
@@ -4113,15 +4244,6 @@ async def admin_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def benchmark_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Returns latest benchmark metrics for admins."""
     _log_telegram_incoming_message(update, handler_name="benchmark")
-    if not _is_telegram_master_admin(update):
-        await update.message.reply_text("Admin-only command.")
-        return
-    await update.message.reply_text(_benchmark_message(), parse_mode='HTML')
-
-
-async def overall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Alias for overall benchmark aggregate metrics."""
-    _log_telegram_incoming_message(update, handler_name="overall")
     if not _is_telegram_master_admin(update):
         await update.message.reply_text("Admin-only command.")
         return
@@ -4193,12 +4315,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "➡️ <code>/checkqueue</code>: Show current queue and your position.\n"
         "➡️ <code>/myjob</code>: Show your current job state (processing/queued/idle).\n"
         "➡️ <code>/ping</code>: Show live bot status, queue and uptime.\n"
-        "➡️ <code>/latestvideo</code> (alias: <code>/latest</code>): Show latest processed/published video details.\n"
+        "➡️ <code>/latest</code>: Show latest processed/published video details + latest benchmark metrics.\n"
         "➡️ <code>/limits</code>: Show upload rules and size guidance.\n"
         "➡️ <code>/cancelcurrent</code>: Cancel the current Telegram task (owner or Telegram master admin only).\n"
         "➡️ <code>/activejob</code> (admin): Show active processing owner/source details.\n"
         "➡️ <code>/adminstats</code> (admin): Show queue/active/benchmark runtime summary.\n"
-        "➡️ <code>/benchmark</code> (admin, alias: <code>/overall</code>): Show overall benchmark aggregates (dashboard-level).\n"
+        "➡️ <code>/benchmark</code> (admin): Show overall benchmark aggregates (dashboard-level).\n"
         "➡️ <code>/processedby</code> (admin): Telegram-only processed-by list with Previous/Next pages.\n"
         "I validate that uploads contain a true video stream, process the file, send the processed result back in chat, and then publish it to the website.\n"
         "<b>For example:</b>\n"
@@ -5736,9 +5858,9 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             if not admin_payload: return # _authenticate_request already sent response
 
             try:
-                content_length = int(self.headers['Content-Length'])
-                post_body = self.rfile.read(content_length)
-                data = json.loads(post_body.decode('utf-8'))
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+                data = json.loads(post_body.decode('utf-8') or '{}')
                 commit_sha = data.get('commitSha')
 
                 if not commit_sha:
@@ -6224,7 +6346,6 @@ def main():
         app.add_handler(CommandHandler("track", track_command))
         app.add_handler(CommandHandler("checkqueue", check_queue_command))
         app.add_handler(CommandHandler("myjob", myjob_command))
-        app.add_handler(CommandHandler("latestvideo", latest_video_command))
         app.add_handler(CommandHandler("latest", latest_command))
         app.add_handler(CommandHandler("limits", limits_command))
         app.add_handler(CommandHandler("ping", ping_command))
@@ -6232,7 +6353,6 @@ def main():
         app.add_handler(CommandHandler("activejob", admin_active_job_command))
         app.add_handler(CommandHandler("adminstats", admin_stats_command))
         app.add_handler(CommandHandler("benchmark", benchmark_command))
-        app.add_handler(CommandHandler("overall", overall_command))
         app.add_handler(CommandHandler("processedby", processed_by_command))
         app.add_handler(CommandHandler("help", help_command))
         app.add_handler(CallbackQueryHandler(telegram_cancel_callback, pattern=r"^tg_cancel:"))
