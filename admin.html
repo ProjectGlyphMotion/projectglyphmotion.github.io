@@ -398,12 +398,30 @@
 
     <script>
         // Server Status Ping Logic
-        const NGROK_PUBLIC_URL = 'https://backend.projectglyphmotion.studio'; // This value is updated by web_server_public.py
+        // Auto-detect backend URL: use localhost:5000 if running locally (any protocol/port), otherwise use deployed backend
+        function getBackendURL() {
+            const protocol = window.location.protocol; // http:, https:, or file:
+            const hostname = window.location.hostname;
+            
+            // If running from file:// or localhost/127.0.0.1 (any port), connect to local backend
+            const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || window.location.protocol === 'file:';
+            
+            if (isLocal) {
+                // Always use http for local backend on port 5000
+                return 'http://localhost:5000';
+            } else {
+                // Running on deployed site: use ngrok public URL
+                return 'https://backend.projectglyphmotion.studio';
+            }
+        }
+        
+        const NGROK_PUBLIC_URL = getBackendURL(); // Auto-detect based on where frontend is running
         const LOCAL_LOGIN_ENDPOINT = NGROK_PUBLIC_URL + '/login';
         const LOCAL_STATUS_ENDPOINT = NGROK_PUBLIC_URL + '/status';
         const LOCAL_STATUS_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/status';
-        let healthEventSource = null;
-        let healthFallbackIntervalRef = null;
+        
+        console.log('[Backend Detection] Running on:', window.location.origin, '| Backend URL:', NGROK_PUBLIC_URL);
+        let healthCheckIntervalRef = null;
 
         function setServerOnlineState(isOnline) {
             const statusDot = document.getElementById('serverStatusDot');
@@ -426,58 +444,49 @@
             }
         }
 
-        // Ping the server to check status dynamically like index.html
+        // Check server health using GET request (more reliable than HEAD with CORS)
         async function checkServerHealth() {
             try {
-                const response = await fetch(LOCAL_STATUS_ENDPOINT, { method: 'HEAD' }); 
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+                const response = await fetch(LOCAL_STATUS_ENDPOINT, {
+                    method: 'GET',
+                    mode: 'cors',
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
                 if (response.ok) {
+                    const data = await response.json();
                     setServerOnlineState(true);
+                    console.log('[Health Check] Backend online:', data);
                 } else {
-                    throw new Error('Response not OK');
+                    throw new Error(`HTTP ${response.status}`);
                 }
             } catch (error) {
                 setServerOnlineState(false);
-                console.error('Error checking server health:', error.message);
+                console.warn('[Health Check] Backend offline:', error.message);
             }
         }
 
-        function startHealthFallbackPolling() {
-            if (healthFallbackIntervalRef) return;
-            checkServerHealth();
-            healthFallbackIntervalRef = setInterval(checkServerHealth, 30000);
+        // Start health check polling
+        function startHealthPolling() {
+            if (healthCheckIntervalRef) return;
+            checkServerHealth(); // Check immediately on start
+            healthCheckIntervalRef = setInterval(checkServerHealth, 5000); // Poll every 5 seconds
         }
 
-        function stopHealthFallbackPolling() {
-            if (!healthFallbackIntervalRef) return;
-            clearInterval(healthFallbackIntervalRef);
-            healthFallbackIntervalRef = null;
-        }
-
-        function setupHealthStream() {
-            if (!window.EventSource) {
-                startHealthFallbackPolling();
-                return;
+        function stopHealthPolling() {
+            if (healthCheckIntervalRef) {
+                clearInterval(healthCheckIntervalRef);
+                healthCheckIntervalRef = null;
             }
-
-            if (healthEventSource) {
-                healthEventSource.close();
-            }
-
-            healthEventSource = new EventSource(LOCAL_STATUS_EVENTS_ENDPOINT);
-
-            healthEventSource.onopen = () => {
-                setServerOnlineState(true);
-                stopHealthFallbackPolling();
-            };
-
-            healthEventSource.onerror = () => {
-                setServerOnlineState(false);
-                startHealthFallbackPolling();
-            };
         }
-        
-        // Prefer realtime stream and fallback to sparse polling only if needed
-        setupHealthStream();
+
+        // Initialize health polling immediately
+        startHealthPolling();
 
         const adminLoginForm = document.getElementById('adminLoginForm');
         const adminUsernameInput = document.getElementById('adminUsernameInput');
@@ -815,6 +824,11 @@
                 e.preventDefault();
                 debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
             }
+        });
+
+        // Cleanup health polling when page is unloaded
+        window.addEventListener('beforeunload', () => {
+            stopHealthPolling();
         });
 
     </script>

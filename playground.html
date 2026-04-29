@@ -2194,11 +2194,33 @@
         filterClassGrid('');
         updateInvertButtonState();
 
-        // Backend URL Logic
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const BASE_URL = isLocal ? 'http://localhost:5000' : 'https://backend.projectglyphmotion.studio';
+        // Backend URL Logic - Auto-detect local vs deployed environment
+        function getBackendURL() {
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            
+            // If running from file:// or localhost/127.0.0.1 (any port), connect to local backend
+            const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || window.location.protocol === 'file:';
+            
+            if (isLocal) {
+                // Always use http for local backend on port 5000
+                return 'http://localhost:5000';
+            } else {
+                // Running on deployed site: use ngrok public URL
+                return 'https://backend.projectglyphmotion.studio';
+            }
+        }
+        
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.');
+        const BASE_URL = getBackendURL();
         const STATUS_ENDPOINT = `${BASE_URL}/status`;
         const STATUS_EVENTS_ENDPOINT = `${BASE_URL}/events/status`;
+        
+        console.log('[Playground Backend Detection]', {
+            frontend: window.location.origin,
+            isLocal: isLocal,
+            backendURL: BASE_URL
+        });
         const UPLOAD_REQUEST_TIMEOUT_MS = 8 * 60 * 1000;
         const CHUNK_UPLOAD_THRESHOLD_BYTES = 48 * 1024 * 1024;
         const CHUNK_SIZE_BYTES = 16 * 1024 * 1024;

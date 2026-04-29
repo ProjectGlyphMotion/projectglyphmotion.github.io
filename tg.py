@@ -4479,17 +4479,21 @@ _BLOCKED_PATHS: set[str] = {
     '/glyphmotion_paper.txt',
 }
 
-# Allowed CORS origins — only your legitimate frontends.
+# Allowed CORS origins — production frontends only
 _ALLOWED_ORIGINS: set[str] = {
     'https://projectglyphmotion.github.io',
     'https://projectglyphmotion.studio',
     'https://www.projectglyphmotion.studio',
     'https://backend.projectglyphmotion.studio',
-    'http://localhost:5000',
-    'http://127.0.0.1:5000',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
 }
+
+
+def _is_localhost_origin(origin: str) -> bool:
+    """Check if origin is any form of localhost (any port)."""
+    if not origin:
+        return False
+    # Accept any http://localhost:* or http://127.0.0.1:*
+    return origin.startswith('http://localhost:') or origin.startswith('http://127.0.0.1:')
 
 
 def _is_request_blocked(request_path: str) -> bool:
@@ -4631,15 +4635,38 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
 
     def _set_cors_headers(self):
         origin = self._get_request_origin()
-        # Only reflect allowed origins; reject unknown origins by omitting the header.
-        if origin in _ALLOWED_ORIGINS:
-            self.send_header('Access-Control-Allow-Origin', origin)
+        
+        # Detect all forms of local/file access:
+        # 1. "null" = file:// protocol from browser
+        # 2. Empty string = no Origin header
+        # 3. http://localhost:* or http://127.0.0.1:* = any localhost port
+        is_file_protocol = origin == "null" or origin == ""
+        is_localhost_any_port = _is_localhost_origin(origin)
+        is_production = origin in _ALLOWED_ORIGINS
+        
+        if is_file_protocol or is_localhost_any_port or is_production:
+            # For file:// (origin="null") or localhost, allow access
+            if is_file_protocol:
+                # file:// requests can't send credentials anyway, so * is safe
+                self.send_header('Access-Control-Allow-Origin', '*')
+                log_type = 'file://'
+            elif is_localhost_any_port:
+                # For localhost, reflect the origin
+                self.send_header('Access-Control-Allow-Origin', origin)
+                log_type = 'localhost'
+            else:
+                # Production origin
+                self.send_header('Access-Control-Allow-Origin', origin)
+                log_type = 'production'
+            
             self.send_header('Vary', 'Origin')
+            logger.debug(f"[CORS] Allowed - Origin: {origin or 'file://'}, Type: {log_type}")
         else:
-            # For SSE and browser-less API calls (e.g. curl from frontend server),
-            # fall back to the primary frontend origin.
+            # Unknown origin - fall back to primary frontend
             self.send_header('Access-Control-Allow-Origin', 'https://projectglyphmotion.github.io')
             self.send_header('Vary', 'Origin')
+            logger.warning(f"[CORS] Blocked - Unknown origin: {origin}")
+        
         self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, HEAD')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Forwarded-For, Authorization, X-Client-Id')
         self.send_header('Access-Control-Max-Age', '86400')

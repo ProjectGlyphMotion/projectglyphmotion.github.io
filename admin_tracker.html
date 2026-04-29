@@ -306,7 +306,24 @@
 // ═══════════════════════════════════════════
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════
-const NGROK_PUBLIC_URL = 'https://backend.projectglyphmotion.studio';
+// Auto-detect backend URL: use localhost:5000 if running locally (any protocol/port), otherwise use deployed backend
+function getBackendURL() {
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    
+    // If running from file:// or localhost/127.0.0.1 (any port), connect to local backend
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || window.location.protocol === 'file:';
+    
+    if (isLocal) {
+        // Always use http for local backend on port 5000
+        return 'http://localhost:5000';
+    } else {
+        // Running on deployed site: use ngrok public URL
+        return 'https://backend.projectglyphmotion.studio';
+    }
+}
+
+const NGROK_PUBLIC_URL = getBackendURL();
 const LOCAL_TRACKER_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_data';
 const LOCAL_TRACKER_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_tracker_data';
 const LOCAL_UPTIME_DATA_ENDPOINT = NGROK_PUBLIC_URL + '/admin_uptime_data';
@@ -314,6 +331,12 @@ const LOCAL_UPTIME_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_uptime_da
 const LOCAL_UPTIME_RECONCILE_ENDPOINT = NGROK_PUBLIC_URL + '/admin_uptime_reconcile';
 const LOCAL_ADMIN_TRACKER_LAND_ENDPOINT = NGROK_PUBLIC_URL + '/admin_tracker_land';
 const LOCAL_ADMIN_AUTH_EVENTS_ENDPOINT = NGROK_PUBLIC_URL + '/events/admin_auth';
+
+console.log('[Admin Tracker Backend Detection]', {
+    frontend: window.location.origin,
+    backendURL: NGROK_PUBLIC_URL,
+    timestamp: new Date().toISOString()
+});
 const SSE_RECONNECT_DELAY_MS = 3000;
 const UPTIME_SSE_OFFLINE_GRACE_MS = 1200;
 const MASTER_ADMIN_USERNAMES_FRONTEND = ["SHITIJ.dev", "sayann70"];
