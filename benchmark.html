@@ -1568,6 +1568,147 @@
 
         // ==================== UTILITIES ====================
         function normalizeText(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '').trim(); }
+        function normalizeTimestampValue(value) {
+            if (value === null || value === undefined || value === '') return null;
+            const numeric = Number(value);
+            if (Number.isFinite(numeric)) {
+                return numeric < 1e12 ? numeric * 1000 : numeric;
+            }
+            const parsed = Date.parse(String(value));
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+        function formatIstExact(value) {
+            const ms = normalizeTimestampValue(value);
+            if (!ms) return '--';
+            try {
+                return new Date(ms).toLocaleString('en-IN', {
+                    timeZone: 'Asia/Kolkata',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                }) + ' IST';
+            } catch (_) {
+                return '--';
+            }
+        }
+        function compactNumber(value, maximumFractionDigits = 1) {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) return '0';
+            try {
+                return new Intl.NumberFormat('en', {
+                    notation: 'compact',
+                    maximumFractionDigits
+                }).format(numeric);
+            } catch (_) {
+                return numeric.toLocaleString();
+            }
+        }
+        function getMetricValue(record, keys = []) {
+            for (const key of keys) {
+                const value = record?.[key];
+                if (isMeaningfulValue(value)) return value;
+            }
+            return '';
+        }
+        function getMetricNumber(record, keys = []) {
+            for (const key of keys) {
+                const value = Number(record?.[key]);
+                if (Number.isFinite(value)) return value;
+            }
+            return null;
+        }
+        function summarizeBenchmarkRecords(records = []) {
+            const summary = {
+                count: 0,
+                vmaf: { sum: 0, count: 0 },
+                mota: { sum: 0, count: 0 },
+                deta: { sum: 0, count: 0 },
+                ssim: { sum: 0, count: 0 },
+                psnr: { sum: 0, count: 0 },
+                detections: { sum: 0, count: 0 },
+                fps: { sum: 0, count: 0 },
+                latency: { sum: 0, count: 0 }
+            };
+
+            for (const row of records || []) {
+                summary.count += 1;
+
+                const vmaf = getMetricNumber(row, ['vmaf', 'VMAF']);
+                if (vmaf !== null) { summary.vmaf.sum += vmaf; summary.vmaf.count += 1; }
+
+                const mota = getMetricNumber(row, ['MOTA_Score', 'mota_score', 'MOTA', 'mota']);
+                if (mota !== null) { summary.mota.sum += mota; summary.mota.count += 1; }
+
+                const deta = getMetricNumber(row, ['DetA_Score', 'deta_score', 'DetA', 'deta']);
+                if (deta !== null) { summary.deta.sum += deta; summary.deta.count += 1; }
+
+                const ssim = getMetricNumber(row, ['ssim', 'SSIM']);
+                if (ssim !== null) { summary.ssim.sum += ssim; summary.ssim.count += 1; }
+
+                const psnr = getMetricNumber(row, ['psnr', 'PSNR']);
+                if (psnr !== null) { summary.psnr.sum += psnr; summary.psnr.count += 1; }
+
+                const detections = getMetricNumber(row, ['Total_Detections', 'total_detections', 'YOLO_Count']);
+                if (detections !== null) { summary.detections.sum += detections; summary.detections.count += 1; }
+
+                const fps = getMetricNumber(row, ['Avg_Pipeline_FPS', 'avg_fps']);
+                if (fps !== null) { summary.fps.sum += fps; summary.fps.count += 1; }
+
+                const latency = getMetricNumber(row, ['Avg_Latency_ms', 'avg_latency_ms']);
+                if (latency !== null) { summary.latency.sum += latency; summary.latency.count += 1; }
+            }
+
+            return summary;
+        }
+        function formatRecordFieldValue(record, column) {
+            const canonical = column?.canonical || '';
+            const aliases = column?.aliases || [];
+
+            if (canonical === 'timestamp' || canonical === 'timestamp_iso') {
+                return formatIstExact(getMetricValue(record, aliases.length ? aliases : ['timestamp', 'timestamp_iso']));
+            }
+
+            const value = getMetricValue(record, aliases);
+            const keyHint = canonical || normalizeText(aliases[0] || '');
+            const lowerHint = String(keyHint || '').toLowerCase();
+
+            if (lowerHint.includes('detections') || lowerHint.includes('count') || lowerHint.includes('switches')) {
+                const numeric = Number(value);
+                return Number.isFinite(numeric) ? compactNumber(numeric, 1) : value;
+            }
+
+            if (lowerHint.includes('fps')) {
+                const numeric = Number(value);
+                return Number.isFinite(numeric) ? numeric.toFixed(2) : value;
+            }
+
+            if (lowerHint.includes('latency')) {
+                const numeric = Number(value);
+                return Number.isFinite(numeric) ? `${numeric.toFixed(1)} ms` : value;
+            }
+
+            return value;
+        }
+        function buildSingleVideoCopyText(item) {
+            const rec = item?.benchmark || {};
+            return [
+                `Title: ${item?.title || rec.video_title || 'Processed Video'}`,
+                `Commit SHA: ${rec.commit_sha || item?.commitSha || 'N/A'}`,
+                `Time (IST): ${formatIstExact(rec.timestamp_iso || rec.timestamp || item?.timestamp)}`,
+                `VMAF: ${getMetricValue(rec, ['vmaf', 'VMAF']) || 'N/A'}`,
+                `MOTA: ${getMetricValue(rec, ['MOTA_Score', 'mota_score', 'MOTA', 'mota']) || 'N/A'}`,
+                `SSIM: ${getMetricValue(rec, ['ssim', 'SSIM']) || 'N/A'}`,
+                `PSNR: ${getMetricValue(rec, ['psnr', 'PSNR']) || 'N/A'}`,
+                `Total Detections: ${getMetricValue(rec, ['Total_Detections', 'total_detections', 'YOLO_Count']) || 'N/A'}`,
+                `Pipeline FPS: ${getMetricValue(rec, ['Avg_Pipeline_FPS', 'avg_fps']) || 'N/A'}`,
+                `Avg Latency (ms): ${getMetricValue(rec, ['Avg_Latency_ms', 'avg_latency_ms']) || 'N/A'}`,
+                `Download URL: ${item?.downloadUrl || item?.embedUrl || 'N/A'}`
+            ].join('\n');
+        }
         function getBenchmarkSnapshotKey() {
             const user = localStorage.getItem('adminUsername') || loggedInUsername || 'anonymous';
             return `${BENCHMARK_CACHE_KEY_PREFIX}${user}`;
@@ -1817,13 +1958,21 @@
             const grouped = new Map();
             const keyMetricOrder = [
                 normalizeMetricKey('vmaf'),
+                normalizeMetricKey('MOTA_Score'),
+                normalizeMetricKey('mota_score'),
+                normalizeMetricKey('MOTA'),
+                normalizeMetricKey('mota'),
+                normalizeMetricKey('DetA_Score'),
+                normalizeMetricKey('deta_score'),
+                normalizeMetricKey('DetA'),
+                normalizeMetricKey('deta'),
                 normalizeMetricKey('ssim'),
                 normalizeMetricKey('psnr'),
+                normalizeMetricKey('Total_Detections'),
                 normalizeMetricKey('Avg_Pipeline_FPS'),
                 normalizeMetricKey('Avg_Latency_ms'),
                 normalizeMetricKey('encode_time_s'),
-                normalizeMetricKey('Output_Size_MB'),
-                normalizeMetricKey('Total_Detections')
+                normalizeMetricKey('Output_Size_MB')
             ];
             Object.entries(aggregates || {}).forEach(([rawKey, metric]) => {
                 const canonical = normalizeMetricKey(rawKey);
@@ -1865,7 +2014,7 @@
                 });
             });
 
-            const pref = ['video_title', 'timestamp_iso', 'commit_sha', 'vmaf', 'ssim', 'psnr', 'Avg_Pipeline_FPS', 'avg_fps', 'google_drive_url'];
+            const pref = ['video_title', 'commit_sha', 'timestamp', 'vmaf', 'MOTA_Score', 'mota_score', 'MOTA', 'mota', 'DetA_Score', 'deta_score', 'DetA', 'deta', 'ssim', 'psnr', 'Total_Detections', 'Avg_Pipeline_FPS', 'avg_fps', 'Avg_Latency_ms', 'avg_latency_ms', 'google_drive_url'];
             const prefCanonical = pref.map(normalizeMetricKey);
             const columns = [...grouped.entries()].map(([canonical, aliases]) => {
                 const preferredKey = pickPreferredKey(aliases);
@@ -1873,7 +2022,9 @@
                     canonical,
                     aliases,
                     preferredKey,
-                    label: formatMetricLabel(preferredKey || aliases[0] || canonical)
+                    label: (canonical === normalizeMetricKey('timestamp') || canonical === normalizeMetricKey('timestamp_iso'))
+                        ? 'Timestamp (IST)'
+                        : formatMetricLabel(preferredKey || aliases[0] || canonical)
                 };
             });
 
@@ -1890,11 +2041,7 @@
             return columns;
         }
         function getRecordColumnValue(record, aliases = []) {
-            for (const key of aliases) {
-                const value = record?.[key];
-                if (isMeaningfulValue(value)) return value;
-            }
-            return '';
+            return getMetricValue(record, aliases);
         }
         function resetDeleteConfirmState() {
             deleteConfirmStage = 0;
@@ -2296,15 +2443,49 @@
             openModal('detailsModal');
         }
 
+        const METRIC_DESCRIPTIONS = {
+            'vmaf': 'Video Multimethod Assessment Fusion — perceptual video quality (0-100). Higher is better.',
+            'VMAF': 'Video Multimethod Assessment Fusion — perceptual video quality (0-100). Higher is better.',
+            'mota': 'Multi-Object Tracking Accuracy — percentage of ground truth objects tracked (0-100). Higher is better.',
+            'MOTA': 'Multi-Object Tracking Accuracy — percentage of ground truth objects tracked (0-100). Higher is better.',
+            'MOTA_Score': 'Multi-Object Tracking Accuracy — percentage of ground truth objects tracked (0-100). Higher is better.',
+            'mota_score': 'Multi-Object Tracking Accuracy — percentage of ground truth objects tracked (0-100). Higher is better.',
+            'deta': 'Detection Accuracy — precision of detected bounding boxes (0-100). Higher is better.',
+            'DetA': 'Detection Accuracy — precision of detected bounding boxes (0-100). Higher is better.',
+            'DetA_Score': 'Detection Accuracy — precision of detected bounding boxes (0-100). Higher is better.',
+            'deta_score': 'Detection Accuracy — precision of detected bounding boxes (0-100). Higher is better.',
+            'hota': 'Higher-Order Tracking Accuracy — combined DetA and AssA score (0-100). Higher is better.',
+            'HOTA': 'Higher-Order Tracking Accuracy — combined DetA and AssA score (0-100). Higher is better.',
+            'HOTA_Score': 'Higher-Order Tracking Accuracy — combined DetA and AssA score (0-100). Higher is better.',
+            'hota_score': 'Higher-Order Tracking Accuracy — combined DetA and AssA score (0-100). Higher is better.',
+            'idf1': 'ID F1 Score — identity consistency over time (0-100). Higher is better.',
+            'IDF1': 'ID F1 Score — identity consistency over time (0-100). Higher is better.',
+            'IDF1_Score': 'ID F1 Score — identity consistency over time (0-100). Higher is better.',
+            'idf1_score': 'ID F1 Score — identity consistency over time (0-100). Higher is better.',
+            'ssim': 'Structural Similarity Index — local image structure preservation (0-1 or 0-100). Higher is better.',
+            'SSIM': 'Structural Similarity Index — local image structure preservation (0-1 or 0-100). Higher is better.',
+            'psnr': 'Peak Signal-to-Noise Ratio — pixel-level fidelity in dB. Higher is better.',
+            'PSNR': 'Peak Signal-to-Noise Ratio — pixel-level fidelity in dB. Higher is better.',
+            'Total_Detections': 'Total number of unique detection instances across all video frames.',
+            'total_detections': 'Total number of unique detection instances across all video frames.',
+            'YOLO_Count': 'Total number of unique detection instances across all video frames.',
+            'Avg_Pipeline_FPS': 'Average frames per second processed by the full pipeline (encoding + tracking + effects).',
+            'avg_fps': 'Average frames per second processed by the full pipeline (encoding + tracking + effects).',
+            'Avg_Latency_ms': 'Average latency in milliseconds per frame (time from input to output).',
+            'avg_latency_ms': 'Average latency in milliseconds per frame (time from input to output).',
+            'ID_Switches': 'Number of tracking identity switches — lower is better (0 is ideal).',
+            'id_switches': 'Number of tracking identity switches — lower is better (0 is ideal).'
+        };
+
         const SUMMARY_CARD_DEFS = [
-            { label: 'VMAF Score', sub: 'Quality Metric' },
-            { label: 'SSIM', sub: 'Structural Sim.' },
-            { label: 'PSNR', sub: 'dB Peak Sig.' },
-            { label: 'Total Det.', sub: 'Across runs' },
-            { label: 'FPS', sub: 'Pipeline Speed' },
-            { label: 'Avg Latency', sub: 'ms per frame' },
-            { label: 'Encode Time', sub: 'Seconds Avg' },
-            { label: 'Output Size', sub: 'MB Per Video' }
+            { label: 'VMAF Score', sub: 'Quality Metric', desc: METRIC_DESCRIPTIONS.vmaf },
+            { label: 'MOTA', sub: 'Tracking Quality', desc: METRIC_DESCRIPTIONS.MOTA },
+            { label: 'SSIM', sub: 'Structural Sim.', desc: METRIC_DESCRIPTIONS.SSIM },
+            { label: 'PSNR', sub: 'dB Peak Sig.', desc: METRIC_DESCRIPTIONS.PSNR },
+            { label: 'DetA Score', sub: 'Detection Accuracy', desc: METRIC_DESCRIPTIONS.DetA },
+            { label: 'Total Det.', sub: 'Across runs', desc: METRIC_DESCRIPTIONS.Total_Detections },
+            { label: 'FPS', sub: 'Pipeline Speed', desc: METRIC_DESCRIPTIONS.Avg_Pipeline_FPS },
+            { label: 'Avg Latency', sub: 'ms per frame', desc: METRIC_DESCRIPTIONS.Avg_Latency_ms }
         ];
 
         function renderSummarySkeletonCards() {
@@ -2355,28 +2536,32 @@
                 return;
             }
             const r = payload.records || [];
-            const vmafAvg = avg(r, 'vmaf'); const ssimAvg = avg(r, 'ssim'); const psnrAvg = avg(r, 'psnr');
-            const fpsAvg = avg(r, 'Avg_Pipeline_FPS') || avg(r, 'avg_fps');
-            const latAvg = avg(r, 'Avg_Latency_ms') || avg(r, 'avg_latency_ms');
-            const encAvg = avg(r, 'encode_time_s');
-            const sizeAvg = avg(r, 'Output_Size_MB') || avg(r, 'proc_file_size_mb');
-            const det = r.reduce((a, x) => a + Number(x.Total_Detections || x.total_detections || 0), 0);
+            const summary = payload.views?.summary || summarizeBenchmarkRecords(r);
+            const vmafAvg = summary.vmaf.count ? summary.vmaf.sum / summary.vmaf.count : 0;
+            const motaAvg = summary.mota.count ? summary.mota.sum / summary.mota.count : 0;
+            const detaAvg = summary.deta.count ? summary.deta.sum / summary.deta.count : 0;
+            const ssimAvg = summary.ssim.count ? summary.ssim.sum / summary.ssim.count : 0;
+            const psnrAvg = summary.psnr.count ? summary.psnr.sum / summary.psnr.count : 0;
+            const fpsAvg = summary.fps.count ? summary.fps.sum / summary.fps.count : 0;
+            const latAvg = summary.latency.count ? summary.latency.sum / summary.latency.count : 0;
+            const det = summary.detections.sum;
             const cards = [
                 { label: SUMMARY_CARD_DEFS[0].label, value: num(vmafAvg, 2), sub: SUMMARY_CARD_DEFS[0].sub, color: 'from-emerald-400 to-emerald-600' },
-                { label: SUMMARY_CARD_DEFS[1].label, value: num(ssimAvg, 4), sub: SUMMARY_CARD_DEFS[1].sub, color: 'from-cyan-400 to-cyan-600' },
-                { label: SUMMARY_CARD_DEFS[2].label, value: num(psnrAvg, 2), sub: SUMMARY_CARD_DEFS[2].sub, color: 'from-indigo-400 to-indigo-600' },
-                { label: SUMMARY_CARD_DEFS[3].label, value: det.toLocaleString(), sub: `Across ${r.length} runs`, color: 'from-violet-400 to-purple-600' },
-                { label: SUMMARY_CARD_DEFS[4].label, value: num(fpsAvg, 1), sub: SUMMARY_CARD_DEFS[4].sub, color: 'from-amber-400 to-amber-600' },
-                { label: SUMMARY_CARD_DEFS[5].label, value: num(latAvg, 1), sub: SUMMARY_CARD_DEFS[5].sub, color: 'from-orange-400 to-orange-600' },
-                { label: SUMMARY_CARD_DEFS[6].label, value: num(encAvg, 1), sub: SUMMARY_CARD_DEFS[6].sub, color: 'from-rose-400 to-rose-600' },
-                { label: SUMMARY_CARD_DEFS[7].label, value: num(sizeAvg, 1), sub: SUMMARY_CARD_DEFS[7].sub, color: 'from-fuchsia-400 to-pink-600' }
+                { label: SUMMARY_CARD_DEFS[1].label, value: num(motaAvg, 2), sub: SUMMARY_CARD_DEFS[1].sub, color: 'from-cyan-400 to-cyan-600' },
+                { label: SUMMARY_CARD_DEFS[2].label, value: num(ssimAvg, 4), sub: SUMMARY_CARD_DEFS[2].sub, color: 'from-indigo-400 to-indigo-600' },
+                { label: SUMMARY_CARD_DEFS[3].label, value: num(psnrAvg, 2), sub: SUMMARY_CARD_DEFS[3].sub, color: 'from-violet-400 to-purple-600' },
+                { label: SUMMARY_CARD_DEFS[4].label, value: num(detaAvg, 2), sub: SUMMARY_CARD_DEFS[4].sub, color: 'from-fuchsia-400 to-pink-600' },
+                { label: SUMMARY_CARD_DEFS[5].label, value: compactNumber(det, 1), sub: `Across ${r.length} runs`, color: 'from-amber-400 to-amber-600' },
+                { label: SUMMARY_CARD_DEFS[6].label, value: num(fpsAvg, 1), sub: SUMMARY_CARD_DEFS[6].sub, color: 'from-orange-400 to-orange-600' },
+                { label: SUMMARY_CARD_DEFS[7].label, value: num(latAvg, 1), sub: SUMMARY_CARD_DEFS[7].sub, color: 'from-rose-400 to-rose-600' }
             ];
             const cmap = { 'emerald-400': '#34d399', 'emerald-600': '#059669', 'cyan-400': '#22d3ee', 'cyan-600': '#0891b2', 'indigo-400': '#818cf8', 'indigo-600': '#4f46e5', 'violet-400': '#a78bfa', 'purple-600': '#9333ea', 'amber-400': '#fbbf24', 'amber-600': '#d97706', 'orange-400': '#fb923c', 'orange-600': '#ea580c', 'rose-400': '#fb7185', 'rose-600': '#e11d48', 'fuchsia-400': '#e879f9', 'pink-600': '#db2777' };
-            document.getElementById('summaryCards').innerHTML = cards.map(c => {
+            document.getElementById('summaryCards').innerHTML = cards.map((c, idx) => {
                 const [fromToken, toToken] = c.color.split(' ');
                 const fromHex = cmap[fromToken.replace('from-', '')] || '#f59e0b';
                 const toHex = cmap[toToken.replace('to-', '')] || '#ea580c';
-                return `<div class="stat-card"><div class="stat-value" style="background:linear-gradient(135deg, ${fromHex}, ${toHex});-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">${c.value}</div><div class="stat-label">${c.label}</div><div class="text-[10px] text-zinc-500 mt-1 mono uppercase tracking-widest">${c.sub}</div></div>`;
+                const metricDesc = (SUMMARY_CARD_DEFS[idx] || {}).desc || '';
+                return `<div class="stat-card group relative" title="${metricDesc}"><div class="stat-value" style="background:linear-gradient(135deg, ${fromHex}, ${toHex});-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">${c.value}</div><div class="stat-label">${c.label}</div><div class="text-[10px] text-zinc-500 mt-1 mono uppercase tracking-widest">${c.sub}</div><div class="absolute left-0 top-full mt-1 pointer-events-none group-hover:pointer-events-auto hidden group-hover:block z-50 bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-1 text-[11px] text-zinc-300 whitespace-normal max-w-xs bottom-auto">${metricDesc}</div></div>`;
             }).join('');
             setSummaryLoadingState(false);
         }
@@ -2391,7 +2576,8 @@
             });
             const rows = filtered.map(metric => {
                 const aliasInfo = metric.aliases.length > 1 ? `Merged aliases: ${metric.aliases.join(', ')}` : `Source key: ${metric.aliases[0] || metric.metricName}`;
-                return `<tr><td><div class="metric-name"><span>${metric.metricName}</span><span class="metric-alias">${aliasInfo}</span></div></td><td>${num(metric.min, 4)}</td><td>${num(metric.avg, 4)}</td><td>${num(metric.max, 4)}</td><td>${num(metric.stddev, 4)}</td><td>${Number(metric.count || 0)}</td></tr>`;
+                const countValue = Number(metric.count || 0);
+                return `<tr><td><div class="metric-name"><span>${metric.metricName}</span><span class="metric-alias">${aliasInfo}</span></div></td><td>${num(metric.min, 4)}</td><td>${num(metric.avg, 4)}</td><td>${num(metric.max, 4)}</td><td>${num(metric.stddev, 4)}</td><td title="${countValue.toLocaleString()}">${compactNumber(countValue, 1)}</td></tr>`;
             }).join('');
             document.getElementById('aggregateTableBody').innerHTML = rows || '<tr><td colspan="6" class="text-center text-zinc-400 py-6 mono">No aggregated metrics yet. Run benchmarks to summon statistics.</td></tr>';
             document.getElementById('aggTotalMetrics').textContent = String(totalRawMetrics);
@@ -2431,7 +2617,22 @@
                 syncRecordSelectionState((records || []).length);
                 return;
             }
-            table.innerHTML = `<thead><tr>${unifiedColumns.map(col => `<th>${col.label}</th>`).join('')}${recordSelectionModeEnabled ? '<th class="record-select-col"><input id="recordsSelectAll" type="checkbox" aria-label="Select all visible benchmark records" /></th>' : ''}</tr></thead><tbody>${filtered.map(({ row, index }) => `<tr>${unifiedColumns.map(col => { const v = getRecordColumnValue(row, col.aliases); if (v && typeof v === 'object') return `<td>${JSON.stringify(v)}</td>`; return `<td>${v === null || v === undefined ? '' : String(v)}</td>`; }).join('')}${recordSelectionModeEnabled ? `<td class="record-select-col"><input class="record-row-select" type="checkbox" data-record-index="${index}" ${selectedRecordIndexes.has(index) ? 'checked' : ''} aria-label="Select record ${index + 1}" /></td>` : ''}</tr>`).join('')}</tbody>`;
+            table.innerHTML = `<thead><tr>${unifiedColumns.map(col => {
+                const metricKey = col.preferredKey || col.aliases[0] || col.canonical;
+                const metricDesc = METRIC_DESCRIPTIONS[metricKey] || '';
+                const titleAttr = metricDesc ? ` title="${metricDesc.replace(/"/g, '&quot;')}"` : '';
+                return `<th${titleAttr} class="cursor-help">${col.label}</th>`;
+            }).join('')}${recordSelectionModeEnabled ? '<th class="record-select-col"><input id="recordsSelectAll" type="checkbox" aria-label="Select all visible benchmark records" /></th>' : ''}</tr></thead><tbody>${filtered.map(({ row, index }) => `<tr>${unifiedColumns.map(col => {
+                const v = formatRecordFieldValue(row, col);
+                const cell = v && typeof v === 'object' ? JSON.stringify(v) : (v === null || v === undefined ? '' : String(v));
+                const canonical = String(col.canonical || '').toLowerCase();
+                const metricKey = col.preferredKey || col.aliases[0] || col.canonical;
+                const metricDesc = METRIC_DESCRIPTIONS[metricKey] || '';
+                const fullDetectionValue = getMetricValue(row, col.aliases);
+                const titleAttr = metricDesc || (canonical.includes('detection') || canonical.includes('count') ? String(fullDetectionValue || '') : '');
+                const finalTitle = titleAttr ? ` title="${String(titleAttr).replace(/"/g, '&quot;')}"` : '';
+                return `<td${finalTitle}>${cell}</td>`;
+            }).join('')}${recordSelectionModeEnabled ? `<td class="record-select-col"><input class="record-row-select" type="checkbox" data-record-index="${index}" ${selectedRecordIndexes.has(index) ? 'checked' : ''} aria-label="Select record ${index + 1}" /></td>` : ''}</tr>`).join('')}</tbody>`;
 
             if (recordSelectionModeEnabled) {
                 const selectAll = document.getElementById('recordsSelectAll');
@@ -2730,36 +2931,27 @@
                 }
             }));
 
-            const perfBubbles = records.map(r => {
-                const fps = metricNumOrNull(r, ['Avg_Pipeline_FPS', 'avg_fps']);
-                const vmaf = metricNumOrNull(r, ['vmaf', 'VMAF']);
-                const detections = metricNum(r, ['total_detections', 'Total_Detections'], 0);
-                if (!Number.isFinite(fps) || !Number.isFinite(vmaf)) return null;
-                const radius = Math.max(3, Math.min(13, Math.sqrt(Math.max(0, detections)) / 6));
-                return { x: fps, y: vmaf, r: radius };
-            }).filter(Boolean);
             chartRefs.push(new Chart(document.getElementById('perfScatterChart'), {
-                type: 'bubble',
+                type: 'line',
                 data: {
-                    datasets: [{
-                        label: 'FPS vs VMAF (bubble size = detections)',
-                        data: perfBubbles,
-                        backgroundColor: 'rgba(56,189,248,0.35)',
-                        borderColor: '#38bdf8',
-                        borderWidth: 1.5,
-                        hoverBackgroundColor: 'rgba(56,189,248,0.55)'
-                    }]
+                    labels,
+                    datasets: [
+                        { label: 'DetA', data: records.map(r => metricNumOrNull(r, ['DetA_Score', 'deta_score', 'DetA', 'deta'])), borderColor: '#f472b6', tension: 0.28, pointRadius: 2.5 },
+                        { label: 'MOTA', data: records.map(r => metricNumOrNull(r, ['MOTA_Score', 'mota_score', 'MOTA', 'mota'])), borderColor: '#22d3ee', tension: 0.28, pointRadius: 2.5 },
+                        { label: 'HOTA', data: records.map(r => metricNumOrNull(r, ['HOTA_Score', 'hota_score', 'HOTA', 'hota'])), borderColor: '#34d399', tension: 0.28, pointRadius: 2.5 },
+                        { label: 'IDF1', data: records.map(r => metricNumOrNull(r, ['IDF1_Score', 'idf1_score', 'IDF1', 'idf1'])), borderColor: '#a78bfa', tension: 0.28, pointRadius: 2.5 }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        title: { display: true, text: 'Performance-Quality Bubble Map', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
+                        title: { display: true, text: 'Detection + Tracking Quality Trends', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
                         legend: { labels: { boxWidth: 10, padding: 12 } }
                     },
                     scales: {
-                        x: { title: { display: true, text: 'Pipeline FPS', color: '#a1a1aa' }, grid: { color: 'rgba(255,255,255,0.04)' } },
-                        y: { title: { display: true, text: 'VMAF', color: '#a1a1aa' }, min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' } }
+                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
+                        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' } }
                     }
                 }
             }));
@@ -2769,7 +2961,7 @@
             chartRefs.push(new Chart(document.getElementById('classChart'), { type: 'bar', data: { labels: cls.map(x => x[0]), datasets: [{ label: 'Detections', data: cls.map(x => x[1]), backgroundColor: '#10b981', borderRadius: 6 }] }, options: chartOpts('Class Distribution (Top 12)') }));
         }
 
-        function videoMetricPill(label, value, accent = 'text-amber-300') { return `<div class="rounded-lg border border-white/10 bg-black/35 px-2.5 py-2"><div class="text-[10px] uppercase tracking-wide text-zinc-400 mono">${label}</div><div class="text-sm ${accent} mono">${value}</div></div>`; }
+        function videoMetricPill(label, value, accent = 'text-amber-300', description = '') { return `<div class="rounded-lg border border-white/10 bg-black/35 px-2.5 py-2 cursor-help group relative" ${description ? `title="${description.replace(/"/g, '&quot;')}"` : ''}><div class="text-[10px] uppercase tracking-wide text-zinc-400 mono">${label}</div><div class="text-sm ${accent} mono">${value}</div>${description ? `<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-[10px] text-zinc-300 whitespace-nowrap">${description.split(' — ')[0]}</div>` : ''}</div>`; }
 
         function mergeBenchmarkVideos(videos, records) {
             const vl = Array.isArray(videos) ? videos : []; const result = []; const seen = new Set();
@@ -2857,9 +3049,18 @@
             items.forEach(item => {
                 const rec = item.benchmark || {}; const fid = resolveDriveFileId(item.googleDriveFileId, item.embedUrl, item.downloadUrl);
                 const card = document.createElement('div'); card.className = 'doc-card p-4';
-                card.innerHTML = `<div class="mb-3 flex items-start justify-between gap-3"><div class="min-w-0"><p class="text-zinc-200 text-sm font-medium font-outfit truncate">${item.title}</p><p class="text-[11px] text-zinc-500 mono mt-1">${rec.commit_sha ? `Commit: ${rec.commit_sha.slice(0, 12)}` : 'Commit: N/A'}</p></div><a href="${item.downloadUrl || item.embedUrl}" target="_blank" class="px-2.5 py-1.5 rounded-md text-xs bg-amber-500 text-black font-medium hover:bg-amber-400 transition-colors shrink-0">Open</a></div><div class="video-container mb-3"><div class="video-thumbnail-placeholder" data-embed-url="${item.embedUrl}" data-file-id="${fid}"><img loading="lazy" decoding="async" alt="thumb" /><div class="play-overlay"><svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div></div><div class="grid grid-cols-2 gap-2">${videoMetricPill('VMAF', num(rec.vmaf, 2), 'text-emerald-300')}${videoMetricPill('SSIM', num(rec.ssim, 4), 'text-cyan-300')}${videoMetricPill('PSNR', num(rec.psnr, 2), 'text-violet-300')}${videoMetricPill('FPS', num(rec.Avg_Pipeline_FPS || rec.avg_fps, 2), 'text-amber-300')}</div>`;
+                card.innerHTML = `<div class="mb-3 flex items-start justify-between gap-3"><div class="min-w-0 flex-1"><div class="flex items-center gap-2"><p class="text-zinc-200 text-sm font-medium font-outfit truncate flex-1">${item.title}</p><button type="button" class="copy-video-btn px-2 py-1 rounded text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40 transition-colors flex-shrink-0" title="Copy metrics" aria-label="Copy video metrics"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button></div><p class="text-[11px] text-zinc-500 mono mt-1">Commit: ${rec.commit_sha ? rec.commit_sha.slice(0, 12) : 'N/A'}</p><p class="text-[11px] text-zinc-500 mono mt-0.5">Time: ${formatIstExact(rec.timestamp_iso || rec.timestamp || item.timestamp)}</p></div><div class="flex items-center gap-2 shrink-0"><a href="${item.downloadUrl || item.embedUrl}" target="_blank" class="px-2.5 py-1.5 rounded-md text-xs bg-amber-500 text-black font-medium hover:bg-amber-400 transition-colors">Open</a></div></div><div class="video-container mb-3"><div class="video-thumbnail-placeholder" data-embed-url="${item.embedUrl}" data-file-id="${fid}"><img loading="lazy" decoding="async" alt="thumb" /><div class="play-overlay"><svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div></div><div class="grid grid-cols-2 gap-2">${videoMetricPill('VMAF', num(rec.vmaf, 2), 'text-emerald-300', METRIC_DESCRIPTIONS.vmaf)}${videoMetricPill('MOTA', num(getMetricNumber(rec, ['MOTA_Score', 'mota_score', 'MOTA', 'mota']) || 0, 2), 'text-cyan-300', METRIC_DESCRIPTIONS.MOTA)}${videoMetricPill('SSIM', num(rec.ssim, 4), 'text-cyan-300', METRIC_DESCRIPTIONS.SSIM)}${videoMetricPill('PSNR', num(rec.psnr, 2), 'text-violet-300', METRIC_DESCRIPTIONS.PSNR)}</div>`;
                 attachRobustThumbnailFallback(card.querySelector('img'), fid);
                 card.querySelector('.video-thumbnail-placeholder').addEventListener('click', handleThumbnailClick);
+                card.querySelector('.copy-video-btn').addEventListener('click', async (event) => {
+                    event.stopPropagation();
+                    try {
+                        await navigator.clipboard.writeText(buildSingleVideoCopyText(item));
+                        showToast('Copied detailed metrics for this video.', 'success', 1600);
+                    } catch (_) {
+                        showToast('Copy failed. Your browser blocked clipboard access.', 'error', 2200);
+                    }
+                });
                 gallery.appendChild(card);
             });
         }
@@ -3061,7 +3262,7 @@
             }
 
             const records = Array.isArray(benchmarkPayload.records) ? benchmarkPayload.records : Array.isArray(benchmarkPayload) ? benchmarkPayload : [];
-            cachedPayload = { ...benchmarkPayload, records, aggregates: benchmarkPayload.aggregates || {} };
+            cachedPayload = { ...benchmarkPayload, records, aggregates: benchmarkPayload.aggregates || {}, views: { summary: summarizeBenchmarkRecords(records) } };
             selectedRecordIndexes.clear();
             visibleRecordIndexes = [];
             setBenchmarkToggleState(!!benchmarkPayload.benchmarkingEnabled, !!benchmarkPayload.benchmarkInProgress);
@@ -3072,6 +3273,7 @@
             renderSummary(cachedPayload);
             renderAggregateTable(cachedPayload);
             renderRecordsTable(records);
+            await new Promise(requestAnimationFrame);
             renderCharts(cachedPayload);
 
             let videos = [];
