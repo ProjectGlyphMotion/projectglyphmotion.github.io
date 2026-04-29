@@ -26,7 +26,7 @@ import uuid  # For generating unique session IDs
 import shutil  # For moving cached preview files
 import mimetypes
 import atexit
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 from env_config import get_env
 
 # Import the gh.py script
@@ -60,7 +60,7 @@ UPTIME_SHUTDOWN_BROADCAST_GRACE_SECONDS = 0.75
 
 # Frame Restriction Configuration
 FRAME_RESTRICTION_ENABLED = True # Set to True to enable frame count restriction
-FRAME_RESTRICTION_VALUE = 20000 # Max allowed frames for video processing
+FRAME_RESTRICTION_VALUE = 200000 # Max allowed frames for video processing
 FFPROBE_TIMEOUT_SECONDS = 10 # Timeout for ffprobe command in seconds
 
 # JWT Secret Key (VERY IMPORTANT: Replace with a strong, random key in production!)
@@ -2107,7 +2107,6 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
         # --progress: show progress bar.
         # --no-playlist: prevent downloading entire playlists if URL is part of one.
         # --output-na-placeholder "": prevents outputting 'NA' for missing fields in filename
-        # --restrict-filenames: avoids special characters in filenames that might cause issues.
         # --continue: resume download if file partially exists.
         # --external-downloader aria2c: if aria2c is installed, it can speed up downloads.
         # --external-downloader-args "-x 16 -s 16 -k 1M": arguments for aria2c (16 connections, 16 segments, 1MB min size).
@@ -2125,7 +2124,6 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
             "-f", "bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/bestvideo[ext=mp4][vcodec!*=av01]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc]+bestaudio/best",
             "--merge-output-format", "mp4",  # Ensure output format is mp4
             "--no-playlist",  # Only get filename for the target video, not the entire playlist
-            "--restrict-filenames",  # Sanitise to ASCII-safe chars (matches actual download)
             "--js-runtimes", "node",  # Use Node.js as JS runtime for YouTube extraction
             url
         ]
@@ -2182,7 +2180,6 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
             "--progress",
             "--no-playlist",
             "--output-na-placeholder", "",
-            "--restrict-filenames",
             "--continue",
             "--js-runtimes", "node",  # Use Node.js as JS runtime for YouTube extraction
             url
@@ -2404,7 +2401,7 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
             input_filename = resolve_uploaded_filename(video_source)
         local_input_path = os.path.join(INPUT_SUBDIRECTORY, input_filename)
         
-    output_filename = f"processed_{os.path.splitext(input_filename)[0]}.mp4" # Ensure .mp4 extension for output
+    output_filename = f"{os.path.splitext(input_filename)[0]}.mp4" # Keep original filename base for output
     local_output_path = os.path.join(OUTPUT_SUBDIRECTORY, output_filename)
 
 
@@ -2422,7 +2419,7 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
         if download_success:
             local_input_path = actual_download_path # Update local_input_path to the actual downloaded file
             input_filename = os.path.basename(local_input_path) # Update input_filename as well
-            output_filename = f"processed_{os.path.splitext(input_filename)[0]}.mp4"
+            output_filename = f"{os.path.splitext(input_filename)[0]}.mp4"
             local_output_path = os.path.join(OUTPUT_SUBDIRECTORY, output_filename)
     else:
         # Check if video_source is a string path (cached preview file) or a FieldStorage object
@@ -2478,7 +2475,7 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
         return False
     # Update dependent paths in case filename changed (it shouldn't, but be safe)
     input_filename = os.path.basename(local_input_path)
-    output_filename = f"processed_{os.path.splitext(input_filename)[0]}.mp4"
+    output_filename = f"{os.path.splitext(input_filename)[0]}.mp4"
     local_output_path = os.path.join(OUTPUT_SUBDIRECTORY, output_filename)
 
     # --- Frame Restriction Check ---
@@ -2556,8 +2553,9 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
         except Exception as callback_error:
             logger.warning(f"Unable to deliver processed video back to Telegram chat: {callback_error}")
 
-    # Preserve original filename stem for reliable source tracing (avoid random title transforms).
-    video_title_for_gh = os.path.splitext(input_filename)[0]
+    # Prefer the original display name for GitHub metadata and commit messages.
+    source_name_for_gh = original_filename or input_filename
+    video_title_for_gh = os.path.splitext(os.path.basename(source_name_for_gh))[0]
     video_description_for_gh = f"Object tracking results for {input_filename}"
     
     commit_sha = None # Initialize commit_sha here
@@ -4367,7 +4365,196 @@ async def handle_non_command_message(update: Update, context: ContextTypes.DEFAU
 
 # --- Local Web Server ---
 
-class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
+# --- Security: Allowed API routes whitelist ---
+# Only these exact paths (and their expected methods) are served.
+# EVERYTHING else is rejected with 403. No file serving AT ALL.
+_ALLOWED_API_ROUTES: set[str] = {
+    # Public GET endpoints
+    '/status',
+    '/get_ad_settings',
+    # SSE event streams (GET)
+    '/events/status',
+    '/events/admin_auth',
+    '/events/admin_tracker_data',
+    '/events/admin_uptime_data',
+    # Auth-protected GET endpoints
+    '/admin_tracker_data',
+    '/admin_uptime_data',
+    '/benchmark_data',
+    '/benchmark_settings',
+    '/benchmark_data.csv',
+    '/benchmark_data.json',
+    # POST endpoints
+    '/admin_uptime_reconcile',
+    '/admin_tracker_land',
+    '/login',
+    '/logout',
+    '/logout_all_admins',
+    '/update_credentials',
+    '/process_web_video',
+    '/cancel_video_processing',
+    '/delete_video',
+    '/get_github_commit_info',
+    '/toggle_ads',
+    '/upload_chunk',
+    '/complete_chunked_upload',
+    '/finalize_chunked_upload',
+    '/generate_roi_preview',
+    '/get_video_preview',
+    '/cancel_preview',
+    '/toggle_benchmark',
+    '/cancel_benchmark',
+    '/rerun_benchmark',
+    '/update_ad_settings',
+    '/benchmark_data/delete_records',
+}
+
+# Dangerous file extensions that scanners probe for — block immediately.
+_BLOCKED_EXTENSIONS: set[str] = {
+    '.env', '.py', '.pyc', '.pyo', '.json', '.yml', '.yaml', '.toml', '.cfg',
+    '.ini', '.conf', '.config', '.sh', '.bash', '.zsh', '.bat', '.cmd', '.ps1',
+    '.sql', '.db', '.sqlite', '.sqlite3', '.csv', '.tsv', '.log', '.bak',
+    '.key', '.pem', '.crt', '.cer', '.p12', '.pfx', '.jks', '.keystore',
+    '.htaccess', '.htpasswd', '.npmrc', '.dockerignore', '.docker',
+    '.git', '.gitignore', '.gitmodules', '.gitattributes',
+    '.svn', '.hg', '.bzr',
+    '.zip', '.tar', '.gz', '.bz2', '.xz', '.7z', '.rar',
+    '.pt', '.pth', '.onnx', '.pb', '.h5', '.hdf5', '.pkl', '.pickle',
+    '.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv',
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico', '.webp',
+    '.woff', '.woff2', '.ttf', '.otf', '.eot',
+    '.html', '.htm', '.css', '.js', '.jsx', '.ts', '.tsx', '.map',
+    '.xml', '.rss', '.atom', '.wsdl', '.xsd',
+    '.txt', '.md', '.rst', '.tex', '.pdf', '.docx', '.doc', '.xlsx',
+    '.php', '.asp', '.aspx', '.jsp', '.cgi', '.pl', '.rb', '.go',
+    '.c', '.cpp', '.h', '.java', '.class', '.jar', '.war',
+}
+
+# Reconnaissance / scanner paths commonly probed by bots and attackers.
+_BLOCKED_PATHS: set[str] = {
+    '/.env', '/.env.bak', '/.env.local', '/.env.production', '/.env.development',
+    '/.env.example', '/.env.sample', '/.env.old', '/.env.backup',
+    '/.git', '/.git/config', '/.git/HEAD', '/.git/index',
+    '/.gitignore', '/.gitmodules',
+    '/.svn', '/.svn/entries', '/.svn/wc.db',
+    '/.hg', '/.bzr',
+    '/.well-known', '/.well-known/security.txt',
+    '/.htaccess', '/.htpasswd',
+    '/.npmrc', '/.yarnrc', '/.bowerrc',
+    '/.dockerignore', '/.docker',
+    '/wp-admin', '/wp-login.php', '/wp-config.php', '/wp-content',
+    '/xmlrpc.php', '/wp-includes',
+    '/admin', '/administrator', '/phpmyadmin', '/pma',
+    '/config.yml', '/config.yaml', '/config.json', '/config.php',
+    '/package.json', '/package-lock.json', '/yarn.lock',
+    '/composer.json', '/composer.lock',
+    '/requirements.txt', '/Pipfile', '/Pipfile.lock',
+    '/Gemfile', '/Gemfile.lock',
+    '/Makefile', '/Dockerfile', '/docker-compose.yml',
+    '/server-status', '/server-info',
+    '/.DS_Store', '/Thumbs.db', '/desktop.ini',
+    '/favicon.ico', '/sitemap.xml',
+    '/robots.txt',
+    '/debug', '/trace', '/phpinfo.php', '/info.php',
+    '/console', '/shell', '/cmd', '/exec',
+    '/backup', '/backups', '/dump', '/dumps',
+    '/api', '/api/v1', '/api/v2',
+    '/actuator', '/actuator/health', '/actuator/env',
+    '/graphql', '/graphiql',
+    '/swagger', '/swagger-ui', '/swagger.json', '/openapi.json',
+    '/__pycache__',
+    '/recon.py', '/tg.py', '/gh.py', '/benchmark.py', '/pipeline_delta.py',
+    '/ot.py', '/ot_benchmark.py', '/ot_raw.py',
+    '/admin_auth.py', '/admin_hash_gen.py', '/env_config.py',
+    '/web_server_public.py', '/recon_chart.py', '/recon_integration.py',
+    '/production_benchmark.py', '/extended_benchmark.py',
+    '/comparitive_research_benchmark.py',
+    '/client_secret.json', '/token.json', '/ad_settings.json', '/videos.json',
+    '/manifest.json', '/service-worker.js',
+    '/tracking/tracking_data.json', '/tracking/uptime_data.json',
+    '/benchmark_results.zip', '/research_master_results.zip',
+    '/ffmpeg-static.tar.xz', '/ffmpeg_local.tar.gz',
+    '/input.mp4', '/input1.mp4', '/benchmark.mp4',
+    '/CNAME', '/README.md', '/stdlib.txt',
+    '/glyphmotion_paper.txt',
+}
+
+# Allowed CORS origins — only your legitimate frontends.
+_ALLOWED_ORIGINS: set[str] = {
+    'https://projectglyphmotion.github.io',
+    'https://projectglyphmotion.studio',
+    'https://www.projectglyphmotion.studio',
+    'https://backend.projectglyphmotion.studio',
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+}
+
+
+def _is_request_blocked(request_path: str) -> bool:
+    """Comprehensive security gate. Returns True if this request should be REJECTED."""
+    # Normalize path
+    clean_path = request_path.rstrip('/')
+    if not clean_path:
+        clean_path = '/'
+    lower_path = clean_path.lower()
+
+    # 1. Block path traversal attempts
+    if '..' in request_path or '\\' in request_path:
+        logger.warning(f"SECURITY BLOCK: Path traversal attempt: {request_path}")
+        return True
+
+    # 2. Block null bytes (injection attempt)
+    if '\x00' in request_path or '%00' in request_path.lower():
+        logger.warning(f"SECURITY BLOCK: Null byte injection attempt: {request_path}")
+        return True
+
+    # 3. Block explicitly known dangerous paths
+    if lower_path in {p.lower() for p in _BLOCKED_PATHS}:
+        logger.warning(f"SECURITY BLOCK: Blocked path accessed: {request_path}")
+        return True
+
+    # 4. Block any dotfile/dotfolder access (/.anything)
+    path_parts = clean_path.split('/')
+    for part in path_parts:
+        if part.startswith('.') and part not in ('', '.'):
+            logger.warning(f"SECURITY BLOCK: Dotfile/dotfolder access: {request_path}")
+            return True
+
+    # 5. Block any request with a file extension (no legitimate API endpoint has one)
+    # Exception: /benchmark_data.csv and /benchmark_data.json are whitelisted API routes
+    if clean_path in _ALLOWED_API_ROUTES:
+        return False  # Explicitly allowed
+
+    # Check for file extension in the last path component
+    last_segment = path_parts[-1] if path_parts else ''
+    if '.' in last_segment:
+        ext = '.' + last_segment.rsplit('.', 1)[-1].lower()
+        if ext in _BLOCKED_EXTENSIONS:
+            logger.warning(f"SECURITY BLOCK: File extension scanning: {request_path} (ext: {ext})")
+            return True
+        # Even if extension isn't in our blocked list, block it if it's not a whitelisted route
+        logger.warning(f"SECURITY BLOCK: Unknown file extension access: {request_path} (ext: {ext})")
+        return True
+
+    # 6. Block if not a whitelisted API route
+    if clean_path not in _ALLOWED_API_ROUTES:
+        logger.warning(f"SECURITY BLOCK: Unknown route accessed: {request_path}")
+        return True
+
+    return False
+
+
+class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
+    """Pure API handler. Inherits BaseHTTPRequestHandler — NO file serving capability whatsoever."""
+
+    # NOTE: We intentionally use the default HTTP/1.0 protocol_version (inherited from BaseHTTPRequestHandler).
+    # The original tg_original.py also used HTTP/1.0 (via SimpleHTTPRequestHandler).
+    # HTTP/1.0 is critical for SSE: the proxy knows the streaming response ends when the
+    # connection closes, preventing buffering issues that freeze progress updates.
+    # All regular API responses include Content-Length for proper framing regardless.
+
     def log_message(self, format, *args):
         logger.debug(f"Web Server: {format % args}")
 
@@ -4399,9 +4586,12 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
         # Log other requests with a simplified format
         logger.info(f"Incoming Request: {self.command} {self.path}")
 
+    # Only these HTTP methods are allowed. Everything else is immediately rejected.
+    _ALLOWED_METHODS = {'GET', 'POST', 'HEAD', 'OPTIONS'}
+
     def handle_one_request(self):
         """Handle a single HTTP request.
-        This is overridden to add the general request logging.
+        This is overridden to add the general request logging and method whitelisting.
         """
         try:
             self.raw_requestline = self.rfile.readline(65537)
@@ -4412,10 +4602,16 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 # An error code has been sent, just exit
                 return
             
+            # SECURITY: Reject non-whitelisted HTTP methods immediately
+            if self.command not in self._ALLOWED_METHODS:
+                logger.warning(f"SECURITY BLOCK: Rejected HTTP method {self.command} from {self.client_address[0]} for {self.path}")
+                self.send_error(405, "Method Not Allowed")
+                return
+
             mname = 'do_' + self.command
             if not hasattr(self, mname):
                 self.send_error(
-                    501, "Unsupported method (%r)" % self.command)
+                    405, "Method Not Allowed")
                 return
             method = getattr(self, mname)
             method()
@@ -4425,20 +4621,70 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.close_connection = True
             return
         except Exception as e:
-            self.log_error("Error handling request: %r", e)
+            logger.error(f"CRITICAL: Unhandled exception in request handler: {e}", exc_info=True)
             self.close_connection = True
             return
 
+    def _get_request_origin(self) -> str:
+        """Returns the Origin header from the request."""
+        return (self.headers.get('Origin') or '').strip()
+
     def _set_cors_headers(self):
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, HEAD') # Explicitly allow HEAD
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Forwarded-For, Authorization, X-Client-Id') # Added Authorization and X-Client-Id headers
-        self.send_header('Access-Control-Max-Age', '86400') # Cache preflight for 24 hours
+        origin = self._get_request_origin()
+        # Only reflect allowed origins; reject unknown origins by omitting the header.
+        if origin in _ALLOWED_ORIGINS:
+            self.send_header('Access-Control-Allow-Origin', origin)
+            self.send_header('Vary', 'Origin')
+        else:
+            # For SSE and browser-less API calls (e.g. curl from frontend server),
+            # fall back to the primary frontend origin.
+            self.send_header('Access-Control-Allow-Origin', 'https://projectglyphmotion.github.io')
+            self.send_header('Vary', 'Origin')
+        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, HEAD')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Forwarded-For, Authorization, X-Client-Id')
+        self.send_header('Access-Control-Max-Age', '86400')
+
+    def _send_blocked_response(self, request_path: str):
+        """Sends a standardized 403 Forbidden response for all blocked requests."""
+        try:
+            response_body = json.dumps({
+                "error": "Forbidden",
+                "message": "Access denied. This endpoint does not serve files."
+            }).encode('utf-8')
+            self.send_response(403)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Content-Length', str(len(response_body)))
+            self.send_header('Cache-Control', 'no-store')
+            self._set_cors_headers()
+            # Security headers to prevent information leakage
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('X-Frame-Options', 'DENY')
+            self.send_header('X-Robots-Tag', 'noindex, nofollow, nosnippet, noarchive')
+            self.send_header('Content-Security-Policy', "default-src 'none'")
+            self.end_headers()
+            self.wfile.write(response_body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception:
+            pass
+
+    def _validate_request_security(self, request_path: str) -> bool:
+        """Master security gate. Returns True if the request is safe to proceed.
+        Returns False and sends 403 if the request should be blocked."""
+        if _is_request_blocked(request_path):
+            self._send_blocked_response(request_path)
+            return False
+        return True
 
     def do_OPTIONS(self):
+        request_path = urlparse(self.path).path
+        # Even OPTIONS requests are validated against the security gate
+        if _is_request_blocked(request_path):
+            self._send_blocked_response(request_path)
+            return
         self.send_response(200)
         self._set_cors_headers()
-        self.send_header('Content-Length', '0') # No content for OPTIONS
+        self.send_header('Content-Length', '0')
         self.end_headers()
         logger.debug("Handled OPTIONS preflight request.")
 
@@ -4446,14 +4692,20 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
     def send_api_response(self, status_code, data):
         """Sends a JSON response with appropriate headers."""
         try:
+            response_body = json.dumps(data).encode('utf-8')
             self.send_response(status_code)
             self.send_header('Content-type', 'application/json')
+            self.send_header('Content-Length', str(len(response_body)))
             self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             self.send_header('Pragma', 'no-cache')
             self.send_header('Expires', '0')
             self._set_cors_headers() # Set CORS headers for all responses
+            # Security headers on every response
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('X-Frame-Options', 'DENY')
+            self.send_header('X-Robots-Tag', 'noindex, nofollow, nosnippet, noarchive')
             self.end_headers()
-            self.wfile.write(json.dumps(data).encode('utf-8'))
+            self.wfile.write(response_body)
         except BrokenPipeError:
             logger.warning("Client disconnected before response could be sent (broken pipe)")
         except ConnectionResetError:
@@ -4462,10 +4714,14 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             logger.warning(f"Error sending response: {e}")
 
     def do_HEAD(self):
-        """Handle HEAD requests for status check."""
+        """Handle HEAD requests — ONLY for /status. Everything else is blocked."""
         request_path = urlparse(self.path).path
+        # Security gate: block all unauthorized paths
+        if not self._validate_request_security(request_path):
+            return
         if request_path == '/status':
             self.send_response(200)
+            self.send_header('Content-Length', '0')
             self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             self.send_header('Pragma', 'no-cache')
             self.send_header('Expires', '0')
@@ -4473,8 +4729,8 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             logger.debug("Handled HEAD request for /status.")
         else:
-            # Fallback for other HEAD requests, might return 404 or just headers
-            super().do_HEAD() # Call the base class method
+            # HARD BLOCK: No file serving. No fallback. 403 for everything else.
+            self._send_blocked_response(request_path)
 
     def _send_sse_event(self, event_name: str, data: dict):
         """Sends one SSE event to the connected client."""
@@ -4519,6 +4775,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def _stream_status_events(self):
         """Streams realtime status updates using Server-Sent Events."""
+        self.close_connection = True  # Release thread after stream ends, prevents keep-alive thread accumulation
         self.send_response(200)
         self.send_header('Content-type', 'text/event-stream')
         self.send_header('Cache-Control', 'no-cache, no-transform')
@@ -4555,6 +4812,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def _stream_admin_tracker_events(self, admin_username: str):
         """Streams realtime admin tracker updates using Server-Sent Events."""
+        self.close_connection = True
         self.send_response(200)
         self.send_header('Content-type', 'text/event-stream')
         self.send_header('Cache-Control', 'no-cache, no-transform')
@@ -4592,6 +4850,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def _stream_admin_uptime_events(self, admin_username: str):
         """Streams realtime admin uptime updates using Server-Sent Events."""
+        self.close_connection = True
         self.send_response(200)
         self.send_header('Content-type', 'text/event-stream')
         self.send_header('Cache-Control', 'no-cache, no-transform')
@@ -4640,6 +4899,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def _stream_admin_auth_events(self):
         """Streams realtime auth validation events for admin clients."""
+        self.close_connection = True
         self.send_response(200)
         self.send_header('Content-type', 'text/event-stream')
         self.send_header('Cache-Control', 'no-cache, no-transform')
@@ -4786,6 +5046,11 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         global _ADS_ENABLED_GLOBALLY, _SHOW_ADS_TO_ADMINS
+
+        # ========== SECURITY GATE ==========
+        request_path = urlparse(self.path).path
+        if not self._validate_request_security(request_path):
+            return
 
         if self.path == '/admin_uptime_reconcile':
             admin_payload = self._authenticate_request()
@@ -5075,7 +5340,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         client_ip=client_ip,
                         geolocation_info=geolocation_info,
                         roi_params=roi_params,
-                        original_filename=os.path.basename(assembled_input_path),
+                        original_filename=original_filename,
                         allowed_classes=allowed_classes,
                         confidence_threshold=confidence_threshold
                     ),
@@ -5267,6 +5532,12 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                 else:
                     video_source = video_url
 
+                original_upload_filename = None
+                if video_file is not None:
+                    original_upload_filename = (getattr(video_file, 'filename', '') or '').strip() or None
+                if cached_original_filename:
+                    original_upload_filename = cached_original_filename
+
                 job_id, _, schedule_error = _schedule_processing_job(
                     main_loop,
                     process_video_unified(
@@ -5277,7 +5548,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         client_ip=client_ip, # Pass client IP
                         geolocation_info=geolocation_info, # Pass geolocation info
                         roi_params=roi_params,  # Pass ROI parameters
-                        original_filename=cached_original_filename,  # Pass original filename from preview session
+                        original_filename=original_upload_filename,
                         allowed_classes=allowed_classes,
                         confidence_threshold=confidence_threshold
                     ),
@@ -5484,7 +5755,7 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
                         logger.info(f"Using yt-dlp video title for filename: {original_fn}")
                     else:
                         # Fallback: extract filename from URL or use a sanitized version
-                        from urllib.parse import urlparse, unquote, parse_qs
+                        # urlparse, unquote, parse_qs already imported at module level
                         parsed_url = urlparse(video_url)
                         url_path = unquote(parsed_url.path)
                         url_filename = os.path.basename(url_path)
@@ -6111,6 +6382,11 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         request_path = urlparse(self.path).path
 
+        # ========== SECURITY GATE ==========
+        # Block ALL unauthorized paths before any processing.
+        if not self._validate_request_security(request_path):
+            return
+
         if request_path == '/status':
             self.send_api_response(200, get_status_payload(self._get_request_actor()))
         elif request_path == '/events/status':
@@ -6243,14 +6519,19 @@ class LocalAPIHandler(http.server.SimpleHTTPRequestHandler):
             })
             logger.info("Served /get_ad_settings")
         else:
-            # For other GET requests, serve files as before (if any) or return 404
-            super().do_GET() # Use base class's do_GET for serving files
+            # HARD BLOCK: No file serving whatsoever. Pure API server.
+            # This is the critical security fix — never fall through to any file serving.
+            logger.warning(f"SECURITY: Blocked unrecognized GET route: {request_path}")
+            self._send_blocked_response(request_path)
 
 
 class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     """
     A threaded HTTP server that also stores a reference to the main asyncio loop.
     """
+    daemon_threads = True  # CRITICAL: threads die when main process exits, prevents memory leak from SSE keep-alive threads
+    block_on_close = False  # Don't block shutdown waiting for threads
+
     def __init__(self, server_address, RequestHandlerClass, main_asyncio_loop):
         super().__init__(server_address, RequestHandlerClass)
         self.main_asyncio_loop = main_asyncio_loop
