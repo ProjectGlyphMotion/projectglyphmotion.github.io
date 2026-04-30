@@ -57,6 +57,7 @@ UPTIME_HEARTBEAT_INTERVAL_SECONDS = 5
 UPTIME_OFFLINE_INFER_MULTIPLIER = 2.5
 UPTIME_EVENT_DEDUPE_TOLERANCE_SECONDS = 2.0
 UPTIME_SHUTDOWN_BROADCAST_GRACE_SECONDS = 0.75
+POWER_TELEMETRY_MAX_SAMPLES = 20000
 
 # Frame Restriction Configuration
 FRAME_RESTRICTION_ENABLED = True # Set to True to enable frame count restriction
@@ -1268,12 +1269,147 @@ def _default_uptime_data() -> dict:
         "updatedAt": 0,
         "events": [],
         "sessions": [],
+        "powerData": _default_power_data(),
+    }
+
+
+def _default_power_data() -> dict:
+    return {
+        "version": 1,
+        "currentStatus": "unknown",
+        "updatedAt": 0,
+        "lastChangedAt": 0,
+        "events": [],
+        "sessions": [],
+        "samples": [],
+        "latest": {
+            "source": "unknown",
+            "acOnline": None,
+            "batteryStatus": "unknown",
+            "batteryPercent": None,
+            "voltageNowUv": None,
+            "currentNowUa": None,
+            "updatedAt": 0,
+        },
     }
 
 
 def _sanitize_uptime_status(status: Any) -> str:
     s = str(status or '').strip().lower()
     return 'on' if s in ('on', 'connected', 'live') else 'off'
+
+
+def _read_text_file(path: str) -> str:
+    try:
+        with open(path, 'r', encoding='utf-8') as handle:
+            return handle.read().strip()
+    except Exception:
+        return ""
+
+
+def _parse_int_value(value: str) -> Optional[int]:
+    try:
+        return int(str(value or '').strip())
+    except Exception:
+        return None
+
+
+def _read_power_telemetry_snapshot() -> dict:
+    snapshot = {
+        "source": "sysfs",
+        "acOnline": None,
+        "batteryStatus": "unknown",
+        "batteryPercent": None,
+        "voltageNowUv": None,
+        "currentNowUa": None,
+        "updatedAt": float(time.time()),
+    }
+
+    import subprocess
+
+    supply_root = '/sys/class/power_supply'
+    try:
+        entries = [name for name in os.listdir(supply_root) if os.path.isdir(os.path.join(supply_root, name))]
+        ac_candidates = []
+        for entry in entries:
+            entry_path = os.path.join(supply_root, entry)
+            entry_type = _read_text_file(os.path.join(entry_path, 'type')).lower()
+            if entry_type in {'mains', 'usb'}:
+                ac_candidates.append(entry_path)
+
+        snapshot["acOnline"] = False
+        for ac_path in ac_candidates:
+            online_value = _parse_int_value(_read_text_file(os.path.join(ac_path, 'online')))
+            if online_value == 1:
+                snapshot["acOnline"] = True
+                break
+    except Exception:
+        pass
+
+    try:
+        upower_output = subprocess.check_output(['upower', '-i', '/org/freedesktop/UPower/devices/battery_BAT0'], text=True, timeout=2)
+        upower_data = {}
+        for line in upower_output.split('\n'):
+            line = line.strip()
+            if ':' in line:
+                k, v = line.split(':', 1)
+                upower_data[k.strip()] = v.strip()
+
+        if 'state' in upower_data:
+            snapshot["batteryStatus"] = upower_data['state']
+        if 'percentage' in upower_data:
+            try: snapshot["batteryPercent"] = float(upower_data['percentage'].replace('%', ''))
+            except ValueError: pass
+        if 'voltage' in upower_data:
+            try: snapshot["voltageNowUv"] = int(float(upower_data['voltage'].replace('V', '')) * 1000000)
+            except ValueError: pass
+        if 'energy-rate' in upower_data:
+            try: 
+                watts = float(upower_data['energy-rate'].replace('W', ''))
+                if snapshot.get("voltageNowUv"):
+                    amps = watts / (snapshot["voltageNowUv"] / 1000000)
+                    snapshot["currentNowUa"] = int(amps * 1000000)
+            except ValueError: pass
+        if 'energy-full' in upower_data:
+            try: snapshot["energyFullUwh"] = int(float(upower_data['energy-full'].replace('Wh', '')) * 1000000)
+            except ValueError: pass
+        if 'energy-full-design' in upower_data:
+            try: snapshot["energyFullDesignUwh"] = int(float(upower_data['energy-full-design'].replace('Wh', '')) * 1000000)
+            except ValueError: pass
+        if 'capacity' in upower_data:
+            try: snapshot["batteryHealthPct"] = float(upower_data['capacity'].replace('%', ''))
+            except ValueError: pass
+        if 'temperature' in upower_data:
+            try: snapshot["batteryTempC"] = float(upower_data['temperature'].replace('degrees C', '').strip())
+            except ValueError: pass
+        snapshot["source"] = 'upower'
+        
+        if snapshot.get("batteryStatus") in ['charging', 'fully-charged']:
+            snapshot["acOnline"] = True
+            
+    except Exception as e:
+        logger.warning(f"upower parsing failed: {e}")
+        pass
+
+    try:
+        sensors_output = subprocess.check_output(['sensors'], text=True, timeout=2)
+        for line in sensors_output.split('\n'):
+            line = line.strip()
+            if line.startswith('CPU:') and '°C' in line and not snapshot.get('cpuTempC'):
+                val = line.split(':')[1].split('°C')[0].strip().replace('+', '')
+                try: snapshot["cpuTempC"] = float(val)
+                except ValueError: pass
+            elif line.startswith('GPU:') and '°C' in line and not snapshot.get('gpuTempC'):
+                val = line.split(':')[1].split('°C')[0].strip().replace('+', '')
+                try: snapshot["gpuTempC"] = float(val)
+                except ValueError: pass
+    except Exception as e:
+        pass
+
+    if snapshot["acOnline"] is None and snapshot["batteryStatus"] == 'unknown' and snapshot["batteryPercent"] is None:
+        snapshot["source"] = 'unavailable'
+
+    return snapshot
 
 
 def _rebuild_uptime_sessions_from_events_locked(now_ts: Optional[int] = None) -> None:
@@ -1311,6 +1447,187 @@ def _rebuild_uptime_sessions_from_events_locked(now_ts: Optional[int] = None) ->
     _uptime_data["sessions"] = sessions
     _uptime_data["lastHeartbeatTs"] = float(_uptime_data.get("lastHeartbeatTs", now_value) or now_value)
     _uptime_data["updatedAt"] = float(_uptime_data.get("updatedAt", now_value) or now_value)
+
+
+def _rebuild_power_sessions_from_events_locked(now_ts: Optional[int] = None) -> None:
+    now_value = float(now_ts if now_ts is not None else time.time())
+    power_data = _uptime_data.setdefault("powerData", _default_power_data())
+    events = power_data.get("events", [])
+    sessions = []
+    active_session = None
+
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        status = _sanitize_uptime_status(event.get("status"))
+        ts = float(event.get("ts", 0) or 0)
+        reason = str(event.get("reason", "") or "")
+
+        if status == "on":
+            if active_session is None:
+                active_session = {"startTs": ts, "endTs": None, "startReason": reason}
+        else:
+            if active_session is not None:
+                active_session["endTs"] = ts
+                active_session["endReason"] = reason
+                sessions.append(active_session)
+                active_session = None
+
+    if active_session is not None:
+        sessions.append(active_session)
+
+    power_data["sessions"] = sessions
+    power_data["updatedAt"] = float(power_data.get("updatedAt", now_value) or now_value)
+
+
+def _repair_power_data_locked(now_ts: Optional[int] = None) -> None:
+    now_value = float(now_ts if now_ts is not None else time.time())
+    power_data = _uptime_data.setdefault("powerData", _default_power_data())
+
+    raw_events = power_data.get("events", [])
+    cleaned_events = []
+    if isinstance(raw_events, list):
+        for item in raw_events:
+            if not isinstance(item, dict):
+                continue
+            try:
+                ts = float(item.get("ts", 0) or 0)
+            except Exception:
+                continue
+            if ts <= 0:
+                continue
+            cleaned_events.append({
+                "ts": ts,
+                "status": _sanitize_uptime_status(item.get("status")),
+                "reason": str(item.get("reason", "") or "")
+            })
+
+    cleaned_events.sort(key=lambda e: e["ts"])
+    power_data["events"] = cleaned_events
+    power_data["version"] = 1
+
+    if cleaned_events:
+        power_data["currentStatus"] = cleaned_events[-1]["status"]
+        power_data["lastChangedAt"] = cleaned_events[-1]["ts"]
+        power_data["updatedAt"] = cleaned_events[-1]["ts"]
+    else:
+        power_data["currentStatus"] = "unknown"
+        power_data["updatedAt"] = now_value
+
+    raw_samples = power_data.get("samples", [])
+    cleaned_samples = []
+    if isinstance(raw_samples, list):
+        for item in raw_samples:
+            if not isinstance(item, dict):
+                continue
+            try:
+                ts = float(item.get("ts", 0) or 0)
+            except Exception:
+                continue
+            if ts <= 0:
+                continue
+            cleaned_samples.append({
+                "ts": ts,
+                "acOnline": item.get("acOnline", None),
+                "batteryStatus": str(item.get("batteryStatus", "") or "unknown"),
+                "batteryPercent": item.get("batteryPercent", None),
+                "voltageNowUv": item.get("voltageNowUv", None),
+                "currentNowUa": item.get("currentNowUa", None),
+            })
+
+    cleaned_samples.sort(key=lambda e: e["ts"])
+    if len(cleaned_samples) > POWER_TELEMETRY_MAX_SAMPLES:
+        cleaned_samples = cleaned_samples[-POWER_TELEMETRY_MAX_SAMPLES:]
+    power_data["samples"] = cleaned_samples
+
+    latest = power_data.get("latest", {})
+    if not isinstance(latest, dict):
+        latest = {}
+    latest.setdefault("source", "unknown")
+    latest.setdefault("updatedAt", now_value)
+    latest.setdefault("acOnline", None)
+    latest.setdefault("batteryStatus", "unknown")
+    latest.setdefault("batteryPercent", None)
+    latest.setdefault("voltageNowUv", None)
+    latest.setdefault("currentNowUa", None)
+    power_data["latest"] = latest
+
+    _rebuild_power_sessions_from_events_locked(now_ts=now_value)
+
+
+def _append_power_event_locked(status: str, reason: str, event_ts: Optional[int] = None) -> None:
+    power_data = _uptime_data.setdefault("powerData", _default_power_data())
+    ts = float(event_ts if event_ts is not None else time.time())
+    normalized_status = _sanitize_uptime_status(status)
+    power_data.setdefault("events", []).append({"ts": ts, "status": normalized_status, "reason": reason})
+    power_data["currentStatus"] = normalized_status
+    power_data["lastChangedAt"] = ts
+    power_data["updatedAt"] = ts
+
+
+def _append_power_sample_locked(snapshot: dict) -> None:
+    power_data = _uptime_data.setdefault("powerData", _default_power_data())
+    samples = power_data.setdefault("samples", [])
+    ts = float(snapshot.get("updatedAt") or time.time())
+    sample = {
+        "ts": ts,
+        "acOnline": snapshot.get("acOnline", None),
+        "batteryStatus": str(snapshot.get("batteryStatus") or "unknown"),
+        "batteryPercent": snapshot.get("batteryPercent", None),
+        "voltageNowUv": snapshot.get("voltageNowUv", None),
+        "currentNowUa": snapshot.get("currentNowUa", None),
+        "energyFullUwh": snapshot.get("energyFullUwh", None),
+        "energyFullDesignUwh": snapshot.get("energyFullDesignUwh", None),
+        "batteryHealthPct": snapshot.get("batteryHealthPct", None),
+        "batteryTempC": snapshot.get("batteryTempC", None),
+        "cpuTempC": snapshot.get("cpuTempC", None),
+        "gpuTempC": snapshot.get("gpuTempC", None),
+    }
+
+    if samples:
+        last_sample = samples[-1]
+        if isinstance(last_sample, dict) and last_sample.get("acOnline") == sample["acOnline"] and last_sample.get("batteryPercent") == sample["batteryPercent"] and last_sample.get("voltageNowUv") == sample["voltageNowUv"] and last_sample.get("currentNowUa") == sample["currentNowUa"] and last_sample.get("batteryStatus") == sample["batteryStatus"] and last_sample.get("cpuTempC") == sample["cpuTempC"] and last_sample.get("gpuTempC") == sample["gpuTempC"]:
+            power_data["latest"] = {
+                "source": snapshot.get("source", "unknown"),
+                **sample,
+                "updatedAt": ts,
+            }
+            return
+
+    samples.append(sample)
+    if len(samples) > POWER_TELEMETRY_MAX_SAMPLES:
+        del samples[:-POWER_TELEMETRY_MAX_SAMPLES]
+
+    power_data["latest"] = {
+        "source": snapshot.get("source", "unknown"),
+        **sample,
+        "updatedAt": ts,
+    }
+
+
+def _update_power_telemetry_locked(now_ts: Optional[int] = None) -> None:
+    now_value = float(now_ts if now_ts is not None else time.time())
+    snapshot = _read_power_telemetry_snapshot()
+    snapshot["updatedAt"] = now_value
+
+    power_data = _uptime_data.setdefault("powerData", _default_power_data())
+    previous_status = str(power_data.get("currentStatus") or "unknown").lower()
+    previous_online = None
+    latest = power_data.get("latest", {}) if isinstance(power_data.get("latest"), dict) else {}
+    if latest:
+        previous_online = latest.get("acOnline")
+
+    _append_power_sample_locked(snapshot)
+
+    ac_online = snapshot.get("acOnline")
+    if ac_online is not None:
+        normalized_status = "on" if bool(ac_online) else "off"
+        if previous_status == "unknown":
+            _append_power_event_locked(normalized_status, "power_monitor_start", event_ts=now_value)
+        elif previous_status != normalized_status:
+            _append_power_event_locked(normalized_status, "power_ac_online" if ac_online else "power_ac_offline", event_ts=now_value)
+
+    _repair_power_data_locked(now_ts=now_value)
 
 
 def _repair_uptime_data_locked(now_ts: Optional[int] = None) -> None:
@@ -1492,6 +1809,7 @@ def _touch_uptime_heartbeat() -> None:
 
         _uptime_data["lastHeartbeatTs"] = now_ts
         _uptime_data["updatedAt"] = now_ts
+        _update_power_telemetry_locked(now_ts=now_ts)
         _repair_uptime_data_locked(now_ts=now_ts)
         _save_uptime_data_locked()
 
@@ -1530,6 +1848,15 @@ def load_uptime_data() -> None:
                 loaded["currentStatus"] = str(parsed.get("currentStatus", "off") or "off")
                 loaded["lastHeartbeatTs"] = float(parsed.get("lastHeartbeatTs", 0) or 0)
                 loaded["updatedAt"] = float(parsed.get("updatedAt", 0) or 0)
+                power_data = parsed.get("powerData", {}) if isinstance(parsed.get("powerData"), dict) else {}
+                loaded["powerData"] = {
+                    **_default_power_data(),
+                    **power_data,
+                    "events": power_data.get("events", []) if isinstance(power_data.get("events"), list) else [],
+                    "sessions": power_data.get("sessions", []) if isinstance(power_data.get("sessions"), list) else [],
+                    "samples": power_data.get("samples", []) if isinstance(power_data.get("samples"), list) else [],
+                    "latest": power_data.get("latest", {}) if isinstance(power_data.get("latest"), dict) else _default_power_data()["latest"],
+                }
         except Exception as e:
             logger.error(f"Error loading {UPTIME_DATA_FILE}: {e}. Starting with default uptime data.")
 
@@ -1539,6 +1866,7 @@ def load_uptime_data() -> None:
         _repair_uptime_data_locked(now_ts=now_ts)
         _infer_unrecorded_offline_gap_locked(startup_ts=now_ts)
         _append_uptime_event_locked(status="on", reason="startup", event_ts=now_ts)
+        _update_power_telemetry_locked(now_ts=now_ts)
         _repair_uptime_data_locked(now_ts=now_ts)
         _save_uptime_data_locked()
 
@@ -1553,8 +1881,9 @@ def mark_uptime_shutdown(reason: str = "shutdown") -> None:
 def get_uptime_payload() -> dict:
     with _uptime_data_lock:
         _repair_uptime_data_locked()
+        _repair_power_data_locked()
         data = _safe_uptime_snapshot_locked()
-    return {"uptimeData": data}
+    return {"uptimeData": data, "powerData": data.get("powerData", {})}
 
 
 def migrate_tracking_data_file_if_needed() -> None:
@@ -3749,6 +4078,17 @@ def _telegram_runtime_ping_message(update: Update) -> str:
     cpu_line = runtime_snapshot.get("cpu", "N/A")
     mem_line = runtime_snapshot.get("memory", "N/A")
     worker_line = runtime_snapshot.get("workers", "N/A")
+    power_snapshot = get_uptime_payload().get("powerData", {})
+    power_latest = power_snapshot.get("latest", {}) if isinstance(power_snapshot, dict) else {}
+    ac_text = "unknown"
+    if power_latest.get("acOnline") is True:
+        ac_text = "online"
+    elif power_latest.get("acOnline") is False:
+        ac_text = "offline"
+    battery_text = "N/A"
+    if power_latest.get("batteryPercent") is not None:
+        battery_text = f"{int(round(float(power_latest.get('batteryPercent'))))}%"
+    power_line = f"power: {ac_text} | battery {battery_text} | source {power_latest.get('source') or 'unknown'}"
 
     safe_state = html.escape(state)
     safe_uptime = html.escape(uptime_text)
@@ -3758,6 +4098,7 @@ def _telegram_runtime_ping_message(update: Update) -> str:
     safe_cpu = html.escape(cpu_line)
     safe_mem = html.escape(mem_line)
     safe_workers = html.escape(worker_line)
+    safe_power = html.escape(power_line)
 
     return (
         f"📡 <b>GlyphMotion Runtime</b>\n"
@@ -3768,7 +4109,84 @@ def _telegram_runtime_ping_message(update: Update) -> str:
         f"• <b>Active Job:</b> <code>{safe_active_line}</code>\n"
         f"• <b>CPU:</b> <code>{safe_cpu}</code>\n"
         f"• <b>Memory:</b> <code>{safe_mem}</code>\n"
-        f"• <b>Workers:</b> <code>{safe_workers}</code>"
+        f"• <b>Workers:</b> <code>{safe_workers}</code>\n"
+        f"• <b>Power:</b> <code>{safe_power}</code>"
+    )
+
+
+def _format_power_metric(value: Any, scale: float = 1.0, suffix: str = "") -> str:
+    try:
+        numeric = float(value)
+    except Exception:
+        return "N/A"
+    if scale and scale != 1.0:
+        numeric = numeric / scale
+    if abs(numeric) >= 100 or numeric.is_integer():
+        return f"{numeric:.0f}{suffix}"
+    return f"{numeric:.2f}{suffix}"
+
+
+def _format_ist_timestamp(ts: float) -> str:
+    try:
+        numeric = float(ts)
+    except Exception:
+        return "N/A"
+    if numeric <= 0:
+        return "N/A"
+    try:
+        ist_zone = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        return datetime.datetime.fromtimestamp(numeric, tz=ist_zone).strftime("%b %d, %Y %I:%M:%S %p IST")
+    except Exception:
+        return "N/A"
+
+
+def _telegram_power_status_message(update: Update) -> str:
+    payload = get_uptime_payload().get("powerData", {})
+    latest = payload.get("latest", {}) if isinstance(payload, dict) else {}
+    events = payload.get("events", []) if isinstance(payload, dict) else []
+    sessions = payload.get("sessions", []) if isinstance(payload, dict) else []
+
+    state = str(payload.get("currentStatus") or "unknown").upper()
+    ac_online = latest.get("acOnline", None)
+    battery_status = str(latest.get("batteryStatus") or payload.get("batteryStatus") or "unknown")
+    battery_percent = latest.get("batteryPercent", None)
+    voltage_uv = latest.get("voltageNowUv", None)
+    current_ua = latest.get("currentNowUa", None)
+    source = str(latest.get("source") or "unknown")
+    last_change_ts = float(payload.get("lastChangedAt") or payload.get("updatedAt") or 0)
+    last_event = events[-1] if isinstance(events, list) and events else None
+    last_event_reason = str(last_event.get("reason") or "") if isinstance(last_event, dict) else ""
+    last_event_time = float(last_event.get("ts") or 0) if isinstance(last_event, dict) else 0
+
+    ac_text = "unknown"
+    if ac_online is True:
+        ac_text = "online"
+    elif ac_online is False:
+        ac_text = "offline"
+
+    battery_text = "N/A"
+    if battery_percent is not None:
+        battery_text = f"{int(round(float(battery_percent)))}%"
+
+    voltage_text = _format_power_metric(voltage_uv, 1_000_000.0, "V")
+    current_text = _format_power_metric(current_ua, 1_000_000.0, "A")
+
+    last_change_text = _format_ist_timestamp(last_change_ts) if last_change_ts > 0 else "—"
+    last_event_text = f"{last_event_reason or 'unknown'} @ {_format_ist_timestamp(last_event_time)}" if last_event_time > 0 else "N/A"
+
+    outage_count = sum(1 for event in events if isinstance(event, dict) and str(event.get("status") or "").lower() == "off")
+    uptime_sessions = len(sessions) if isinstance(sessions, list) else 0
+
+    return (
+        "🔌 <b>Power Status</b>\n"
+        f"• <b>AC:</b> <code>{html.escape(ac_text)}</code>\n"
+        f"• <b>Battery:</b> <code>{html.escape(battery_text)}</code> | <b>State:</b> <code>{html.escape(battery_status)}</code>\n"
+        f"• <b>Voltage:</b> <code>{html.escape(voltage_text)}</code> | <b>Current:</b> <code>{html.escape(current_text)}</code>\n"
+        f"• <b>State:</b> <code>{html.escape(state)}</code>\n"
+        f"• <b>Last change:</b> <code>{html.escape(last_change_text)}</code>\n"
+        f"• <b>Last event:</b> <code>{html.escape(last_event_text)}</code>\n"
+        f"• <b>Samples:</b> <code>{len(payload.get('samples', []) or [])}</code> | <b>Sessions:</b> <code>{uptime_sessions}</code> | <b>Outage events:</b> <code>{outage_count}</code>\n"
+        f"• <b>Telemetry source:</b> <code>{html.escape(source)}</code>"
     )
 
 
@@ -3816,6 +4234,14 @@ def _telegram_admin_stats_message(update: Update) -> str:
         bench_on = bool(_benchmark_in_progress)
         bench_stage = str(_benchmark_progress.get("stage") or "idle")
         bench_pct = int(_benchmark_progress.get("progressPct") or 0)
+    power_payload = get_uptime_payload().get("powerData", {})
+    power_latest = power_payload.get("latest", {}) if isinstance(power_payload, dict) else {}
+    power_state = str(power_payload.get("currentStatus") or "unknown")
+    ac_state = "unknown"
+    if power_latest.get("acOnline") is True:
+        ac_state = "online"
+    elif power_latest.get("acOnline") is False:
+        ac_state = "offline"
 
     waiting = int(queue.get("waitingCount") or 0)
     total = int(queue.get("queueTotal") or 0)
@@ -3833,7 +4259,14 @@ def _telegram_admin_stats_message(update: Update) -> str:
         f"• <b>Active:</b> <code>{active_line}</code>\n"
         f"• <b>Benchmark:</b> <code>{'running' if bench_on else 'idle'}</code>"
         + (f" (<code>{bench_stage} {bench_pct}%</code>)" if bench_on else "")
+        + f"\n• <b>Power:</b> <code>{html.escape(power_state)}</code> | <code>{html.escape(ac_state)}</code>"
     )
+
+
+async def power_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Returns a detailed live power telemetry snapshot."""
+    _log_telegram_incoming_message(update, handler_name="power")
+    await update.message.reply_text(_telegram_power_status_message(update), parse_mode='HTML')
 
 
 def _load_latest_benchmark_record() -> Optional[Dict[str, Any]]:
@@ -4313,6 +4746,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "➡️ <code>/checkqueue</code>: Show current queue and your position.\n"
         "➡️ <code>/myjob</code>: Show your current job state (processing/queued/idle).\n"
         "➡️ <code>/ping</code>: Show live bot status, queue and uptime.\n"
+        "➡️ <code>/power</code>: Show live AC/battery/voltage/current telemetry.\n"
         "➡️ <code>/latest</code>: Show latest processed/published video details + latest benchmark metrics.\n"
         "➡️ <code>/limits</code>: Show upload rules and size guidance.\n"
         "➡️ <code>/cancelcurrent</code>: Cancel the current Telegram task (owner or Telegram master admin only).\n"
@@ -4896,8 +5330,14 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
                 uptime_data = payload.get("uptimeData", {}) if isinstance(payload, dict) else {}
                 events = uptime_data.get("events", []) if isinstance(uptime_data, dict) else []
                 sessions = uptime_data.get("sessions", []) if isinstance(uptime_data, dict) else []
+                power_data = uptime_data.get("powerData", {}) if isinstance(uptime_data, dict) else {}
+                power_events = power_data.get("events", []) if isinstance(power_data, dict) else []
+                power_samples = power_data.get("samples", []) if isinstance(power_data, dict) else []
+                power_latest = power_data.get("latest", {}) if isinstance(power_data.get("latest", {}), dict) else {}
                 last_event = events[-1] if isinstance(events, list) and events else {}
                 last_session = sessions[-1] if isinstance(sessions, list) and sessions else {}
+                last_power_event = power_events[-1] if isinstance(power_events, list) and power_events else {}
+                last_power_sample = power_samples[-1] if isinstance(power_samples, list) and power_samples else {}
                 signature_payload = {
                     "currentStatus": uptime_data.get("currentStatus", ""),
                     "eventCount": len(events) if isinstance(events, list) else 0,
@@ -4906,6 +5346,18 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
                     "lastEventStatus": last_event.get("status", "") if isinstance(last_event, dict) else "",
                     "lastSessionStart": last_session.get("startTs", 0) if isinstance(last_session, dict) else 0,
                     "lastSessionEnd": last_session.get("endTs", None) if isinstance(last_session, dict) else None,
+                    "powerCurrentStatus": power_data.get("currentStatus", "") if isinstance(power_data, dict) else "",
+                    "powerUpdatedAt": power_data.get("updatedAt", 0) if isinstance(power_data, dict) else 0,
+                    "powerEventCount": len(power_events) if isinstance(power_events, list) else 0,
+                    "powerSampleCount": len(power_samples) if isinstance(power_samples, list) else 0,
+                    "powerLastEventTs": last_power_event.get("ts", 0) if isinstance(last_power_event, dict) else 0,
+                    "powerLastEventStatus": last_power_event.get("status", "") if isinstance(last_power_event, dict) else "",
+                    "powerLastSampleTs": last_power_sample.get("ts", 0) if isinstance(last_power_sample, dict) else 0,
+                    "powerLastSampleAcOnline": last_power_sample.get("acOnline", None) if isinstance(last_power_sample, dict) else None,
+                    "powerLatestAcOnline": power_latest.get("acOnline", None),
+                    "powerLatestBatteryStatus": power_latest.get("batteryStatus", ""),
+                    "powerLatestBatteryPercent": power_latest.get("batteryPercent", None),
+                    "powerLatestUpdatedAt": power_latest.get("updatedAt", 0),
                 }
                 current_signature = json.dumps(signature_payload, ensure_ascii=False, sort_keys=True)
 
@@ -6657,6 +7109,7 @@ def main():
         app.add_handler(CommandHandler("latest", latest_command))
         app.add_handler(CommandHandler("limits", limits_command))
         app.add_handler(CommandHandler("ping", ping_command))
+        app.add_handler(CommandHandler("power", power_command))
         app.add_handler(CommandHandler("cancelcurrent", cancel_current_command))
         app.add_handler(CommandHandler("activejob", admin_active_job_command))
         app.add_handler(CommandHandler("adminstats", admin_stats_command))

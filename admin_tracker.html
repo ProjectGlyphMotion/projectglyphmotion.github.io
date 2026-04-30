@@ -198,6 +198,53 @@
                     <span class="table-kpi">Last Change <span id="uptimeLastChange" class="val">—</span></span>
                     <span class="table-kpi">Transitions (14d) <span id="uptimeTransitions14d" class="val">0</span></span>
                 </div>
+                <div class="chart-box with-toolbar mt-4">
+                    <div class="chart-toolbar">
+                        <div class="chart-toolbar-left">
+                            <button id="powerPreset10mBtn" class="chart-tool-btn" type="button" title="Set 10 minute window">10M</button>
+                            <button id="powerPreset30mBtn" class="chart-tool-btn" type="button" title="Set 30 minute window">30M</button>
+                            <button id="powerPreset1hBtn" class="chart-tool-btn" type="button" title="Set 1 hour window">1H</button>
+                            <button id="powerPreset2hBtn" class="chart-tool-btn" type="button" title="Set 2 hour window">2H</button>
+                            <button id="powerZoomInBtn" class="chart-tool-btn" type="button" title="Zoom in">Zoom In</button>
+                            <button id="powerZoomOutBtn" class="chart-tool-btn" type="button" title="Zoom out">Zoom Out</button>
+                            <button id="powerZoomResetBtn" class="chart-tool-btn" type="button" title="Reset to default">Default</button>
+                        </div>
+                        <div id="powerTelemetryLabel" class="chart-toolbar-right">Source: --</div>
+                    </div>
+                    <canvas id="powerTimelineChart"></canvas>
+                </div>
+                <div class="table-kpis mt-4">
+                    <span class="table-kpi">Power State <span id="powerCurrentStatus" class="val">Unknown</span></span>
+                    <span class="table-kpi">Backend Link <span id="powerBackendState" class="val">—</span></span>
+                    <span class="table-kpi">AC Input <span id="powerAcState" class="val">—</span></span>
+                    <span class="table-kpi">Battery <span id="powerBatteryPercent" class="val">—</span></span>
+                    <span class="table-kpi">Health <span id="powerBatteryHealth" class="val">—</span></span>
+                    <span class="table-kpi">Voltage / Current <span id="powerElectricalReadout" class="val">—</span></span>
+                    <span class="table-kpi">Thermals <span id="powerThermals" class="val">—</span></span>
+                    <span class="table-kpi">Depletion Rate <span id="powerDepletionRate" class="val">—</span></span>
+                    <span class="table-kpi">Last Outage <span id="powerLastOutage" class="val">—</span></span>
+                </div>
+                <div class="chart-box with-toolbar mt-8">
+                    <div class="chart-toolbar">
+                        <div class="chart-toolbar-left">
+                            <span class="chart-toolbar-right text-emerald-400 font-medium mr-2">Detailed Electrical Metrics</span>
+                            <button id="detailedPreset10mBtn" class="chart-tool-btn" type="button" title="10 min window">10M</button>
+                            <button id="detailedPreset30mBtn" class="chart-tool-btn" type="button" title="30 min window">30M</button>
+                            <button id="detailedPreset1hBtn" class="chart-tool-btn" type="button" title="1 hour window">1H</button>
+                            <button id="detailedPreset2hBtn" class="chart-tool-btn" type="button" title="2 hour window">2H</button>
+                            <button id="detailedZoomInBtn" class="chart-tool-btn" type="button" title="Zoom In">Zoom In</button>
+                            <button id="detailedZoomOutBtn" class="chart-tool-btn" type="button" title="Zoom Out">Zoom Out</button>
+                            <button id="detailedPresetOutageBtn" class="chart-tool-btn" type="button" title="Default/Outage window">Default</button>
+                        </div>
+                        <div id="detailedPowerLabel" class="chart-toolbar-right">Tracking Live</div>
+                    </div>
+                    <canvas id="detailedPowerMetricsChart" style="max-height: 280px;"></canvas>
+                </div>
+                <div class="table-kpis mt-4">
+                    <span class="table-kpi">Outage Energy Consumed <span id="powerOutageEnergy" class="val">—</span></span>
+                    <span class="table-kpi">Peak Wattage <span id="powerOutagePeakW" class="val">—</span></span>
+                    <span class="table-kpi">Avg Discharge <span id="powerOutageAvgW" class="val">—</span></span>
+                </div>
             </div>
         </section>
 
@@ -364,8 +411,11 @@ let currentServerStatus = 'offline';
 let lastTrackingDataSignature = '';
 let lastUptimeSignature = '';
 let latestUptimeSnapshot = null;
+let latestPowerSnapshot = null;
 let lastUptimePullMs = 0;
 let uptimeTimelineHoursWindow = 2;
+let powerTimelineHoursWindow = 2;
+let detailedPowerTimelineWindow = 'outage';
 let frontendOfflineMarkerTimer = null;
 let frontendOfflineActiveTs = null;
 let pendingUptimeReconcileSegments = [];
@@ -510,6 +560,7 @@ function updateSnapshotIndicator(snapshotPayload, isOfflineSnapshot = false) {
 function clearTrackerDashboardData() {
     allTrackingData = [];
     serverStatusHistory = [];
+    latestPowerSnapshot = null;
     Object.keys(chartInstances).forEach((id) => destroyChart(id));
     const tbody = document.getElementById('trackingTableBody');
     if (tbody) tbody.innerHTML = '';
@@ -519,6 +570,20 @@ function clearTrackerDashboardData() {
     document.getElementById('tableSection').classList.add('hidden');
     document.getElementById('noDataMessage').classList.remove('hidden');
     updateSnapshotIndicator(null, false);
+    const powerTelemetryLabel = document.getElementById('powerTelemetryLabel');
+    const powerCurrentStatus = document.getElementById('powerCurrentStatus');
+    const powerBackendState = document.getElementById('powerBackendState');
+    const powerAcState = document.getElementById('powerAcState');
+    const powerBatteryPercent = document.getElementById('powerBatteryPercent');
+    const powerElectricalReadout = document.getElementById('powerElectricalReadout');
+    const powerLastOutage = document.getElementById('powerLastOutage');
+    if (powerTelemetryLabel) powerTelemetryLabel.textContent = 'Source: --';
+    if (powerCurrentStatus) powerCurrentStatus.textContent = 'Unknown';
+    if (powerBackendState) powerBackendState.textContent = '—';
+    if (powerAcState) powerAcState.textContent = '—';
+    if (powerBatteryPercent) powerBatteryPercent.textContent = '—';
+    if (powerElectricalReadout) powerElectricalReadout.textContent = '—';
+    if (powerLastOutage) powerLastOutage.textContent = '—';
 }
 
 function hideStatusBanner() {
@@ -796,14 +861,46 @@ function applyServerUptimeData(payload) {
     const data = payload && payload.uptimeData ? payload.uptimeData : payload;
     if (!data || typeof data !== 'object') return;
     latestUptimeSnapshot = JSON.parse(JSON.stringify(data));
+    latestPowerSnapshot = data.powerData && typeof data.powerData === 'object'
+        ? JSON.parse(JSON.stringify(data.powerData))
+        : null;
     const rawEvents = Array.isArray(data.events) ? data.events : [];
     const rawSessions = Array.isArray(data.sessions) ? data.sessions : [];
+    const rawPowerEvents = Array.isArray(data.powerData?.events) ? data.powerData.events : [];
+    const rawPowerSessions = Array.isArray(data.powerData?.sessions) ? data.powerData.sessions : [];
+    const rawPowerSamples = Array.isArray(data.powerData?.samples) ? data.powerData.samples : [];
+    const rawPowerLast = rawPowerEvents.length ? rawPowerEvents[rawPowerEvents.length - 1] : null;
+    const rawPowerLastSample = rawPowerSamples.length ? rawPowerSamples[rawPowerSamples.length - 1] : null;
     const rawLast = rawEvents.length ? rawEvents[rawEvents.length - 1] : null;
     const rawLastSession = rawSessions.length ? rawSessions[rawSessions.length - 1] : null;
     const incomingStatus = (typeof data.currentStatus === 'string' && data.currentStatus)
         ? data.currentStatus.toLowerCase()
         : '';
-    const signature = `${rawEvents.length}|${rawLast?.ts || 0}|${rawLast?.status || ''}|${rawSessions.length}|${rawLastSession?.startTs || 0}|${rawLastSession?.endTs ?? ''}|${incomingStatus}`;
+    const powerCurrentStatus = latestPowerSnapshot && typeof latestPowerSnapshot.currentStatus === 'string'
+        ? latestPowerSnapshot.currentStatus.toLowerCase()
+        : (typeof data.powerData?.currentStatus === 'string' ? data.powerData.currentStatus.toLowerCase() : '');
+    const signature = [
+        Number(data.lastHeartbeatTs || 0),
+        Number(data.updatedAt || 0),
+        rawEvents.length,
+        rawLast?.ts || 0,
+        rawLast?.status || '',
+        rawSessions.length,
+        rawLastSession?.startTs || 0,
+        rawLastSession?.endTs ?? '',
+        incomingStatus,
+        rawPowerEvents.length,
+        rawPowerLast?.ts || 0,
+        rawPowerLast?.status || '',
+        rawPowerSessions.length,
+        rawPowerSamples.length,
+        rawPowerLastSample?.ts || 0,
+        Number(data.powerData?.updatedAt || 0),
+        Number(data.powerData?.lastChangedAt || 0),
+        Number(data.powerData?.latest?.updatedAt || 0),
+        rawPowerLastSample?.acOnline === true ? '1' : (rawPowerLastSample?.acOnline === false ? '0' : ''),
+        powerCurrentStatus,
+    ].join('|');
     if (signature === lastUptimeSignature) return;
     lastUptimeSignature = signature;
 
@@ -836,7 +933,11 @@ function applyServerUptimeData(payload) {
     if (incomingStatus) {
         currentServerStatus = incomingStatus;
     }
+    if (latestPowerSnapshot && typeof latestPowerSnapshot === 'object') {
+        latestPowerSnapshot = JSON.parse(JSON.stringify(latestPowerSnapshot));
+    }
     refreshServerStatusCharts();
+    refreshPowerTelemetryChart();
 }
 
 async function fetchUptimeData() {
@@ -845,9 +946,9 @@ async function fetchUptimeData() {
         if (!response.ok) return;
         const payload = await response.json();
         applyServerUptimeData(payload);
-        if ((payload?.uptimeData?.currentStatus || '').toLowerCase() === 'on') {
-            markFrontendOnline('uptime_poll_sync');
-        }
+        const polledState = String(payload?.uptimeData?.currentStatus || '').toLowerCase();
+        if (polledState === 'on') markFrontendOnline('uptime_poll_sync');
+        else if (polledState === 'off') setServerStatus('offline');
         const rawUptimeData = payload && payload.uptimeData ? payload.uptimeData : null;
         persistLiveSnapshot(allTrackingData, rawUptimeData || latestUptimeSnapshot);
         hideStatusBanner();
@@ -903,6 +1004,16 @@ function getStatusAtTimestamp(ts) {
     for (let i = 0; i < serverStatusHistory.length; i++) {
         if (serverStatusHistory[i].ts > ts) break;
         status = serverStatusHistory[i].status;
+    }
+    return status;
+}
+
+function getStatusAtTimestampFromHistory(history, ts, fallbackStatus = 'off') {
+    const series = Array.isArray(history) ? history : [];
+    let status = fallbackStatus;
+    for (let i = 0; i < series.length; i++) {
+        if (series[i].ts > ts) break;
+        status = series[i].status;
     }
     return status;
 }
@@ -1098,6 +1209,438 @@ function computeServerBehaviorMetrics(daysBack = 14) {
     return { onMs, offMs, transitions, uptimePct, transitionCount, windowStartTs: Math.floor(windowStartMs / 1000), windowEndTs: Math.floor(nowMs / 1000) };
 }
 
+function getPowerTelemetrySnapshot() {
+    return latestPowerSnapshot && typeof latestPowerSnapshot === 'object' ? latestPowerSnapshot : null;
+}
+
+function getBackendLinkStatus() {
+    const status = String(currentServerStatus || '').toLowerCase();
+    if (status === 'connected' || status === 'on' || status === 'live') return 'online';
+    if (status === 'offline' || status === 'off') return 'offline';
+    return 'unknown';
+}
+
+function normalizePowerPresence(sample, snapshot) {
+    const acOnline = sample && typeof sample.acOnline === 'boolean' ? sample.acOnline : (typeof snapshot?.latest?.acOnline === 'boolean' ? snapshot.latest.acOnline : null);
+    const batteryStatus = String(sample?.batteryStatus || snapshot?.latest?.batteryStatus || snapshot?.currentStatus || 'unknown').trim().toLowerCase();
+    if (acOnline === true) return 'on';
+    if (batteryStatus === 'charging' || batteryStatus === 'full') return 'on';
+    if (acOnline === false || batteryStatus === 'discharging') return 'off';
+    if (batteryStatus === 'on' || batteryStatus === 'connected' || batteryStatus === 'live') return 'on';
+    if (batteryStatus === 'off' || batteryStatus === 'offline') return 'off';
+    return String(snapshot?.currentStatus || 'unknown').toLowerCase();
+}
+
+function getPowerPresenceSecondsInWindowFromEvents(powerEvents, startTs, endTs, fallbackStatus = 'unknown') {
+    const windowLen = Math.max(0, endTs - startTs);
+    if (windowLen <= 0) return 0;
+
+    const events = Array.isArray(powerEvents)
+        ? powerEvents
+            .filter((e) => e && Number.isFinite(Number(e.ts)) && typeof e.status === 'string')
+            .map((e) => ({ ts: Number(e.ts), status: String(e.status || '').toLowerCase() }))
+            .sort((a, b) => a.ts - b.ts)
+        : [];
+
+    let online = 0;
+    let cursor = startTs;
+    let currentStatus = fallbackStatus;
+
+    for (let i = 0; i < events.length; i++) {
+        const event = events[i];
+        const eventTs = Number(event.ts || 0);
+        if (eventTs <= startTs) {
+            currentStatus = event.status;
+            continue;
+        }
+        if (eventTs >= endTs) break;
+
+        if (currentStatus === 'on') {
+            online += Math.max(0, eventTs - cursor);
+        }
+
+        cursor = eventTs;
+        currentStatus = event.status;
+    }
+
+    if (currentStatus === 'on') {
+        online += Math.max(0, endTs - cursor);
+    }
+
+    return Math.max(0, Math.min(windowLen, online));
+}
+
+function getPowerPresenceSecondsInWindowFromSamples(powerSamples, startTs, endTs, fallbackStatus = 'unknown', snapshot = null) {
+    const windowLen = Math.max(0, endTs - startTs);
+    if (windowLen <= 0) return 0;
+
+    const samples = Array.isArray(powerSamples)
+        ? powerSamples
+            .filter((s) => s && Number.isFinite(Number(s.ts)))
+            .map((s) => ({
+                ts: Number(s.ts),
+                acOnline: typeof s.acOnline === 'boolean' ? s.acOnline : null,
+                batteryStatus: String(s.batteryStatus || 'unknown'),
+            }))
+            .sort((a, b) => a.ts - b.ts)
+        : [];
+
+    if (!samples.length) {
+        return fallbackStatus === 'on' ? windowLen : 0;
+    }
+
+    let online = 0;
+    let cursor = startTs;
+    let currentStatus = fallbackStatus;
+
+    for (let i = 0; i < samples.length; i++) {
+        const sample = samples[i];
+        const sampleTs = Number(sample.ts || 0);
+        const samplePresence = normalizePowerPresence(sample, snapshot || {});
+
+        if (sampleTs <= startTs) {
+            currentStatus = samplePresence;
+            continue;
+        }
+        if (sampleTs >= endTs) break;
+
+        if (currentStatus === 'on') {
+            online += Math.max(0, sampleTs - cursor);
+        }
+
+        cursor = sampleTs;
+        currentStatus = samplePresence;
+    }
+
+    if (currentStatus === 'on') {
+        online += Math.max(0, endTs - cursor);
+    }
+
+    return Math.max(0, Math.min(windowLen, online));
+}
+
+function buildPowerTelemetrySeries(hoursBack = null) {
+    const snapshot = getPowerTelemetrySnapshot();
+    const events = Array.isArray(snapshot?.events) ? snapshot.events : [];
+    const samples = Array.isArray(snapshot?.samples) ? snapshot.samples : [];
+    const latest = snapshot?.latest && typeof snapshot.latest === 'object' ? snapshot.latest : {};
+    const nowTs = Math.floor(Date.now() / 1000);
+    const earliestEventTs = events.length ? Number(events[0].ts || nowTs) : nowTs;
+    const earliestSampleTs = samples.length ? Number(samples[0].ts || nowTs) : nowTs;
+    const earliestTs = Math.min(earliestEventTs, earliestSampleTs);
+    const requestedHours = Number.isFinite(hoursBack) && hoursBack ? hoursBack : uptimeTimelineHoursWindow;
+    const effectiveHoursBack = Math.max(UPTIME_TIMELINE_MIN_HOURS, Math.min(UPTIME_TIMELINE_MAX_HOURS, requestedHours));
+    const startTs = Math.max(earliestTs, nowTs - (effectiveHoursBack * 3600));
+    let bucketSizeSec = getTimelineBucketSeconds(effectiveHoursBack);
+    const rawBuckets = Math.max(2, Math.floor((nowTs - startTs) / bucketSizeSec) + 1);
+    const maxBuckets = 1200;
+    if (rawBuckets > maxBuckets) {
+        const factor = Math.ceil(rawBuckets / maxBuckets);
+        bucketSizeSec *= factor;
+    }
+
+    const labels = [];
+    const statuses = [];
+    const ratios = [];
+    const bucketStarts = [];
+    const batteryPercents = [];
+    const voltagesUv = [];
+    const currentsUa = [];
+    const acStates = [];
+    const batteryStatuses = [];
+    const backendStatuses = [];
+
+    let sampleIndex = 0;
+    let activeSample = samples.length ? samples[0] : null;
+
+    for (let ts = startTs; ts <= nowTs; ts += bucketSizeSec) {
+        const bucketStart = ts;
+        const bucketEnd = Math.min(nowTs + 1, bucketStart + bucketSizeSec);
+        const windowLen = Math.max(0.001, bucketEnd - bucketStart);
+        while (sampleIndex < samples.length && Number(samples[sampleIndex].ts || 0) <= bucketEnd) {
+            activeSample = samples[sampleIndex];
+            sampleIndex += 1;
+        }
+
+        const rawSample = activeSample && typeof activeSample === 'object' ? activeSample : null;
+        const sampleStatus = normalizePowerPresence(rawSample, snapshot);
+        const fallbackStatus = sampleStatus === 'unknown' ? String(snapshot?.currentStatus || 'unknown').toLowerCase() : sampleStatus;
+        const sampleOnlineSeconds = getPowerPresenceSecondsInWindowFromSamples(samples, bucketStart, bucketEnd, fallbackStatus, snapshot);
+        const eventOnlineSeconds = getPowerPresenceSecondsInWindowFromEvents(events, bucketStart, bucketEnd, fallbackStatus);
+        const onlineSeconds = sampleOnlineSeconds > 0 || !events.length ? sampleOnlineSeconds : eventOnlineSeconds;
+        const ratio = onlineSeconds / windowLen;
+        
+        const backendOnlineSeconds = getOnlineSecondsInWindow(bucketStart, bucketEnd, nowTs);
+        const backendOnlineRatio = backendOnlineSeconds / windowLen;
+        let backendStateBucket = 'online';
+        if (backendOnlineRatio < 0.001) backendStateBucket = 'offline';
+        else if (backendOnlineRatio < 0.999) backendStateBucket = 'mixed';
+        
+        let status = 'unknown';
+        if (backendStateBucket === 'offline') status = 'backend_offline';
+        else if (ratio >= 0.999) status = 'on';
+        else if (ratio <= 0.001) status = 'off';
+        else status = 'mixed';
+
+        const batteryPercent = activeSample && Number.isFinite(Number(activeSample.batteryPercent)) ? Number(activeSample.batteryPercent) : null;
+        const voltageUv = activeSample && Number.isFinite(Number(activeSample.voltageNowUv)) ? Number(activeSample.voltageNowUv) : null;
+        const currentUa = activeSample && Number.isFinite(Number(activeSample.currentNowUa)) ? Number(activeSample.currentNowUa) : null;
+        labels.push(formatTimelineLabel(bucketStart, effectiveHoursBack));
+        statuses.push(status);
+        ratios.push(ratio);
+        bucketStarts.push(bucketStart);
+        batteryPercents.push(batteryPercent);
+        voltagesUv.push(voltageUv);
+        currentsUa.push(currentUa);
+        acStates.push(activeSample && activeSample.acOnline === true ? 'online' : (activeSample && activeSample.acOnline === false ? 'offline' : 'unknown'));
+        batteryStatuses.push(activeSample ? String(activeSample.batteryStatus || 'unknown') : 'unknown');
+        backendStatuses.push(backendStateBucket);
+    }
+
+    return {
+        labels,
+        statuses,
+        ratios,
+        bucketStarts,
+        batteryPercents,
+        voltagesUv,
+        currentsUa,
+        acStates,
+        batteryStatuses,
+        backendStatuses,
+        startTs,
+        endTs: nowTs,
+        hoursBack: effectiveHoursBack,
+        bucketSizeSec,
+        snapshot,
+        latest,
+    };
+}
+
+function formatPowerVoltageText(voltageUv) {
+    if (!Number.isFinite(Number(voltageUv))) return 'N/A';
+    return `${(Number(voltageUv) / 1000000).toFixed(2)}V`;
+}
+
+function formatPowerCurrentText(currentUa) {
+    if (!Number.isFinite(Number(currentUa))) return 'N/A';
+    return `${(Number(currentUa) / 1000000).toFixed(2)}A`;
+}
+
+function updatePowerTelemetryIndicators(series = null) {
+    const snapshot = getPowerTelemetrySnapshot();
+    const latest = snapshot?.latest && typeof snapshot.latest === 'object' ? snapshot.latest : {};
+    const stateEl = document.getElementById('powerCurrentStatus');
+    const backendEl = document.getElementById('powerBackendState');
+    const acEl = document.getElementById('powerAcState');
+    const batteryEl = document.getElementById('powerBatteryPercent');
+    const electricalEl = document.getElementById('powerElectricalReadout');
+    const depletionEl = document.getElementById('powerDepletionRate');
+    const labelEl = document.getElementById('powerTelemetryLabel');
+    const outageEl = document.getElementById('powerLastOutage');
+
+    const latestPresence = normalizePowerPresence(latest, snapshot);
+    const state = latestPresence === 'on' ? 'ON' : (latestPresence === 'off' ? 'OFF' : String(snapshot?.currentStatus || 'unknown').toUpperCase());
+    const backendState = getBackendLinkStatus().toUpperCase();
+    const acState = normalizePowerPresence(latest, snapshot) === 'on' ? 'ONLINE' : (normalizePowerPresence(latest, snapshot) === 'off' ? 'OFFLINE' : 'UNKNOWN');
+    const batteryPercent = Number.isFinite(Number(latest.batteryPercent)) ? `${Math.round(Number(latest.batteryPercent))}%` : '—';
+    const voltageText = formatPowerVoltageText(latest.voltageNowUv);
+    const currentText = formatPowerCurrentText(latest.currentNowUa);
+    const sourceText = latest.source || 'unknown';
+
+    if (stateEl) stateEl.textContent = state;
+    if (backendEl) backendEl.textContent = backendState;
+    if (acEl) acEl.textContent = acState;
+    if (batteryEl) batteryEl.textContent = batteryPercent;
+    if (electricalEl) electricalEl.textContent = `${voltageText} / ${currentText}`;
+    if (labelEl) labelEl.textContent = `Backend: ${backendState} | Source: ${sourceText} | Window: ${formatWindowHoursLabel(powerTimelineHoursWindow)}`;
+
+    let actualCapacityWh = null;
+    let designCapacityWh = null;
+    let healthPercent = null;
+    
+    if (latest.energyFullUwh) {
+        actualCapacityWh = Number(latest.energyFullUwh) / 1000000;
+        if (latest.energyFullDesignUwh) {
+            designCapacityWh = Number(latest.energyFullDesignUwh) / 1000000;
+            healthPercent = (actualCapacityWh / designCapacityWh) * 100;
+        }
+    } else if (latest.chargeFullUah && latest.voltageNowUv) {
+        const voltage = Number(latest.voltageNowUv) / 1000000;
+        actualCapacityWh = (Number(latest.chargeFullUah) / 1000000) * voltage;
+        if (latest.chargeFullDesignUah) {
+            designCapacityWh = (Number(latest.chargeFullDesignUah) / 1000000) * voltage;
+            healthPercent = (actualCapacityWh / designCapacityWh) * 100;
+        }
+    }
+    
+    if (latest.batteryHealthPct) {
+        healthPercent = Number(latest.batteryHealthPct);
+    }
+    
+    const healthEl = document.getElementById('powerBatteryHealth');
+    if (healthEl) {
+        if (healthPercent !== null) {
+            let capStr = actualCapacityWh !== null ? ` (${actualCapacityWh.toFixed(1)} Wh)` : '';
+            healthEl.textContent = `${healthPercent.toFixed(1)}%${capStr}`;
+        } else {
+            healthEl.textContent = '—';
+        }
+    }
+
+    const thermalsEl = document.getElementById('powerThermals');
+    if (thermalsEl) {
+        let thermals = [];
+        if (latest.cpuTempC) thermals.push(`CPU: ${latest.cpuTempC}°C`);
+        if (latest.gpuTempC) thermals.push(`GPU: ${latest.gpuTempC}°C`);
+        if (latest.batteryTempC) thermals.push(`BAT: ${latest.batteryTempC}°C`);
+        thermalsEl.textContent = thermals.length > 0 ? thermals.join(' | ') : '—';
+    }
+
+    let depletionText = '—';
+    const currentBatteryStatus = String(latest.batteryStatus || 'unknown').trim().toLowerCase();
+    if (normalizePowerPresence(latest, snapshot) === 'off' && currentBatteryStatus === 'discharging') {
+        let watts = 0;
+        if (Number.isFinite(Number(latest.currentNowUa)) && Number.isFinite(Number(latest.voltageNowUv))) {
+            watts = Math.abs(Number(latest.currentNowUa) / 1000000) * (Number(latest.voltageNowUv) / 1000000);
+        }
+        
+        let pctPerHour = 0;
+        let timeRemainingText = '';
+        
+        const events = snapshot?.events || [];
+        const sortedEvents = [...events]
+            .filter((event) => event && Number.isFinite(Number(event.ts)) && typeof event.status === 'string')
+            .map((event) => ({ ts: Number(event.ts), status: String(event.status || '').toLowerCase() }))
+            .sort((a, b) => a.ts - b.ts);
+        const lastOffIndex = sortedEvents.map((event, index) => ({ event, index })).reverse().find(({ event }) => event.status === 'off')?.index ?? -1;
+        const lastOff = lastOffIndex >= 0 ? sortedEvents[lastOffIndex] : null;
+        
+        let activeCapacityWh = actualCapacityWh || 50; 
+        
+        if (snapshot && Array.isArray(snapshot.samples) && snapshot.samples.length > 1) {
+            const startOutageTs = lastOff ? lastOff.ts : (Math.floor(Date.now() / 1000) - 1800);
+            const currentOutageSamples = snapshot.samples.filter(s => s.ts >= startOutageTs && Number.isFinite(Number(s.batteryPercent)));
+            if (currentOutageSamples.length > 1) {
+                const first = currentOutageSamples[0];
+                const last = currentOutageSamples[currentOutageSamples.length - 1];
+                const dt = Math.max(1, last.ts - first.ts);
+                const dp = Number(first.batteryPercent) - Number(last.batteryPercent);
+                if (dp > 0 && dt > 60) {
+                    pctPerHour = (dp / dt) * 3600;
+                    
+                    if (!actualCapacityWh) {
+                        let sumW = 0;
+                        let validW = 0;
+                        for (const s of currentOutageSamples) {
+                            if (Number.isFinite(Number(s.currentNowUa)) && Number.isFinite(Number(s.voltageNowUv))) {
+                                const w = Math.abs(Number(s.currentNowUa) / 1000000) * (Number(s.voltageNowUv) / 1000000);
+                                if (w > 0) { sumW += w; validW++; }
+                            }
+                        }
+                        if (validW > 0) {
+                            const avgW = sumW / validW;
+                            activeCapacityWh = Math.max(20, Math.min(150, avgW / (pctPerHour / 100))); 
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (watts > 0.05) {
+            const hoursRemaining = (Number(latest.batteryPercent) / 100) * activeCapacityWh / watts;
+            const minsRemaining = Math.max(0, Math.round(hoursRemaining * 60));
+            if (minsRemaining >= 60) {
+                timeRemainingText = `~${Math.floor(minsRemaining / 60)}h ${minsRemaining % 60}m left`;
+            } else {
+                timeRemainingText = `~${minsRemaining}m left`;
+            }
+        } else if (pctPerHour > 0) {
+            const hoursRemaining = Number(latest.batteryPercent) / pctPerHour;
+            const minsRemaining = Math.max(0, Math.round(hoursRemaining * 60));
+            if (minsRemaining >= 60) {
+                timeRemainingText = `~${Math.floor(minsRemaining / 60)}h ${minsRemaining % 60}m left`;
+            } else {
+                timeRemainingText = `~${minsRemaining}m left`;
+            }
+        }
+
+        const parts = [];
+        if (watts > 0.05) parts.push(`${watts.toFixed(2)} W`);
+        if (pctPerHour > 0) parts.push(`${pctPerHour.toFixed(1)}%/hr`);
+        if (timeRemainingText) parts.push(timeRemainingText);
+        
+        if (parts.length > 0) {
+            depletionText = parts.join(' | ');
+        }
+    }
+    if (depletionEl) depletionEl.textContent = depletionText;
+
+    const events = Array.isArray(snapshot?.events)
+        ? snapshot.events
+            .filter((event) => event && Number.isFinite(Number(event.ts)) && typeof event.status === 'string')
+            .map((event) => ({ ts: Number(event.ts), status: String(event.status || '').toLowerCase() }))
+            .sort((a, b) => a.ts - b.ts)
+        : [];
+    const lastOffIndex = [...events].map((event, index) => ({ event, index })).reverse().find(({ event }) => event.status === 'off')?.index ?? -1;
+    const lastOff = lastOffIndex >= 0 ? events[lastOffIndex] : null;
+    const lastOnAfterOff = lastOffIndex >= 0 ? events.slice(lastOffIndex + 1).find((event) => event.status === 'on') : null;
+    let outageText = '—';
+    
+    if (getBackendLinkStatus() === 'offline') {
+        const lastBackendSeen = latestUptimeSnapshot ? Math.max(Number(latestUptimeSnapshot.updatedAt || 0), Number(latestUptimeSnapshot.lastHeartbeatTs || 0)) : 0;
+        if (lastBackendSeen > 0) {
+            outageText = `Backend offline since ${formatTimestampCompact(lastBackendSeen)}`;
+        } else {
+            outageText = 'Backend offline';
+        }
+    } else {
+        if (lastOff && !lastOnAfterOff) {
+            outageText = `Since ${formatTimestampCompact(lastOff.ts)}`;
+        } else if (lastOff && lastOnAfterOff) {
+            const durationSec = Math.max(1, Math.round(Number(lastOnAfterOff.ts || 0) - Number(lastOff.ts || 0)));
+            outageText = `${formatDurationCompact(durationSec)} (${formatTimestampCompact(lastOff.ts)} -> ${formatTimestampCompact(lastOnAfterOff.ts)})`;
+        }
+    }
+    
+    if (outageEl) outageEl.textContent = outageText;
+    
+    let outageEnergyWh = 0;
+    let peakWattage = 0;
+    let avgWattage = 0;
+    let validSamples = 0;
+    
+    if (lastOff && !lastOnAfterOff) {
+        const startTs = lastOff.ts;
+        const endTs = Math.floor(Date.now() / 1000);
+        const outageSamples = (snapshot?.samples || []).filter(s => s.ts >= startTs && s.ts <= endTs);
+        
+        let previousTs = startTs;
+        for (const sample of outageSamples) {
+            if (Number.isFinite(Number(sample.currentNowUa)) && Number.isFinite(Number(sample.voltageNowUv))) {
+                const w = Math.abs(Number(sample.currentNowUa) / 1000000) * (Number(sample.voltageNowUv) / 1000000);
+                if (w > peakWattage) peakWattage = w;
+                
+                const dt = sample.ts - previousTs;
+                if (dt > 0 && dt < 3600) { 
+                    outageEnergyWh += w * (dt / 3600);
+                    avgWattage += w;
+                    validSamples++;
+                }
+            }
+            previousTs = sample.ts;
+        }
+    }
+    
+    const energyEl = document.getElementById('powerOutageEnergy');
+    const peakEl = document.getElementById('powerOutagePeakW');
+    const avgEl = document.getElementById('powerOutageAvgW');
+    
+    if (energyEl) energyEl.textContent = outageEnergyWh > 0 ? `${outageEnergyWh.toFixed(3)} Wh` : '—';
+    if (peakEl) peakEl.textContent = peakWattage > 0 ? `${peakWattage.toFixed(2)} W` : '—';
+    if (avgEl) avgEl.textContent = validSamples > 0 ? `${(avgWattage / validSamples).toFixed(2)} W` : '—';
+}
+
 function refreshServerStatusCharts() {
     const timelineCanvas = document.getElementById('serverTimelineChart');
     const patternCanvas = document.getElementById('serverHourlyPatternChart');
@@ -1285,6 +1828,333 @@ function setServerStatus(status) {
         ping.className = 'absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-0';
         text.textContent = 'OFFLINE'; text.className = 'text-red-400';
     }
+    updatePowerTelemetryIndicators();
+    if (chartInstances['powerTimelineChart']) {
+        try {
+            refreshPowerTelemetryChart();
+        } catch (error) {
+            console.error('Power chart refresh failed:', error);
+        }
+    }
+}
+
+function refreshPowerTelemetryChart() {
+    const powerCanvas = document.getElementById('powerTimelineChart');
+    if (!powerCanvas) return;
+
+    const snapshot = getPowerTelemetrySnapshot();
+    if (!snapshot) {
+        destroyChart('powerTimelineChart');
+        updatePowerTelemetryIndicators(null);
+        return;
+    }
+
+    const series = buildPowerTelemetrySeries(powerTimelineHoursWindow);
+    const backendState = getBackendLinkStatus();
+    const powerPresence = normalizePowerPresence(series.latest, snapshot);
+    const statusData = series.statuses.map(() => 1);
+    const statusColors = series.statuses.map((status) => {
+        if (status === 'backend_offline') return 'rgba(113,113,122,0.38)';
+        if (status === 'mixed') return 'rgba(251,191,36,0.55)';
+        if (status === 'unknown') return 'rgba(148,163,184,0.34)';
+        return status === 'on' ? 'rgba(16,185,129,0.86)' : 'rgba(239,68,68,0.38)';
+    });
+    const statusBorderColors = series.statuses.map((status) => {
+        if (status === 'backend_offline') return 'rgba(113,113,122,0.65)';
+        if (status === 'mixed') return 'rgba(251,191,36,0.9)';
+        if (status === 'unknown') return 'rgba(148,163,184,0.55)';
+        return status === 'on' ? 'rgba(16,185,129,0.95)' : 'rgba(239,68,68,0.65)';
+    });
+    const backendLabel = backendState === 'online'
+        ? 'Backend live'
+        : (backendState === 'offline' ? 'Backend offline' : 'Backend unknown');
+    const presenceLabel = powerPresence === 'on' ? 'Power present' : (powerPresence === 'off' ? 'Power absent' : 'Power unknown');
+
+    destroyChart('powerTimelineChart');
+    chartInstances['powerTimelineChart'] = new Chart(powerCanvas, {
+        data: {
+            labels: series.labels,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'AC power',
+                    data: statusData,
+                    borderWidth: 1,
+                    borderRadius: 0,
+                    borderSkipped: false,
+                    backgroundColor: statusColors,
+                    borderColor: statusBorderColors,
+                    barThickness: 'flex',
+                    maxBarThickness: 14,
+                    categoryPercentage: 1.0,
+                    barPercentage: 1.0,
+                    hoverBorderWidth: 1,
+                    hoverBackgroundColor: statusColors,
+                    hoverBorderColor: statusBorderColors,
+                    yAxisID: 'yStatus'
+                },
+                {
+                    type: 'line',
+                    label: 'Battery %',
+                    data: series.batteryPercents,
+                    borderColor: 'rgba(251,191,36,0.95)',
+                    backgroundColor: 'rgba(251,191,36,0.18)',
+                    pointRadius: 0,
+                    pointHoverRadius: 3,
+                    borderWidth: 2,
+                    tension: 0.28,
+                    spanGaps: true,
+                    fill: false,
+                    yAxisID: 'yBattery'
+                }
+            ]
+        },
+        options: {
+            ...CHART_DEFAULTS,
+            animation: false,
+            interaction: {
+                mode: 'index',
+                axis: 'x',
+                intersect: false
+            },
+            hover: {
+                mode: 'index',
+                axis: 'x',
+                intersect: false
+            },
+            layout: { padding: { top: 4, right: 6, left: 2, bottom: 0 } },
+            scales: {
+                x: {
+                    ...CHART_DEFAULTS.scales.x,
+                    grid: { color: 'rgba(255,255,255,0.02)' },
+                    ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                },
+                yStatus: {
+                    ...CHART_DEFAULTS.scales.y,
+                    min: 0,
+                    max: 1,
+                    display: false,
+                    grid: { display: false },
+                    ticks: { display: false }
+                },
+                yBattery: {
+                    ...CHART_DEFAULTS.scales.y,
+                    position: 'right',
+                    min: 0,
+                    max: 100,
+                    ticks: {
+                        ...CHART_DEFAULTS.scales.y.ticks,
+                        callback: (value) => `${value}%`
+                    },
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    title: { display: true, text: 'Battery %', color: '#71717a' }
+                }
+            },
+            plugins: {
+                ...CHART_DEFAULTS.plugins,
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        title: (items) => {
+                            const idx = items?.[0]?.dataIndex ?? -1;
+                            if (idx < 0) return '';
+                            return series.labels[idx] || '';
+                        },
+                        label: (ctx) => {
+                            if (ctx.dataset.type === 'line') {
+                                return `Battery: ${Number.isFinite(Number(ctx.parsed.y)) ? `${Number(ctx.parsed.y).toFixed(0)}%` : 'N/A'}`;
+                            }
+                            const status = series.statuses[ctx.dataIndex] || 'unknown';
+                            const ratio = Number(series.ratios?.[ctx.dataIndex] || 0);
+                            if (status === 'backend_offline') return 'Power: BACKEND OFFLINE';
+                            if (status === 'mixed') return `Power: FLAPPING (${(ratio * 100).toFixed(0)}% available)`;
+                            return `Power: ${status === 'on' ? 'PRESENT' : (status === 'off' ? 'ABSENT' : 'UNKNOWN')}`;
+                        },
+                        afterLabel: (ctx) => {
+                            const idx = ctx.dataIndex;
+                            const voltageText = formatPowerVoltageText(series.voltagesUv?.[idx]);
+                            const currentText = formatPowerCurrentText(series.currentsUa?.[idx]);
+                            const batteryPercent = Number.isFinite(Number(series.batteryPercents?.[idx])) ? `${Math.round(Number(series.batteryPercents[idx]))}%` : 'N/A';
+                            const backendStatus = series.backendStatuses?.[idx] || 'online';
+                            return [
+                                `Backend: ${backendStatus.toUpperCase()}`,
+                                `Battery: ${batteryPercent}`,
+                                `Voltage / Current: ${voltageText} / ${currentText}`,
+                                `Resolution: ${Math.max(1, Math.round(series.bucketSizeSec / 60))} min/bin`
+                            ];
+                        }
+                    }
+                },
+                title: { display: true, text: `Power Trace (${formatWindowHoursLabel(series.hoursBack)} window, IST) · ${backendLabel} · ${presenceLabel}`, color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } },
+                legend: { display: false }
+            }
+        }
+    });
+
+    updatePowerTelemetryIndicators(series);
+    refreshDetailedPowerMetricsChart();
+}
+
+function buildDetailedPowerMetricsSeries() {
+    const snapshot = getPowerTelemetrySnapshot();
+    const samples = snapshot?.samples || [];
+    const events = snapshot?.events || [];
+    
+    const sortedEvents = [...events]
+        .filter((event) => event && Number.isFinite(Number(event.ts)) && typeof event.status === 'string')
+        .map((event) => ({ ts: Number(event.ts), status: String(event.status || '').toLowerCase() }))
+        .sort((a, b) => a.ts - b.ts);
+        
+    const lastOffIndex = sortedEvents.map((event, index) => ({ event, index })).reverse().find(({ event }) => event.status === 'off')?.index ?? -1;
+    const lastOff = lastOffIndex >= 0 ? sortedEvents[lastOffIndex] : null;
+    const lastOnAfterOff = lastOffIndex >= 0 ? sortedEvents.slice(lastOffIndex + 1).find((event) => event.status === 'on') : null;
+    
+    let startTs = lastOff ? lastOff.ts : (samples.length ? samples[0].ts : Math.floor(Date.now() / 1000) - 3600);
+    const endTs = lastOnAfterOff ? lastOnAfterOff.ts : Math.floor(Date.now() / 1000);
+    
+    if (detailedPowerTimelineWindow !== 'outage') {
+        startTs = Math.floor(Date.now() / 1000) - (Number(detailedPowerTimelineWindow) * 60);
+    }
+    
+    const windowSamples = samples.filter(s => s.ts >= startTs && s.ts <= endTs);
+    
+    const labels = [];
+    const watts = [];
+    const volts = [];
+    const amps = [];
+    
+    for (const sample of windowSamples) {
+        labels.push(formatTimestampCompact(sample.ts));
+        if (Number.isFinite(Number(sample.voltageNowUv)) && Number.isFinite(Number(sample.currentNowUa))) {
+            const v = Number(sample.voltageNowUv) / 1000000;
+            const a = Math.abs(Number(sample.currentNowUa) / 1000000);
+            const w = v * a;
+            volts.push(v);
+            amps.push(a);
+            watts.push(w);
+        } else {
+            volts.push(null);
+            amps.push(null);
+            watts.push(null);
+        }
+    }
+    
+    return { labels, watts, volts, amps, isOngoing: !lastOnAfterOff && lastOff, startTs, endTs };
+}
+
+function refreshDetailedPowerMetricsChart() {
+    const canvas = document.getElementById('detailedPowerMetricsChart');
+    if (!canvas) return;
+    
+    const series = buildDetailedPowerMetricsSeries();
+    
+    const labelEl = document.getElementById('detailedPowerLabel');
+    if (labelEl) {
+        if (detailedPowerTimelineWindow !== 'outage') {
+            labelEl.textContent = `Window: Last ${detailedPowerTimelineWindow} min`;
+        } else if (series.labels.length === 0) {
+            labelEl.textContent = 'No outage data';
+        } else if (series.isOngoing) {
+            labelEl.textContent = `Tracking Live Outage (${formatTimestampCompact(series.startTs)} -> Now)`;
+        } else {
+            labelEl.textContent = `Outage Window (${formatTimestampCompact(series.startTs)} -> ${formatTimestampCompact(series.endTs)})`;
+        }
+    }
+
+    let chart = chartInstances['detailedPowerMetricsChart'];
+    if (chart) {
+        chart.data.labels = series.labels;
+        chart.data.datasets[0].data = series.watts;
+        chart.data.datasets[1].data = series.volts;
+        chart.data.datasets[2].data = series.amps;
+        chart.update('none'); // Update without animation
+    } else {
+        chartInstances['detailedPowerMetricsChart'] = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: series.labels,
+            datasets: [
+                {
+                    label: 'Wattage (W)',
+                    data: series.watts,
+                    borderColor: 'rgba(239, 68, 68, 0.9)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    yAxisID: 'yWatts',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Voltage (V)',
+                    data: series.volts,
+                    borderColor: 'rgba(59, 130, 246, 0.8)',
+                    yAxisID: 'yVolts',
+                    borderWidth: 1.5,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    pointHoverRadius: 3,
+                    fill: false,
+                    tension: 0.3
+                },
+                {
+                    label: 'Current (A)',
+                    data: series.amps,
+                    borderColor: 'rgba(16, 185, 129, 0.8)',
+                    yAxisID: 'yAmps',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 3,
+                    fill: false,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            ...CHART_DEFAULTS,
+            animation: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                x: {
+                    ...CHART_DEFAULTS.scales.x,
+                    ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxTicksLimit: 12 }
+                },
+                yWatts: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: { display: true, text: 'Watts (W)', color: 'rgba(239, 68, 68, 0.9)' },
+                    grid: { color: 'rgba(255,255,255,0.05)' }
+                },
+                yVolts: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: { display: true, text: 'Voltage (V)', color: 'rgba(59, 130, 246, 0.8)' },
+                    grid: { drawOnChartArea: false },
+                    suggestedMin: 10,
+                    suggestedMax: 14
+                },
+                yAmps: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: { display: true, text: 'Current (A)', color: 'rgba(16, 185, 129, 0.8)' },
+                    grid: { drawOnChartArea: false },
+                    suggestedMin: 0,
+                    suggestedMax: 5
+                }
+            },
+            plugins: {
+                ...CHART_DEFAULTS.plugins,
+                legend: { display: true, position: 'bottom', labels: { color: '#a1a1aa', font: { family: 'Outfit' }, boxWidth: 12 } },
+                title: { display: false }
+            }
+        }
+    });
+    }
 }
 
 function stopTrackerFallbackPolling() { if (trackerFallbackInterval) { clearInterval(trackerFallbackInterval); trackerFallbackInterval = null; } }
@@ -1420,6 +2290,105 @@ function initializeUptimeZoomControls() {
     if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => setUptimeTimelineWindow(Math.min(UPTIME_TIMELINE_MAX_HOURS, Math.ceil(uptimeTimelineHoursWindow * 2))));
     if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => setUptimeTimelineWindow(UPTIME_TIMELINE_DEFAULT_HOURS));
     updateUptimeZoomControls();
+
+    const powerPreset10mBtn = document.getElementById('powerPreset10mBtn');
+    const powerPreset30mBtn = document.getElementById('powerPreset30mBtn');
+    const powerPreset1hBtn = document.getElementById('powerPreset1hBtn');
+    const powerPreset2hBtn = document.getElementById('powerPreset2hBtn');
+    const powerZoomInBtn = document.getElementById('powerZoomInBtn');
+    const powerZoomOutBtn = document.getElementById('powerZoomOutBtn');
+    const powerZoomResetBtn = document.getElementById('powerZoomResetBtn');
+    if (powerPreset10mBtn) powerPreset10mBtn.addEventListener('click', () => setPowerTimelineWindow(10 / 60));
+    if (powerPreset30mBtn) powerPreset30mBtn.addEventListener('click', () => setPowerTimelineWindow(30 / 60));
+    if (powerPreset1hBtn) powerPreset1hBtn.addEventListener('click', () => setPowerTimelineWindow(1));
+    if (powerPreset2hBtn) powerPreset2hBtn.addEventListener('click', () => setPowerTimelineWindow(2));
+    if (powerZoomInBtn) powerZoomInBtn.addEventListener('click', () => setPowerTimelineWindow(Math.max(UPTIME_TIMELINE_MIN_HOURS, powerTimelineHoursWindow / 2)));
+    if (powerZoomOutBtn) powerZoomOutBtn.addEventListener('click', () => setPowerTimelineWindow(Math.min(UPTIME_TIMELINE_MAX_HOURS, Math.ceil(powerTimelineHoursWindow * 2))));
+    if (powerZoomResetBtn) powerZoomResetBtn.addEventListener('click', () => setPowerTimelineWindow(UPTIME_TIMELINE_DEFAULT_HOURS));
+    updatePowerZoomControls();
+    const detailedPreset10mBtn = document.getElementById('detailedPreset10mBtn');
+    const detailedPreset30mBtn = document.getElementById('detailedPreset30mBtn');
+    const detailedPreset1hBtn = document.getElementById('detailedPreset1hBtn');
+    const detailedPreset2hBtn = document.getElementById('detailedPreset2hBtn');
+    const detailedZoomInBtn = document.getElementById('detailedZoomInBtn');
+    const detailedZoomOutBtn = document.getElementById('detailedZoomOutBtn');
+    const detailedPresetOutageBtn = document.getElementById('detailedPresetOutageBtn');
+    
+    if (detailedPreset10mBtn) detailedPreset10mBtn.addEventListener('click', () => setDetailedPowerTimelineWindow(10));
+    if (detailedPreset30mBtn) detailedPreset30mBtn.addEventListener('click', () => setDetailedPowerTimelineWindow(30));
+    if (detailedPreset1hBtn) detailedPreset1hBtn.addEventListener('click', () => setDetailedPowerTimelineWindow(60));
+    if (detailedPreset2hBtn) detailedPreset2hBtn.addEventListener('click', () => setDetailedPowerTimelineWindow(120));
+    if (detailedZoomInBtn) detailedZoomInBtn.addEventListener('click', () => {
+        if (detailedPowerTimelineWindow === 'outage') detailedPowerTimelineWindow = 120;
+        setDetailedPowerTimelineWindow(Math.max(2, Number(detailedPowerTimelineWindow) / 2));
+    });
+    if (detailedZoomOutBtn) detailedZoomOutBtn.addEventListener('click', () => {
+        if (detailedPowerTimelineWindow === 'outage') detailedPowerTimelineWindow = 10;
+        setDetailedPowerTimelineWindow(Math.min(1440, Number(detailedPowerTimelineWindow) * 2));
+    });
+    if (detailedPresetOutageBtn) detailedPresetOutageBtn.addEventListener('click', () => setDetailedPowerTimelineWindow('outage'));
+    
+    updateDetailedPowerZoomControls();
+}
+
+function setPowerTimelineWindow(hours) {
+    if (!Number.isFinite(hours) || hours <= 0) return;
+    powerTimelineHoursWindow = hours;
+    updatePowerZoomControls();
+    refreshPowerTelemetryChart();
+}
+
+function setDetailedPowerTimelineWindow(minutesOrMode) {
+    detailedPowerTimelineWindow = minutesOrMode;
+    updateDetailedPowerZoomControls();
+    refreshDetailedPowerMetricsChart();
+}
+
+function updatePowerZoomControls() {
+    const label = document.getElementById('powerTelemetryLabel');
+    if (label) {
+        label.textContent = `Window: ${formatWindowHoursLabel(powerTimelineHoursWindow)}`;
+    }
+    const btns = [
+        { id: 'powerPreset10mBtn', val: 10 / 60 },
+        { id: 'powerPreset30mBtn', val: 30 / 60 },
+        { id: 'powerPreset1hBtn', val: 1 },
+        { id: 'powerPreset2hBtn', val: 2 }
+    ];
+    btns.forEach(b => {
+        const el = document.getElementById(b.id);
+        if (el) {
+            if (Math.abs(powerTimelineHoursWindow - b.val) < 0.01) {
+                el.style.borderColor = 'rgba(245,158,11,0.8)';
+                el.style.background = 'rgba(245,158,11,0.2)';
+            } else {
+                el.style.borderColor = 'rgba(245,158,11,0.35)';
+                el.style.background = 'rgba(245,158,11,0.09)';
+            }
+        }
+    });
+}
+
+function updateDetailedPowerZoomControls() {
+    const btns = [
+        { id: 'detailedPreset10mBtn', val: 10 },
+        { id: 'detailedPreset30mBtn', val: 30 },
+        { id: 'detailedPreset1hBtn', val: 60 },
+        { id: 'detailedPreset2hBtn', val: 120 },
+        { id: 'detailedPresetOutageBtn', val: 'outage' }
+    ];
+    btns.forEach(b => {
+        const el = document.getElementById(b.id);
+        if (el) {
+            if (detailedPowerTimelineWindow === b.val) {
+                el.style.borderColor = 'rgba(16,185,129,0.8)';
+                el.style.background = 'rgba(16,185,129,0.2)';
+            } else {
+                el.style.borderColor = 'rgba(16,185,129,0.35)';
+                el.style.background = 'rgba(16,185,129,0.09)';
+            }
+        }
+    });
 }
 
 // ═══════════════════════════════════════════
