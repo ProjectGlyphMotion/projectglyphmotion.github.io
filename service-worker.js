@@ -2,7 +2,7 @@
 
 // Increment version on updates to trigger cache invalidation and fresh content fetching.
 // This is critical for ensuring users get the latest version of your PWA.
-const CACHE_NAME = 'glyphmotion-pwa-cache-v4.0.19'; // Bumped to force SW update so benchmark/videos fetches are refreshed after backend changes.
+const CACHE_NAME = 'glyphmotion-pwa-cache-v4.0.21'; // Bumped to force SW update so benchmark/videos fetches are refreshed after backend changes.
 const THUMBNAIL_CACHE_NAME = 'glyphmotion-thumbnail-cache-v3';
 const MODEL_CACHE_NAME = 'glyphmotion-model-cache-v1';
 const OFFLINE_URL = '/offline.html'; // Path to your custom offline page
@@ -86,10 +86,10 @@ self.addEventListener('activate', (event) => {
                 })
             );
         })
-        .then(() => clients.claim()) // Immediately takes control of all clients within its scope.
-        .catch((error) => {
-            console.error('[Service Worker] Activation failed:', error);
-        })
+            .then(() => clients.claim()) // Immediately takes control of all clients within its scope.
+            .catch((error) => {
+                console.error('[Service Worker] Activation failed:', error);
+            })
     );
 });
 

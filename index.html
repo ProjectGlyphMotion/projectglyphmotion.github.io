@@ -35,10 +35,8 @@
             position: fixed; inset: 0; background-size: 35px 35px;
             background-position: center top; 
             background-image: 
-                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
-            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+                linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
             z-index: 1; pointer-events: none;
         }
 
@@ -600,13 +598,13 @@
 
         /* Videos Section */
         .videos-section {
-            margin-top: 2.5rem;
-            padding-top: 1.75rem;
+            margin-top: 1rem;
+            padding-top: 0.75rem;
             border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
         .section-header-centered {
             text-align: center;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
         }
         .videos-view-controls {
             display: flex;
@@ -672,8 +670,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            padding: 1rem;
-            padding-top: 2rem;
+            padding: 0;
         }
 
         /* Background Glow - Static CSS gradients, no animations for performance */
@@ -1013,12 +1010,12 @@
 
         .mobile-quick-links {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            gap: 0.24rem;
-            overflow-x: auto;
-            overscroll-behavior-x: contain;
-            scrollbar-width: none;
-            padding: 0.04rem 0.02rem 0.08rem;
+            justify-content: center;
+            gap: 0.4rem;
+            padding: 0.2rem;
+            width: 100%;
         }
 
         .mobile-quick-links::-webkit-scrollbar {
@@ -1026,7 +1023,7 @@
         }
 
         .mobile-quick-link {
-            flex: 0 0 auto;
+            flex: 1 1 calc(50% - 0.4rem);
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -1998,7 +1995,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000; /* Lower than confirmation/central messages */
+            z-index: 9999;
             opacity: 0; /* Start hidden */
             pointer-events: none; /* Allow clicks to pass through when hidden */
             transition: opacity 0.3s ease-in-out;
@@ -2020,23 +2017,20 @@
         }
 
         #infoModalContent {
-            /* Adjusted background for ambience effect */
-            background-color: rgba(15, 15, 20, 0.7); /* More transparent for ambience */
-            backdrop-filter: blur(10px); /* Add blur for glass effect */
-            border: 1px solid rgba(255, 255, 255, 0.1); /* Very subtle white outline */
-            border-radius: 0.5rem; /* Slightly less aggressive rounding */
-            padding: 2rem; /* Consistent padding */
+            background-color: rgba(15, 15, 20, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            padding: 2rem;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            width: clamp(300px, 98vw, 1800px); /* Significantly increased max-width for bigger popup */
-            max-height: 95vh; /* Increased max-height for mobile */
-            overflow-y: auto; /* Allow scrolling if content overflows */
+            width: clamp(300px, 98vw, 1800px);
+            height: 92vh;
+            max-height: 92vh;
+            overflow-y: auto;
             color: #EDEDF3;
-            
-            /* Initial state for animation */
             transform: scale(0.95);
             opacity: 0;
             transition: transform 0.3s ease-out, opacity 0.3s ease-out;
-            
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
@@ -2602,7 +2596,7 @@
             align-items: center;
             background-color: #0d0d12;
             min-height: 200px;
-            max-height: 70vh;
+            max-height: 65vh;
             overflow: hidden;
             padding: 1rem 0.5rem;
             border-radius: 0.5rem;
@@ -2618,7 +2612,7 @@
              width: 100%;
              height: 100%;
              max-width: 100%;
-             max-height: 70vh;
+             max-height: 65vh;
 }
 
         /* Preview Image */
@@ -3069,6 +3063,448 @@
                 object-fit: contain;
             }
         }
+
+        /* ============================================ */
+        /* Bottom-Docked Input Bar Layout               */
+        /* ============================================ */
+
+        /* Make the main content card fill the viewport */
+        .viewport-layout {
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - 2rem);
+            max-height: none;
+            padding-bottom: 0 !important;
+        }
+
+        /* Videos section fills remaining space */
+        .videos-section-hero {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            margin-top: 0.25rem;
+            padding-top: 0.25rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            scrollbar-width: thin;
+            scrollbar-color: rgba(253, 161, 54, 0.3) transparent;
+        }
+        .videos-section-hero::-webkit-scrollbar {
+            width: 5px;
+        }
+        .videos-section-hero::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .videos-section-hero::-webkit-scrollbar-thumb {
+            background: rgba(253, 161, 54, 0.25);
+            border-radius: 10px;
+        }
+        .videos-section-hero::-webkit-scrollbar-thumb:hover {
+            background: rgba(253, 161, 54, 0.45);
+        }
+
+        /* Hide legacy status strip visually (keep in DOM for JS sync) */
+        .floating-status-strip {
+            position: absolute;
+            width: 1px; height: 1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+            white-space: nowrap;
+            border: 0;
+            padding: 0; margin: -1px;
+        }
+
+        .bottom-input-bar {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            width: calc(100% - 2rem);
+            max-width: 1000px; /* Sleeker, narrower width */
+            padding: 0;
+            margin: 0;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            /* filter: drop-shadow removed to fix backdrop-filter bug */
+        }
+
+        .bottom-input-bar-inner {
+            background: rgba(22, 22, 28, 0.45);
+            backdrop-filter: blur(4px) saturate(1.1);
+            -webkit-backdrop-filter: blur(4px) saturate(1.1);
+            border: 1px solid rgba(253, 161, 54, 0.4); /* Thinner highlighted orange border */
+            border-top: 1px solid rgba(253, 161, 54, 0.6); /* Brighter top edge */
+            border-radius: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 
+                        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+                        0 0 15px rgba(253, 161, 54, 0.15); /* Orange glow */
+        }
+        .bottom-input-bar-inner:focus-within {
+            border-color: rgba(253, 161, 54, 0.3);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            background: rgba(22, 22, 28, 0.55);
+        }
+
+        .bar-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.875rem 1rem;
+        }
+
+        .bar-url-input-wrapper {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+        }
+
+        .bar-url-input {
+            width: 100%;
+            height: 2.5rem;
+            padding: 0 3.5rem 0 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 0.875rem;
+            color: #f8fafc;
+            font-size: 0.875rem;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .bar-url-input::placeholder { color: #64748b; font-weight: 400; }
+        .bar-url-input:focus {
+            outline: none;
+            border-color: rgba(253, 161, 54, 0.5);
+            box-shadow: 0 0 0 3px rgba(253, 161, 54, 0.15), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+            background: rgba(0, 0, 0, 0.45);
+        }
+
+        .bar-input-action-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            padding: 0.25rem;
+            font-size: 1rem;
+            transition: color 0.2s ease;
+            z-index: 10;
+        }
+        .bar-input-action-btn:hover {
+            color: #fbbf24;
+        }
+        #pasteInputBtn {
+            right: 2rem;
+        }
+        #clearInputBtn {
+            right: 0.5rem;
+        }
+
+        .bar-separator {
+            display: none;
+            width: 1px;
+            height: 1.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 0 0.25rem;
+        }
+
+        .bar-browse-btn {
+            display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+            height: 2.5rem; padding: 0 1rem;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.875rem;
+            color: #cbd5e1; font-size: 0.875rem; font-weight: 500;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            white-space: nowrap; flex-shrink: 0; position: relative;
+        }
+        .bar-browse-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+        .bar-browse-btn i { font-size: 0.9375rem; }
+
+        .bar-track-btn {
+            display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+            height: 2.5rem; padding: 0 1.5rem;
+            background: linear-gradient(135deg, #f97316, #fb923c);
+            border: none; border-radius: 0.875rem;
+            color: white; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.02em;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 15px rgba(249, 115, 22, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            white-space: nowrap; flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .bar-track-btn::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 100%);
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        .bar-track-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(249, 115, 22, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
+        .bar-track-btn:hover::after { opacity: 1; }
+        .bar-track-btn:active { transform: translateY(0) scale(0.97); }
+        .bar-track-btn i { font-size: 0.875rem; }
+        .bar-track-btn.cancel-mode { background: linear-gradient(135deg, #ef4444, #f43f5e); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
+        .bar-track-btn.cancel-mode:hover { box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5); }
+        .bar-track-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; filter: grayscale(100%); }
+
+        /* ROI button */
+        .bar-roi-btn {
+            display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+            height: 2.5rem; padding: 0 1rem;
+            background: rgba(253, 161, 54, 0.1);
+            border: 1px solid rgba(253, 161, 54, 0.25);
+            border-radius: 0.875rem;
+            color: #fbbf24; font-size: 0.875rem; font-weight: 500;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            flex-shrink: 0;
+        }
+        .bar-roi-btn:hover { background: rgba(253, 161, 54, 0.15); border-color: rgba(253, 161, 54, 0.4); color: #fcd34d; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(253, 161, 54, 0.15); }
+        .bar-roi-btn.active { background: rgba(253, 161, 54, 0.25); border-color: rgba(253, 161, 54, 0.6); color: #fff; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); transform: translateY(0); }
+        .bar-roi-btn i { font-size: 0.875rem; }
+
+        /* Frame limit label */
+        .bar-frame-label {
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+            height: 2.5rem; padding: 0 1rem;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 2rem;
+            color: #cbd5e1; font-size: 0.8125rem; font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap; flex-shrink: 0;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .bar-frame-label i { font-size: 0.75rem; }
+        .bar-frame-label:hover { color: #fbbf24; background: rgba(253,161,54,0.15); border-color: rgba(253,161,54,0.3); transform: translateY(-2px); }
+        .bar-frame-label .bar-tooltip {
+            position: absolute; bottom: calc(100% + 10px);
+            left: 50%; right: auto;
+            transform: translateX(-50%) scale(0.95) translateY(4px);
+            background: rgba(10,10,15,0.96); border: 1px solid rgba(253,161,54,0.25);
+            border-radius: 0.625rem; padding: 0.5rem 0.75rem;
+            color: #e2e8f0; font-size: 0.6875rem; line-height: 1.45;
+            white-space: normal; width: max-content; max-width: 240px;
+            pointer-events: none; opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.5); text-align: left;
+        }
+        .bar-frame-label .bar-tooltip::after {
+            content: ''; position: absolute; top: 100%; left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent; border-top-color: rgba(253,161,54,0.25);
+        }
+        .bar-frame-label:hover .bar-tooltip,
+        .bar-frame-label.tooltip-active .bar-tooltip {
+            opacity: 1; pointer-events: auto; transform: translateX(-50%) scale(1) translateY(0);
+        }
+
+        /* Info icons — inline subtle dots in input row */
+        .bar-info-group {
+            display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0;
+        }
+        .bar-info-dot {
+            display: flex; align-items: center; justify-content: center;
+            width: 2.5rem; height: 2.5rem; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #cbd5e1; font-size: 0.875rem;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            flex-shrink: 0;
+        }
+        .bar-info-dot:hover { color: #fbbf24; background: rgba(253,161,54,0.15); border-color: rgba(253,161,54,0.3); transform: translateY(-2px); }
+        .bar-info-dot .bar-tooltip {
+            position: absolute;
+            bottom: calc(100% + 10px);
+            left: 50%; right: auto;
+            transform: translateX(-50%) scale(0.95) translateY(4px);
+            background: rgba(10, 10, 15, 0.96);
+            border: 1px solid rgba(253, 161, 54, 0.25);
+            border-radius: 0.625rem;
+            padding: 0.5rem 0.75rem;
+            color: #e2e8f0; font-size: 0.6875rem; line-height: 1.45;
+            white-space: normal; width: max-content; max-width: 240px;
+            pointer-events: none; opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            text-align: left;
+        }
+        .bar-info-dot .bar-tooltip::after {
+            content: ''; position: absolute; top: 100%; left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent; border-top-color: rgba(253,161,54,0.25);
+        }
+        .bar-info-dot:hover .bar-tooltip,
+        .bar-info-dot.tooltip-active .bar-tooltip {
+            opacity: 1; pointer-events: auto; transform: translateX(-50%) scale(1) translateY(0);
+        }
+
+        /* Row 2: status/cancel/queue — hidden until processing starts */
+        .bar-status-row {
+            display: none; align-items: center;
+            gap: 0.5rem; margin-top: 0; padding: 0.75rem 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(0, 0, 0, 0.2);
+            min-height: 2rem;
+            border-bottom-left-radius: 1.5rem;
+            border-bottom-right-radius: 1.5rem;
+        }
+        .bar-status-row.active { display: flex; }
+        .bar-status-left {
+            flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.4rem;
+            overflow: hidden;
+        }
+        .bar-status-text {
+            font-size: 0.75rem; color: #cbd5e1; font-weight: 500;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            flex: 1; min-width: 0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .bar-status-text.idle { color: #475569; }
+
+        @media (max-width: 640px) {
+            .bottom-input-bar-inner {
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                background: #121216 !important;
+            }
+            .bottom-input-bar-inner:focus-within {
+                background: #121216 !important;
+            }
+            .bar-input-row { flex-wrap: wrap; justify-content: flex-start; gap: 0.4rem; padding: 0.6rem; }
+            
+            .bar-url-input-wrapper { order: 1; flex: 1 1 calc(100% - 3.5rem); min-width: 60%; }
+            .bar-url-input { padding: 0.6rem 3.5rem 0.6rem 0.8rem; font-size: 0.8125rem; }
+            .bar-browse-btn { order: 2; flex-shrink: 0; }
+            .bar-roi-btn { order: 3; }
+            .bar-separator { display: block; order: 4; }
+            .bar-info-group { order: 5; flex: 0 0 auto; display: flex; align-items: center; gap: 0.4rem; }
+            .bar-track-btn { order: 6; flex: 1; min-width: 80px; }
+            .bar-file-indicator { order: 7; flex: 1 1 100%; margin-top: 0.2rem; }
+
+            .bar-roi-btn span, .bar-browse-btn span, .bar-track-btn span, .bar-frame-label span#barFrameLabelText { display: none; }
+            
+            .bar-roi-btn, .bar-browse-btn, .bar-track-btn, .bar-frame-label, .bar-info-dot { 
+                padding: 0; width: 2.25rem; height: 2.25rem; justify-content: center; align-items: center; 
+            }
+            .bar-roi-btn i, .bar-browse-btn i, .bar-track-btn i, .bar-frame-label i, .bar-info-dot i { font-size: 0.9rem; margin: 0; }
+            
+            .bottom-input-bar { width: calc(100% - 1rem); bottom: 0.5rem; }
+            .bar-status-row { padding: 0.6rem 0.75rem; background: #121216 !important; }
+            
+            .bar-info-dot .bar-tooltip { 
+                max-width: calc(100vw - 2rem); 
+                right: auto; 
+                left: 50%; 
+                transform: translateX(-50%) scale(0.95) translateY(4px); 
+            }
+            .bar-info-dot:hover .bar-tooltip,
+            .bar-info-dot.tooltip-active .bar-tooltip {
+                transform: translateX(-50%) scale(1) translateY(0);
+            }
+            
+            #roiSection { background-color: #1e1e28 !important; }
+            #roiSection.active { background-color: #1e1e28 !important; }
+            
+            .videos-section-hero {
+                margin-top: -0.75rem !important;
+                padding-top: 0 !important;
+            }
+        }
+        .bar-queue-badge {
+            display: inline-flex; align-items: center; gap: 0.2rem;
+            padding: 0.125rem 0.5rem;
+            background: rgba(253, 161, 54, 0.12);
+            border: 1px solid rgba(253, 161, 54, 0.2);
+            border-radius: 2rem; color: #fbbf24;
+            font-size: 0.625rem; font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap; flex-shrink: 0;
+        }
+        .bar-cancel-btn {
+            display: none; align-items: center; justify-content: center; gap: 0.25rem;
+            padding: 0.25rem 0.625rem;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 0.5rem;
+            color: #f87171; font-size: 0.6875rem; font-weight: 500;
+            cursor: pointer; transition: all 0.15s ease;
+            white-space: nowrap; flex-shrink: 0;
+        }
+        .bar-cancel-btn:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.5); color: #fca5a5; }
+        .bar-cancel-btn.visible { display: inline-flex; }
+        .bar-cancel-btn i { font-size: 0.5625rem; }
+
+        .bar-roi-expand {
+            max-height: 0; overflow: hidden; opacity: 0;
+            transition: max-height 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+                        opacity 0.35s ease,
+                        margin 0.4s ease,
+                        padding 0.4s ease;
+            margin-bottom: 0; padding-bottom: 0;
+            scrollbar-width: none; /* Hide scrollbar for Firefox */
+        }
+        .bar-roi-expand::-webkit-scrollbar {
+            display: none; /* Hide scrollbar for Chrome/Safari */
+        }
+        .bar-roi-expand.expanded {
+            max-height: 85vh; opacity: 1;
+            margin-bottom: 0.625rem; padding-bottom: 0.625rem;
+            border-bottom: 1px solid rgba(253, 161, 54, 0.12);
+            overflow-y: auto; overflow-x: hidden;
+        }
+        @keyframes roiSlideIn {
+            from { opacity: 0; transform: translateY(16px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .bar-roi-expand.expanded > * {
+            animation: roiSlideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
+        }
+        /* ROI no-video state */
+        .bar-roi-no-video {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 0.5rem; padding: 1.5rem 1rem;
+            color: #64748b; font-size: 0.8125rem; text-align: center;
+        }
+        .bar-roi-no-video i { font-size: 1.5rem; opacity: 0.5; }
+        .bar-roi-no-video p { margin: 0; line-height: 1.4; }
+        .bar-roi-no-video .roi-hint { color: #fbbf24; font-size: 0.6875rem; font-weight: 500; }
+
+        .bar-file-indicator {
+            display: none; align-items: center; gap: 0.3rem;
+            padding: 0.2rem 0.5rem;
+            background: rgba(253, 161, 54, 0.1); border: 1px solid rgba(253, 161, 54, 0.2);
+            border-radius: 2rem; color: #fbbf24; font-size: 0.5625rem;
+            font-family: 'JetBrains Mono', monospace; white-space: nowrap;
+            max-width: 140px; overflow: hidden;
+        }
+        .bar-file-indicator.has-file { display: inline-flex; }
+        .bar-file-indicator .bar-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bar-file-clear { cursor: pointer; color: #94a3b8; font-size: 0.5rem; padding: 0.1rem; border-radius: 50%; transition: color 0.15s ease; }
+        .bar-file-clear:hover { color: #f87171; }
+
+        .bar-processing-dots { display: inline-flex; gap: 0.2rem; margin-right: 0.25rem; flex-shrink: 0; }
+        .bar-processing-dots span { width: 4px; height: 4px; background: #fbbf24; border-radius: 50%; animation: processingBounce 1.4s infinite ease-in-out both; }
+        .bar-processing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .bar-processing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        .input-section-legacy { display: none !important; }
+
+        .footer-in-scroll { padding: 1.5rem 0 0.5rem; border-top: 1px solid rgba(255,255,255,0.03); margin-top: 1rem; }
+        .footer-in-scroll > div { margin: 0; padding: 0.25rem 0; }
+
+        /* Pad bottom of scroll area so content isn't hidden behind floating bar */
+        .videos-section-hero { padding-bottom: 7.5rem; }
+
     </style>
 
     <script>
@@ -3092,7 +3528,7 @@
     </script>
 
 </head>
-<body class="min-h-screen py-8 px-4">
+<body class="min-h-screen">
 
     <div class="bg-glow-main"></div>
     <div class="bg-mesh"></div>
@@ -3103,7 +3539,7 @@
 
     <!-- Background handled by CSS gradient on .background-glow-container -->
     
-    <div id="mainContentCard" class="container mx-auto max-w-full content-card p-6 sm:p-8 md:p-12 shadow-2xl relative z-10">
+    <div id="mainContentCard" class="container mx-auto max-w-full content-card p-4 sm:p-6 md:p-8 shadow-2xl relative z-10 viewport-layout" style="border-radius: 0; border-left: none; border-right: none;">
         <!-- Hero Header Section -->
         <header class="mb-5 text-center relative">
             <h1 class="font-retro text-3xl sm:text-4xl md:text-5xl lg:text-[46px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-3">
@@ -3129,7 +3565,7 @@
         </header>
 
         <!-- Navigation Pills -->
-        <nav class="flex flex-col items-center gap-2 mb-6 desktop-nav">
+        <nav class="flex flex-col items-center gap-2 mb-2 desktop-nav">
             <!-- Combined Navigation - All in fewer lines -->
             <div class="flex flex-wrap items-center justify-center gap-2">
                 <a href="playground.html" class="nav-pill nav-pill-primary">
@@ -3328,8 +3764,8 @@
             </div>
         </nav>
 
-        <!-- Main Input Section -->
-        <section class="input-section">
+        <!-- Main Input Section (Legacy - hidden, replaced by bottom bar) -->
+        <section class="input-section input-section-legacy">
             <!-- Section Header -->
             <div class="section-header">
                 <div class="section-icon">
@@ -3379,7 +3815,7 @@
             </div>
 
             <!-- ROI Section -->
-            <div id="roiSection" class="roi-section-wrapper">
+            <div id="legacyRoiSection" class="roi-section-wrapper">
                 <div class="roi-toggle-container">
                     <label class="roi-toggle-label">
                         <span class="roi-icon"><i class="fas fa-crop-alt"></i></span>
@@ -3394,15 +3830,15 @@
                     </label>
                 </div>
 
-                <div id="roiCanvasContainer">
+                <div id="legacyRoiCanvasContainer">
                     <div class="roi-preview-wrapper">
-                        <div id="roiLoadingOverlay">
+                        <div id="legacyRoiLoadingOverlay">
                             <div class="roi-spinner"></div>
                             <span>Loading preview...</span>
                         </div>
                         <div class="roi-video-frame">
-                            <img id="roiPreviewImage" src="" alt="Video preview for ROI selection">
-                            <canvas id="roiCanvas"></canvas>
+                            <img id="legacyRoiPreviewImage" src="" alt="Video preview for ROI selection">
+                            <canvas id="legacyRoiCanvas"></canvas>
                         </div>
                     </div>
                     
@@ -3412,16 +3848,16 @@
                     </div>
 
                     <div class="roi-controls">
-                        <button type="button" id="clearRoiBtn" class="roi-btn roi-btn-secondary">
+                        <button type="button" id="legacyClearRoiBtn" class="roi-btn roi-btn-secondary">
                             <i class="fas fa-eraser"></i> Clear
                         </button>
-                        <div class="roi-coords-display" id="roiCoordsDisplay">
+                        <div class="roi-coords-display" id="legacyRoiCoordsDisplay">
                             No selection
                         </div>
                     </div>
                 </div>
 
-                <div id="roiNoPreview" class="roi-no-preview hidden">
+                <div id="legacyRoiNoPreview" class="roi-no-preview hidden">
                     <i class="fas fa-video"></i>
                     <p>Select a video to enable ROI</p>
                 </div>
@@ -3471,35 +3907,33 @@
         </section>
 
         <!-- Status Messages -->
-        <div id="statusArea" class="status-alert status-info hidden">
-            <i class="fas fa-info-circle"></i>
-            <p id="statusMessage"></p>
-        </div>
-
-        <div id="errorArea" class="status-alert status-error hidden">
-            <i class="fas fa-exclamation-circle"></i>
-            <p id="errorMessage"></p>
-        </div>
-
-        <div id="liveProcessingStatus" class="processing-status hidden">
-            <div class="processing-indicator">
-                <span class="processing-dot"></span>
-                <span class="processing-dot"></span>
-                <span class="processing-dot"></span>
+        <div class="floating-status-strip">
+            <div id="statusArea" class="status-alert status-info hidden">
+                <i class="fas fa-info-circle"></i>
+                <p id="statusMessage"></p>
             </div>
-            <p id="liveStatusMessage">Ready to process</p>
+
+            <div id="errorArea" class="status-alert status-error hidden">
+                <i class="fas fa-exclamation-circle"></i>
+                <p id="errorMessage"></p>
+            </div>
+
+            <div id="liveProcessingStatus" class="processing-status hidden">
+                <div class="processing-indicator">
+                    <span class="processing-dot"></span>
+                    <span class="processing-dot"></span>
+                    <span class="processing-dot"></span>
+                </div>
+                <p id="liveStatusMessage">Ready to process</p>
+            </div>
         </div>
 
         <!-- Password change moved into admin dashboard popup -->
 
-        <!-- Processed Videos Section -->
-        <section id="processedVideosSection" class="videos-section">
-            <div class="section-header-centered">
-                <h2 class="text-2xl sm:text-3xl page-title">Processed Videos</h2>
-            </div>
-
+        <!-- Processed Videos Section — Now the HERO content, visible without scroll -->
+        <section id="processedVideosSection" class="videos-section-hero">
             <!-- View Toggle Controls -->
-            <div class="videos-view-controls">
+            <div class="videos-view-controls" style="margin-bottom: 0.75rem; margin-top: 0.25rem;">
                 <button id="toggleLayoutButton" class="view-control-btn hidden lg:inline-flex">
                     <i class="fas fa-th-large"></i>
                     <span>Show 3 Videos per Row</span>
@@ -3511,16 +3945,145 @@
                     No processed videos yet. Start tracking one!
                 </p>
             </div>
-        </section>
-    </div>
 
-    <div class="w-full text-center text-slate-500 text-sm font-medium mt-8 py-4 footer-animated">
-        Made with ❤️ by Sayan and Shitij
-    </div>
-    <div class="w-full text-center text-slate-600 text-sm mt-2 mb-4 footer-animated">
-        This project is based on the <a href="https://github.com/ultralytics/ultralytics"
-        class="text-blue-400 hover:underline">Ultralytics YOLO v8(m)</a>,
-        an acclaimed real-time object detection and image segmentation model.
+            <!-- Footer inside scroll area -->
+            <div class="footer-in-scroll">
+                <div class="w-full text-center text-slate-500 text-sm font-medium py-4 footer-animated">
+                    Made with ❤️ by Sayan and Shitij
+                </div>
+                <div class="w-full text-center text-slate-600 text-sm mb-4 footer-animated">
+                    This project is based on the <a href="https://github.com/ultralytics/ultralytics"
+                    class="text-blue-400 hover:underline">Ultralytics YOLO v8(m)</a>,
+                    an acclaimed real-time object detection and image segmentation model.
+                </div>
+            </div>
+        </section>
+
+        <!-- Bottom Floating Input Dock -->
+        <div class="bottom-input-bar" id="bottomInputBar">
+            <div class="bottom-input-bar-inner">
+                <!-- ROI expandable area (Moved above input row) -->
+                <div class="bar-roi-expand" id="barRoiExpand">
+                    <!-- No-video state -->
+                    <div class="bar-roi-no-video" id="barRoiNoVideoState">
+                        <i class="fas fa-crop-alt"></i>
+                        <p>Paste a video URL or attach a file first,<br>then open ROI to select a tracking region.</p>
+                        <span class="roi-hint">ROI will activate once a video is loaded</span>
+                    </div>
+
+                    <!-- Active ROI state (hidden until video attached) -->
+                    <div id="roiActiveState" style="display: none;">
+                        <div id="roiSection" class="roi-section-wrapper" style="margin-top: 0; border: none; background: transparent; padding: 0;">
+                            <div id="roiCanvasContainer">
+                                <div class="roi-preview-wrapper" style="max-height: 65vh;">
+                                    <div id="roiLoadingOverlay">
+                                        <div class="roi-spinner"></div>
+                                        <span>Loading preview...</span>
+                                    </div>
+                                    <div class="roi-video-frame" style="max-height: 65vh;">
+                                        <img id="roiPreviewImage" src="" alt="Video preview for ROI selection">
+                                        <canvas id="roiCanvas"></canvas>
+                                    </div>
+                                </div>
+                                
+                                <div class="roi-instructions">
+                                    <i class="fas fa-hand-pointer"></i>
+                                    <span><strong>Drag</strong> to select tracking region</span>
+                                </div>
+
+                                <div class="roi-controls">
+                                    <button type="button" id="clearRoiBtn" class="roi-btn roi-btn-secondary">
+                                        <i class="fas fa-eraser"></i> Clear
+                                    </button>
+                                    <div class="roi-coords-display" id="roiCoordsDisplay">
+                                        No selection
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="roiNoPreview" class="roi-no-preview">
+                                <i class="fas fa-video"></i>
+                                <p>Select a video to enable ROI</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 1: Inputs -->
+                <div class="bar-input-row" id="barInputRow">
+                <button type="button" class="bar-roi-btn" id="barRoiToggle" title="Region of Interest">
+                    <i class="fas fa-crop-alt text-amber-400"></i>
+                    <span>ROI</span>
+                </button>
+
+                <div class="bar-separator"></div>
+
+                <div class="bar-url-input-wrapper">
+                    <input type="url" id="barVideoUrl" 
+                           placeholder="Paste a video URL or drop a file..."
+                           class="bar-url-input">
+                    <button id="pasteInputBtn" class="bar-input-action-btn" title="Paste from clipboard">
+                        <i class="fas fa-paste"></i>
+                    </button>
+                    <button id="clearInputBtn" class="bar-input-action-btn hidden" title="Clear input">
+                        <i class="fas fa-times-circle"></i>
+                    </button>
+                </div>
+                
+                <label class="bar-browse-btn" id="barBrowseBtn">
+                    <input type="file" id="barVideoFile" accept="video/*" class="sr-only">
+                    <i class="fas fa-paperclip text-blue-400"></i>
+                    <span>Attach</span>
+                </label>
+
+                <div class="bar-file-indicator" id="barFileIndicator">
+                    <i class="fas fa-file-video text-rose-400" style="font-size: 0.5625rem;"></i>
+                    <span class="bar-file-name" id="barFileName"></span>
+                    <span class="bar-file-clear" id="barFileClear" title="Remove file">
+                        <i class="fas fa-times"></i>
+                    </span>
+                </div>
+
+                <div class="bar-info-group">
+                    <div class="bar-frame-label" id="barFrameLabel">
+                        <i class="fas fa-film text-indigo-400"></i>
+                        <span id="barFrameLabelText">200K limit</span>
+                        <span class="bar-tooltip" id="barFrameTooltip">Video processing is restricted to videos with up to 200,000 frames for optimal performance.</span>
+                    </div>
+                    <button type="button" class="bar-info-dot" id="barDriveInfoBtn">
+                        <i class="fab fa-google-drive text-emerald-400"></i>
+                        <span class="bar-tooltip">Videos stream on Google Drive. Check back after uploading — longer videos take more time.</span>
+                    </button>
+                    <button type="button" class="bar-info-dot hidden" id="barBenchmarkInfoBtn">
+                        <i class="fas fa-flask text-rose-400"></i>
+                        <span class="bar-tooltip">Benchmarking enabled for research purposes.</span>
+                    </button>
+                </div>
+
+                <button type="button" id="barTrackBtn" class="bar-track-btn">
+                    <i class="fas fa-play"></i>
+                    <span>Track</span>
+                </button>
+            </div>
+
+            <!-- Row 2: Status / Queue / Cancel -->
+            <div class="bar-status-row" id="barStatusRow">
+                <div class="bar-status-left">
+                    <div class="bar-processing-dots" id="barProcDots" style="display:none;">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span class="bar-status-text idle" id="barStatusText">Ready</span>
+                </div>
+                <div class="bar-info-dot" id="barQueueInfo" style="display:none; position:relative; margin-left: 0.5rem; cursor: pointer;">
+                    <i class="fas fa-list-ol text-amber-400"></i>
+                    <span class="bar-tooltip" id="barQueueTooltip">Queue details will appear here</span>
+                </div>
+                <span class="bar-queue-badge" id="barQueueBadge" style="display:none;"></span>
+                <button type="button" class="bar-cancel-btn" id="barCancelBtn">
+                    <i class="fas fa-stop-circle"></i> Cancel
+                </button>
+            </div>
+        </div>
     </div>
 
     <div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[1005] hidden">
@@ -5127,6 +5690,7 @@
         });
 
         function applyProcessingStatusData(data) {
+            window.latestStatusData = data;
             const rawStatus = (data.status || '').trim();
             const isCancelledStatus = rawStatus.includes('Processing cancelled for job');
             const suppressingCancelledStatus = isCancelledStatus && Date.now() < suppressCancelledStatusUntilMs;
@@ -6035,15 +6599,8 @@
                     fileNameDisplay.textContent = selectedFile.name;
                 }
                 videoUrlInput.value = '';
-                // Cancel any existing preview session when new file is selected
-                if (previewSessionId) {
-                    fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
-                        method: 'POST',
-                        headers: getIdentityHeaders(true),
-                        body: JSON.stringify({ preview_session_id: previewSessionId })
-                    }).catch(() => {});
-                    previewSessionId = null;
-                }
+                // Do NOT cancel previewSessionId when user just changes file,
+                // rely on explicit reset logic for that.
                 if (roiEnabled) {
                     // Use server-side preview for better compatibility
                     loadServerPreviewForRoi(currentVideoFile, true);
@@ -6112,16 +6669,18 @@
                 if (currentVideoFile || videoUrlInput.value) {
                     roiCanvasContainer.classList.add('show');
                     roiNoPreview.classList.add('hidden');
-                    if (currentVideoFile) {
-                        // Use server-side preview for file uploads
-                        loadServerPreviewForRoi(currentVideoFile, true);
-                    } else if (videoUrlInput.value) {
-                        // Use server-side preview for URL videos too!
-                        loadServerPreviewForRoi(videoUrlInput.value, false);
+                    if (!previewSessionId) {
+                        if (currentVideoFile) {
+                            // Use server-side preview for file uploads
+                            loadServerPreviewForRoi(currentVideoFile, true);
+                        } else if (videoUrlInput.value) {
+                            // Use server-side preview for URL videos too!
+                            loadServerPreviewForRoi(videoUrlInput.value, false);
+                        }
                     }
                 } else {
                     roiCanvasContainer.classList.remove('show');
-                    roiNoPreview.classList.remove('hidden');
+                    roiNoPreview.classList.add('hidden');
                     roiNoPreview.innerHTML = `
                         <i class="fas fa-video"></i>
                         <p>Please provide a video URL or upload a file first,<br>then enable ROI selection.</p>
@@ -6130,16 +6689,7 @@
             } else {
                 roiCanvasContainer.classList.remove('show');
                 roiNoPreview.classList.add('hidden');
-                clearRoi();
-                // Cancel preview session when ROI is disabled
-                if (previewSessionId) {
-                    fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
-                        method: 'POST',
-                        headers: getIdentityHeaders(true),
-                        body: JSON.stringify({ preview_session_id: previewSessionId })
-                    }).catch(() => {});
-                    previewSessionId = null;
-                }
+                // Keep coordinates and preview session intact so user can reopen without losing work
             }
         });
 
@@ -6205,15 +6755,9 @@
             roiCanvasContainer.classList.add('show');
             roiNoPreview.classList.add('hidden');
 
-            // Cancel any existing preview session on server (fire and forget)
-            if (previewSessionId) {
-                fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
-                    method: 'POST',
-                    headers: getIdentityHeaders(true),
-                    body: JSON.stringify({ preview_session_id: previewSessionId })
-                }).catch(() => {}); // Ignore errors
-                previewSessionId = null;
-            }
+            // --- Note: We no longer automatically cancel existing preview sessions ---
+            // We keep the preview session alive to ensure it persists if the user toggles ROI.
+            // Only manual clear/new video input triggers a cancel.
 
             const formData = new FormData();
             if (isFile) {
@@ -6257,6 +6801,7 @@
                     <i class="fas fa-exclamation-triangle"></i>
                     <p>Could not load video preview.<br>${error.message}</p>
                 `;
+                // If the preview fails, clear the session ID to allow a retry on the next input
                 previewSessionId = null;
             } finally {
                 isPreviewLoading = false;
@@ -6520,6 +7065,7 @@
                     document.getElementById('fileNameDisplay').textContent = 'No file chosen';
                     videoUrlInput.value = '';
                     currentVideoFile = null;
+                    previewSessionId = null; // Clear session on reset
                     
                     console.log('[ROI] Cleanup complete.');
                 }, 800); // Match animation duration
@@ -6582,7 +7128,9 @@
                 document.getElementById('fileNameDisplay').textContent = 'No file chosen';
                 currentVideoFile = null;
 
-                // Cancel any existing preview session
+                // --- Only clear previewSessionId if URL is fundamentally changed ---
+                // We keep the old session for a bit just in case user is fixing a typo.
+                // But for now, reset on clear/change is safer to prevent conflict.
                 if (previewSessionId) {
                     fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
                         method: 'POST',
@@ -6590,6 +7138,7 @@
                         body: JSON.stringify({ preview_session_id: previewSessionId })
                     }).catch(() => {});
                     previewSessionId = null;
+                    if (roiPreviewImage) roiPreviewImage.src = '';
                 }
 
                 if (roiEnabled) {
@@ -6775,9 +7324,7 @@
                 }
                 showStatus(successMessage);
                 
-                // Clear preview session after successful submission
-                // The server will handle the file from the cached preview
-                previewSessionId = null;
+                // Do NOT clear previewSessionId here, preserve it for potential ROI re-use
                 
                 // If ROI was used, keep it visible during processing with a processing indicator
                 if (roiEnabled && roiCoords) {
@@ -7286,6 +7833,335 @@
             window.addEventListener('resize', function () {
                 clearTimeout(resizeTimeout);
                 resizeTimeout = setTimeout(applyScaling, 100);
+            });
+        })();
+
+        // ============================================================
+        // Bottom Input Bar Bridge — syncs new bar to legacy inputs
+        // ============================================================
+        (function initBottomInputBar() {
+            const barUrl = document.getElementById('barVideoUrl');
+            const barFileInput = document.getElementById('barVideoFile');
+            const barFileIndicator = document.getElementById('barFileIndicator');
+            const barFileName = document.getElementById('barFileName');
+            const barFileClear = document.getElementById('barFileClear');
+            const barTrackBtn = document.getElementById('barTrackBtn');
+            const barRoiToggleBtn = document.getElementById('barRoiToggle');
+            const barRoiExpand = document.getElementById('barRoiExpand');
+            const barRoiNoVideoState = document.getElementById('barRoiNoVideoState');
+            const roiActiveState = document.getElementById('roiActiveState');
+            const clearInputBtn = document.getElementById('clearInputBtn');
+            const pasteInputBtn = document.getElementById('pasteInputBtn');
+
+            if (barUrl && clearInputBtn) {
+                barUrl.addEventListener('input', () => {
+                    if (barUrl.value) {
+                        clearInputBtn.classList.remove('hidden');
+                    } else {
+                        clearInputBtn.classList.add('hidden');
+                    }
+                });
+
+                clearInputBtn.addEventListener('click', () => {
+                    barUrl.value = '';
+                    clearInputBtn.classList.add('hidden');
+                    barUrl.focus();
+                });
+            }
+
+            if (pasteInputBtn && barUrl) {
+                pasteInputBtn.addEventListener('click', async () => {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        barUrl.value = text;
+                        if (clearInputBtn) clearInputBtn.classList.remove('hidden');
+                        barUrl.focus();
+                    } catch (err) {
+                        console.error('Failed to read clipboard:', err);
+                        showToast('Clipboard access denied or unsupported.', 'error');
+                    }
+                });
+            }
+            const barFrameTooltip = document.getElementById('barFrameTooltip');
+            const barFrameLabelText = document.getElementById('barFrameLabelText');
+            const barBenchmarkInfoBtn = document.getElementById('barBenchmarkInfoBtn');
+            const barStatusText = document.getElementById('barStatusText');
+            const barProcDots = document.getElementById('barProcDots');
+            const barQueueBadge = document.getElementById('barQueueBadge');
+            const barCancelBtn = document.getElementById('barCancelBtn');
+
+            if (!barUrl || !barTrackBtn) return;
+
+            // --- Check if video is attached ---
+            const hasVideoInput = () => {
+                return (barUrl.value && barUrl.value.trim().length > 0) ||
+                       (barFileIndicator && barFileIndicator.classList.contains('has-file')) ||
+                       !!currentVideoFile;
+            };
+
+            // --- Update ROI state based on video ---
+            const updateRoiState = () => {
+                if (!barRoiNoVideoState || !roiActiveState) return;
+                const hasVid = hasVideoInput();
+                if (hasVid) {
+                    barRoiNoVideoState.style.display = 'none';
+                    roiActiveState.style.display = '';
+                    
+                    // If ROI is currently expanded and we just attached a video, load preview!
+                    const isExpanded = barRoiExpand && barRoiExpand.classList.contains('expanded');
+                    if (isExpanded && !previewSessionId) {
+                        // Legacy logic handles showing/hiding canvas container, we just need to ensure preview fetches
+                        if (currentVideoFile) {
+                            if (typeof loadServerPreviewForRoi === 'function') loadServerPreviewForRoi(currentVideoFile, true);
+                        } else if (barUrl.value) {
+                            if (typeof loadServerPreviewForRoi === 'function') loadServerPreviewForRoi(barUrl.value, false);
+                        }
+                    }
+                } else {
+                    barRoiNoVideoState.style.display = '';
+                    roiActiveState.style.display = 'none';
+                }
+            };
+
+            // --- Sync URL input ---
+            let urlTimeout;
+            barUrl.addEventListener('input', () => {
+                if (videoUrlInput) videoUrlInput.value = barUrl.value;
+                if (videoFileInput) videoFileInput.value = '';
+                currentVideoFile = null;
+                if (barFileIndicator) barFileIndicator.classList.remove('has-file');
+                
+                // Reset preview session so it refetches when URL changes
+                if (previewSessionId) {
+                    fetch(LOCAL_API_ENDPOINT.replace('/process_web_video', '/cancel_preview'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ preview_session_id: previewSessionId })
+                    }).catch(() => {});
+                    previewSessionId = null;
+                    if (typeof roiPreviewImage !== 'undefined' && roiPreviewImage) roiPreviewImage.src = '';
+                }
+                
+                // Update basic visibility immediately
+                if (!barRoiNoVideoState || !roiActiveState) return;
+                const hasVid = hasVideoInput();
+                if (hasVid) {
+                    barRoiNoVideoState.style.display = 'none';
+                    roiActiveState.style.display = '';
+                } else {
+                    barRoiNoVideoState.style.display = '';
+                    roiActiveState.style.display = 'none';
+                }
+
+                // Debounce backend preview fetch for URL
+                clearTimeout(urlTimeout);
+                urlTimeout = setTimeout(() => {
+                    const isExpanded = barRoiExpand && barRoiExpand.classList.contains('expanded');
+                    if (isExpanded && barUrl.value.trim().length > 0 && !previewSessionId) {
+                        if (typeof loadServerPreviewForRoi === 'function') {
+                            loadServerPreviewForRoi(barUrl.value, false);
+                        }
+                    }
+                }, 800);
+            });
+
+            // --- File input ---
+            if (barFileInput) {
+                barFileInput.addEventListener('change', (e) => {
+                    const file = e.target.files && e.target.files[0];
+                    if (file) {
+                        handleVideoFileChange(file);
+                        barUrl.value = '';
+                        if (barFileName) barFileName.textContent = file.name;
+                        if (barFileIndicator) barFileIndicator.classList.add('has-file');
+                        updateRoiState();
+                    }
+                });
+            }
+
+            // --- Clear file ---
+            if (barFileClear) {
+                barFileClear.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (barFileInput) barFileInput.value = '';
+                    if (videoFileInput) videoFileInput.value = '';
+                    currentVideoFile = null;
+                    if (barFileIndicator) barFileIndicator.classList.remove('has-file');
+                    if (fileNameDisplay) fileNameDisplay.textContent = 'Drop file or click to browse';
+                    updateRoiState();
+                });
+            }
+
+            // --- Track button ---
+            barTrackBtn.addEventListener('click', () => {
+                if (videoUrlInput) videoUrlInput.value = barUrl.value;
+                if (trackButton) trackButton.click();
+                
+                // Clear the UI fields immediately after values are grabbed by initiateVideoProcessing
+                setTimeout(() => {
+                    barUrl.value = '';
+                    const barFile = document.getElementById('barVideoFile');
+                    if (barFile) barFile.value = '';
+                    const barFileName = document.getElementById('barFileName');
+                    const barFileIndicator = document.getElementById('barFileIndicator');
+                    if (barFileName && barFileIndicator) {
+                        barFileName.textContent = '';
+                        barFileIndicator.classList.remove('active');
+                    }
+                    const legacyVideoFile = document.getElementById('videoFile');
+                    if (legacyVideoFile) legacyVideoFile.value = '';
+                    if (window.currentVideoFile !== undefined) window.currentVideoFile = null;
+                }, 50);
+                
+                // Collapse ROI visually without clearing the backend state
+                if (barRoiExpand && barRoiExpand.classList.contains('expanded')) {
+                    barRoiExpand.classList.remove('expanded');
+                    if (barRoiToggleBtn) barRoiToggleBtn.classList.remove('active');
+                    const barInputRow = document.getElementById('barInputRow');
+                    if (barInputRow) barInputRow.classList.remove('has-expanded-roi');
+                }
+            });
+
+            // --- Cancel button ---
+            if (barCancelBtn) {
+                barCancelBtn.addEventListener('click', () => {
+                    if (cancelProcessingButton) cancelProcessingButton.click();
+                });
+            }
+
+            // --- ROI toggle ---
+            if (barRoiToggleBtn && barRoiExpand) {
+                barRoiToggleBtn.addEventListener('click', () => {
+                    const isExpanded = barRoiExpand.classList.contains('expanded');
+                    barRoiExpand.classList.toggle('expanded', !isExpanded);
+                    barRoiToggleBtn.classList.toggle('active', !isExpanded);
+                    
+                    const barInputRow = document.getElementById('barInputRow');
+                    if (barInputRow) {
+                        barInputRow.classList.toggle('has-expanded-roi', !isExpanded);
+                    }
+                    
+                    updateRoiState();
+                    // Sync legacy ROI toggle — this triggers the thumbnail fetch on backend
+                    if (enableRoiToggle && enableRoiToggle.checked !== !isExpanded) {
+                        enableRoiToggle.checked = !isExpanded;
+                        enableRoiToggle.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
+            }
+
+            const barStatusRow = document.getElementById('barStatusRow');
+
+            // --- Sync state from legacy to bar ---
+            const updateBarState = () => {
+                const isProcessing = trackButton && trackButton.disabled;
+                const isCancelVisible = cancelProcessingButton && !cancelProcessingButton.classList.contains('hidden');
+                const liveVisible = liveProcessingStatusDiv && !liveProcessingStatusDiv.classList.contains('hidden');
+                
+                // Track button: disable during processing
+                barTrackBtn.disabled = isProcessing;
+
+                // Show status row only when something is happening (processing, queued, or live status active)
+                if (barStatusRow) {
+                    const hasQueue = trackButton && trackButton.querySelector('.track-button-content span') && 
+                                     trackButton.querySelector('.track-button-content span').textContent.includes('Queued #');
+                    barStatusRow.classList.toggle('active', isProcessing || liveVisible || hasQueue);
+                }
+
+                // Cancel button: show when cancel is available
+                if (barCancelBtn) {
+                    barCancelBtn.classList.toggle('visible', isCancelVisible);
+                }
+
+                // Processing dots
+                if (barProcDots) {
+                    barProcDots.style.display = liveVisible ? '' : 'none';
+                }
+
+                // Status text — sync from legacy live status
+                if (barStatusText) {
+                    if (liveVisible && liveStatusMessage && liveStatusMessage.textContent) {
+                        barStatusText.textContent = liveStatusMessage.textContent;
+                        barStatusText.classList.remove('idle');
+                    } else if (!isProcessing) {
+                        barStatusText.textContent = 'Ready';
+                        barStatusText.classList.add('idle');
+                    }
+                }
+
+                // Update new queue info element
+                const barQueueInfo = document.getElementById('barQueueInfo');
+                const barQueueTooltip = document.getElementById('barQueueTooltip');
+                if (barQueueInfo && barQueueTooltip) {
+                    const queueStatusLine = (window.latestStatusData && window.latestStatusData.queueStatusLine) || '';
+                    if (queueStatusLine) {
+                        barQueueInfo.style.display = '';
+                        barQueueTooltip.textContent = queueStatusLine;
+                    } else {
+                        barQueueInfo.style.display = 'none';
+                    }
+                }
+
+                // Queue badge from legacy track button label
+                if (barQueueBadge) {
+                    const trackLabel = trackButton ? trackButton.querySelector('.track-button-content span') : null;
+                    if (trackLabel && trackLabel.textContent.includes('Queued #')) {
+                        barQueueBadge.style.display = '';
+                        barQueueBadge.textContent = trackLabel.textContent;
+                    } else {
+                        barQueueBadge.style.display = 'none';
+                    }
+                }
+
+                // Frame restriction label
+                if (barFrameTooltip && frameRestrictionMessage && frameRestrictionMessage.textContent) {
+                    barFrameTooltip.textContent = frameRestrictionMessage.textContent;
+                    const match = frameRestrictionMessage.textContent.match(/([\d,]+)\s*frame/i);
+                    if (match && barFrameLabelText) {
+                        const num = parseInt(match[1].replace(/,/g, ''));
+                        barFrameLabelText.textContent = num >= 1000 ? Math.round(num/1000) + 'K limit' : num + ' limit';
+                    }
+                }
+
+                // Benchmark icon
+                if (barBenchmarkInfoBtn && benchmarkDisclaimer) {
+                    barBenchmarkInfoBtn.classList.toggle('hidden', benchmarkDisclaimer.classList.contains('hidden'));
+                }
+            };
+
+            setInterval(updateBarState, 600);
+            updateBarState();
+            updateRoiState();
+
+            // --- Drag & drop ---
+            barUrl.addEventListener('dragover', (e) => { e.preventDefault(); barUrl.style.borderColor = 'rgba(253, 161, 54, 0.5)'; });
+            barUrl.addEventListener('dragleave', () => { barUrl.style.borderColor = ''; });
+            barUrl.addEventListener('drop', (e) => {
+                e.preventDefault();
+                barUrl.style.borderColor = '';
+                const droppedFile = e.dataTransfer.files && e.dataTransfer.files[0];
+                if (droppedFile && droppedFile.type.startsWith('video/')) {
+                    handleVideoFileChange(droppedFile);
+                    barUrl.value = '';
+                    if (barFileName) barFileName.textContent = droppedFile.name;
+                    if (barFileIndicator) barFileIndicator.classList.add('has-file');
+                    updateRoiState();
+                }
+            });
+
+            // --- Tooltip toggling for info dots AND frame label ---
+            const tooltipEls = document.querySelectorAll('.bar-info-dot, .bar-frame-label');
+            tooltipEls.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const wasActive = this.classList.contains('tooltip-active');
+                    tooltipEls.forEach(b => b.classList.remove('tooltip-active'));
+                    if (!wasActive) this.classList.add('tooltip-active');
+                });
+            });
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.bar-info-dot') && !e.target.closest('.bar-frame-label')) {
+                    tooltipEls.forEach(b => b.classList.remove('tooltip-active'));
+                }
             });
         })();
 
