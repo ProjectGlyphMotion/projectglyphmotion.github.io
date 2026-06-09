@@ -1,7 +1,10 @@
 ---
 # ProjectGlyphMotion 🌀✨
 ---
-- This Repo Icludes Our Backedn & Frontend Code
+- This Repo Includes Our Backend & Frontend Code
+- This also includes the code for our whole video processing pipeline that includes the YOLOv8 model.
+- The pipeline code is at ot.py (object_tracker) and can be executed standalone with designated command line arguments. For the ot.py to run via the online architecture, tg.py (telegram.py) is there to handle it. tg.py also handles all the other sub files individually.
+
   
 [Deployable Website Documentation](https://projectglyphmotion.studio/documentation.html)
 
