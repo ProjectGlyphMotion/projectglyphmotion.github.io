@@ -637,6 +637,9 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
 
         logger.info(f"Successfully created initial commit for '{original_video_title}'. SHA: {initial_commit_sha}")
 
+        # Wait for GitHub API to replicate the initial commit before verification
+        time.sleep(1.0)
+
         # 7. Self-check: ensure entry exists after initial publish commit.
         if not _video_entry_exists(repo, GITHUB_BRANCH, new_video_entry):
             logger.error(
@@ -660,6 +663,9 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
                 "Aborting to avoid publishing entries without commit identity."
             )
             return False, None, None
+
+        # Wait for GitHub API to replicate the metadata stamp commit before verification
+        time.sleep(1.5)
 
         if not _video_entry_has_commit_sha(repo, GITHUB_BRANCH, stamped_entry, initial_commit_sha):
             logger.error(
