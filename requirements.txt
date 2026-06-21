@@ -1,0 +1,23 @@
+bcrypt
+google-api-python-client
+google-auth-oauthlib
+matplotlib
+numpy
+opencv-python
+pandas
+psutil
+PyGithub
+PyJWT
+python-docx
+# python-telegram-bot is OPTIONAL - only needed if ENABLE_TELEGRAM=true in .env
+# Due to regional bans (e.g., India), Telegram support is disabled by default
+# To enable: pip install python-telegram-bot && set ENABLE_TELEGRAM=true in .env
+# (Commented out: python-telegram-bot)
+reportlab
+requests
+scikit-learn
+seaborn
+torch
+torchvision
+tqdm
+ultralytics

@@ -2,9 +2,27 @@ import logging
 import sys
 import html
 from collections import defaultdict
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 import os
+
+# --- Conditional Telegram Import ---
+# Telegram is optional due to regional bans (e.g., India)
+# Set ENABLE_TELEGRAM=true to enable the Telegram bot
+_TELEGRAM_AVAILABLE = False
+try:
+    from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+    from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+    _TELEGRAM_AVAILABLE = True
+except ImportError:
+    # Telegram library not installed - will use web server only
+    Update = None
+    InlineKeyboardButton = None
+    InlineKeyboardMarkup = None
+    Application = None
+    CommandHandler = None
+    MessageHandler = None
+    CallbackQueryHandler = None
+    ContextTypes = None
+    filters = None
 import subprocess
 import asyncio
 import re
@@ -42,6 +60,7 @@ TELEGRAM_BOT_TOKEN = get_env("TELEGRAM_BOT_TOKEN")
 TELEGRAM_BOT_API_BASE_URL = get_env("TELEGRAM_BOT_API_BASE_URL", "").strip()
 TELEGRAM_BOT_API_BASE_FILE_URL = get_env("TELEGRAM_BOT_API_BASE_FILE_URL", "").strip()
 TELEGRAM_BOT_API_LOCAL_MODE = get_env("TELEGRAM_BOT_API_LOCAL_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}
+ENABLE_TELEGRAM = get_env("ENABLE_TELEGRAM", "false").strip().lower() in {"1", "true", "yes", "on"}
 USE_GITHUB_PAGES = True  # Switch to enable/disable GitHub Pages integration (set to True to use gh.py)
 PUBLIC_WEBSITE_URL = get_env("PUBLIC_WEBSITE_URL", "https://projectglyphmotion.github.io/")
 OUTPUT_SUBDIRECTORY = "output"
@@ -106,8 +125,9 @@ logger = logging.getLogger(__name__)
 
 # Suppress polling/request spam while keeping bot interaction logs from this module visible.
 logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("telegram.ext.Application").setLevel(logging.WARNING)
-logging.getLogger("telegram").setLevel(logging.WARNING)
+if _TELEGRAM_AVAILABLE:
+    logging.getLogger("telegram.ext.Application").setLevel(logging.WARNING)
+    logging.getLogger("telegram").setLevel(logging.WARNING)
 
 # --- Global variable for web server status and tracking data ---
 _current_processing_status: Union[str, None] = None # Start with None, so frontend hides initially
@@ -7023,37 +7043,24 @@ def run_web_server(port, main_loop):
         httpd.serve_forever()
 
 
-# --- Main Function ---
-def main():
-    # Load tracking data and ad settings at startup
-    load_tracking_data()
-    load_uptime_data()
-    start_uptime_monitor()
-    atexit.register(mark_uptime_shutdown, "atexit")
-    load_ad_settings()
-    
-    # Start the preview cleanup scheduler (removes abandoned preview files)
-    start_preview_cleanup_scheduler()
-
-    if not TELEGRAM_BOT_TOKEN:
-        logger.error("TELEGRAM_BOT_TOKEN is not configured. Set it in environment or .env before starting tg.py.")
+# --- Telegram Bot Runner (Optional) ---
+def _run_telegram_bot_loop(web_asyncio_loop):
+    """
+    Runs the Telegram bot in polling mode.
+    This function runs in a separate thread and is only called if Telegram is enabled.
+    Uses a blocking approach with the asyncio event loop.
+    """
+    if not _TELEGRAM_AVAILABLE:
+        logger.error("Telegram library not installed. Install with: pip install python-telegram-bot")
         return
-
-    # Ensure JWT_SECRET_KEY is available
-    global JWT_SECRET_KEY
-    if not JWT_SECRET_KEY:
-        logger.warning("JWT_SECRET_KEY is not configured. Generating a temporary key for this process.")
-        JWT_SECRET_KEY = os.urandom(32).hex()
-        logger.warning("Set JWT_SECRET_KEY in .env for stable and secure auth across restarts.")
-
-    web_asyncio_loop = asyncio.new_event_loop()
-    web_asyncio_thread = threading.Thread(target=run_async_loop, args=(web_asyncio_loop,), daemon=True)
-    web_asyncio_thread.start()
-    logger.info("Dedicated web asyncio loop started")
-
-    web_server_thread = threading.Thread(target=run_web_server, args=(WEB_SERVER_PORT, web_asyncio_loop,), daemon=True)
-    web_server_thread.start()
-    logger.info(f"Web server thread started on port {WEB_SERVER_PORT}")
+    
+    if not ENABLE_TELEGRAM:
+        logger.info("Telegram bot is disabled (set ENABLE_TELEGRAM=true to enable)")
+        return
+    
+    if not TELEGRAM_BOT_TOKEN:
+        logger.warning("TELEGRAM_BOT_TOKEN not configured. Telegram bot will not start.")
+        return
 
     def _build_telegram_application() -> Application:
         # Build app with longer timeouts (60s to tolerate transient network delays)
@@ -7122,21 +7129,31 @@ def main():
         app.add_handler(MessageHandler(filters.COMMAND, unknown_command))
         return app
 
-    first_start = True
-    retry_delay_seconds = 5
-
-    try:
+    # Use a single event loop for the entire lifetime (avoid creating multiple loops)
+    telegram_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(telegram_loop)
+    
+    async def run_bot_async():
+        """Async function to run the bot using async methods"""
+        first_start = True
+        retry_delay_seconds = 5
+        
         while True:
-            telegram_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(telegram_loop)
             app = _build_telegram_application()
             logger.info("Telegram Bot started. Listening for updates...")
+            logger.info(f"Bot token: {TELEGRAM_BOT_TOKEN[:20]}...")  # Log first 20 chars of token for debugging
             try:
-                app.run_polling(
+                # Initialize and start the bot application
+                await app.initialize()
+                await app.start()
+                logger.info("Bot initialized and started, beginning to poll for updates...")
+                await app.updater.start_polling(
                     drop_pending_updates=first_start,
                     bootstrap_retries=-1,
-                    close_loop=False,
                 )
+                logger.info("Polling started successfully")
+                # Keep the bot running
+                await app.idle()
                 logger.info("Telegram polling exited normally.")
                 break
             except KeyboardInterrupt:
@@ -7147,19 +7164,86 @@ def main():
                     f"Telegram polling crashed ({type(e).__name__}: {e}). "
                     f"Retrying in {retry_delay_seconds}s..."
                 )
-                time.sleep(retry_delay_seconds)
+                await asyncio.sleep(retry_delay_seconds)
                 retry_delay_seconds = min(retry_delay_seconds * 2, 60)
             finally:
                 try:
-                    if not telegram_loop.is_closed():
-                        telegram_loop.close()
-                except Exception as close_error:
-                    logger.debug(f"Telegram loop close skipped: {close_error}")
+                    await app.updater.stop()
+                except Exception:
+                    pass
                 try:
-                    asyncio.set_event_loop(None)
+                    await app.stop()
+                    await app.shutdown()
                 except Exception:
                     pass
                 first_start = False
+    
+    try:
+        telegram_loop.run_until_complete(run_bot_async())
+    finally:
+        try:
+            if not telegram_loop.is_closed():
+                telegram_loop.close()
+        except Exception:
+            pass
+        stop_uptime_monitor()
+        mark_uptime_shutdown("telegram_exit")
+        time.sleep(UPTIME_SHUTDOWN_BROADCAST_GRACE_SECONDS)
+
+
+# --- Main Function ---
+def main():
+    # Load tracking data and ad settings at startup
+    load_tracking_data()
+    load_uptime_data()
+    start_uptime_monitor()
+    atexit.register(mark_uptime_shutdown, "atexit")
+    load_ad_settings()
+    
+    # Start the preview cleanup scheduler (removes abandoned preview files)
+    start_preview_cleanup_scheduler()
+
+    # Ensure JWT_SECRET_KEY is available
+    global JWT_SECRET_KEY
+    if not JWT_SECRET_KEY:
+        logger.warning("JWT_SECRET_KEY is not configured. Generating a temporary key for this process.")
+        JWT_SECRET_KEY = os.urandom(32).hex()
+        logger.warning("Set JWT_SECRET_KEY in .env for stable and secure auth across restarts.")
+
+    # --- Warn about old Telegram setup ---
+    if TELEGRAM_BOT_TOKEN and not ENABLE_TELEGRAM:
+        logger.warning("Telegram token found but ENABLE_TELEGRAM=false (disabled by default due to regional bans). Set ENABLE_TELEGRAM=true to enable.")
+
+    # --- Start Web Server (ALWAYS) ---
+    web_asyncio_loop = asyncio.new_event_loop()
+    web_asyncio_thread = threading.Thread(target=run_async_loop, args=(web_asyncio_loop,), daemon=True)
+    web_asyncio_thread.start()
+    logger.info("Dedicated web asyncio loop started")
+
+    web_server_thread = threading.Thread(target=run_web_server, args=(WEB_SERVER_PORT, web_asyncio_loop,), daemon=True)
+    web_server_thread.start()
+    logger.info(f"Web server started on port {WEB_SERVER_PORT}")
+
+    # --- Start Telegram Bot (OPTIONAL) ---
+    if ENABLE_TELEGRAM and _TELEGRAM_AVAILABLE and TELEGRAM_BOT_TOKEN:
+        telegram_thread = threading.Thread(target=_run_telegram_bot_loop, args=(web_asyncio_loop,), daemon=False)
+        telegram_thread.start()
+        logger.info("Telegram bot thread started")
+    elif ENABLE_TELEGRAM and not _TELEGRAM_AVAILABLE:
+        logger.error("ENABLE_TELEGRAM=true but Telegram library not installed.")
+        logger.error("   Install with: pip install python-telegram-bot")
+    elif ENABLE_TELEGRAM and not TELEGRAM_BOT_TOKEN:
+        logger.error("ENABLE_TELEGRAM=true but TELEGRAM_BOT_TOKEN is not configured.")
+        logger.error("   Set TELEGRAM_BOT_TOKEN in your .env file")
+    else:
+        logger.info("Telegram bot is disabled (web server only mode)")
+
+    # Keep the main thread alive (but allow graceful shutdown)
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Shutdown requested...")
     finally:
         stop_uptime_monitor()
         mark_uptime_shutdown("process_exit")
