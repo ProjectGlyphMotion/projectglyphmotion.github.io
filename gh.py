@@ -487,10 +487,33 @@ def _video_entry_exists(repo, branch: str, entry: dict) -> bool:
     """Checks whether videos.json already contains an entry matching candidate identity."""
     videos, _ = _load_videos_json_and_sha(repo, branch)
     if not isinstance(videos, list):
+        logger.debug(f"videos.json is not a list, got {type(videos)}")
         return False
     for current in videos:
         if isinstance(current, dict) and _video_entries_match(current, entry):
             return True
+    # Debug: show what was found vs expected
+    logger.debug(f"Entry not found. Expected title: {entry.get('title')}, timestamp: {entry.get('timestamp')}")
+    logger.debug(f"Found {len(videos)} entries in videos.json")
+    return False
+
+
+def _verify_entry_exists_with_retry(repo, branch: str, entry: dict, max_retries: int = 4) -> bool:
+    """Verifies entry exists in videos.json with exponential backoff retries."""
+    for attempt in range(1, max_retries + 1):
+        if _video_entry_exists(repo, branch, entry):
+            logger.info(f"Entry verified on attempt {attempt}/{max_retries}")
+            return True
+        
+        if attempt < max_retries:
+            delay = 2.0 * attempt  # 2s, 4s, 6s, 8s
+            logger.warning(
+                f"Entry verification pending (attempt {attempt}/{max_retries}). "
+                f"Retrying in {delay:.1f}s..."
+            )
+            time.sleep(delay)
+    
+    logger.error(f"Entry verification failed after {max_retries} attempts")
     return False
 
 
@@ -637,11 +660,8 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
 
         logger.info(f"Successfully created initial commit for '{original_video_title}'. SHA: {initial_commit_sha}")
 
-        # Wait for GitHub API to replicate the initial commit before verification
-        time.sleep(1.0)
-
-        # 7. Self-check: ensure entry exists after initial publish commit.
-        if not _video_entry_exists(repo, GITHUB_BRANCH, new_video_entry):
+        # 7. Self-check: ensure entry exists after initial publish commit (with retry logic)
+        if not _verify_entry_exists_with_retry(repo, GITHUB_BRANCH, new_video_entry, max_retries=4):
             logger.error(
                 f"Publish verification failed for '{original_video_title}' after initial upsert. "
                 "Aborting to avoid silent publish drift."
@@ -664,16 +684,25 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
             )
             return False, None, None
 
-        # Wait for GitHub API to replicate the metadata stamp commit before verification
-        time.sleep(1.5)
-
-        if not _video_entry_has_commit_sha(repo, GITHUB_BRANCH, stamped_entry, initial_commit_sha):
-            logger.error(
-                f"commitSha verification failed for '{original_video_title}' after metadata stamp commit "
-                f"{metadata_commit_sha}."
-            )
-            return False, None, None
-
+        # Verify metadata stamp commit with retry logic
+        for attempt in range(1, 5):
+            if _video_entry_has_commit_sha(repo, GITHUB_BRANCH, stamped_entry, initial_commit_sha):
+                logger.info(f"commitSha verification passed on attempt {attempt}/4")
+                break
+            if attempt < 4:
+                delay = 2.0 * attempt
+                logger.warning(
+                    f"commitSha verification pending (attempt {attempt}/4). "
+                    f"Retrying in {delay:.1f}s..."
+                )
+                time.sleep(delay)
+            else:
+                logger.error(
+                    f"commitSha verification failed for '{original_video_title}' after metadata stamp commit "
+                    f"{metadata_commit_sha}."
+                )
+                return False, None, None
+        
         logger.info(
             f"Publish verification passed for '{original_video_title}' with commitSha={initial_commit_sha}. "
             f"Metadata commit SHA: {metadata_commit_sha}"
