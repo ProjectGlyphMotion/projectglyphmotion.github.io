@@ -128,6 +128,19 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 if _TELEGRAM_AVAILABLE:
     logging.getLogger("telegram.ext.Application").setLevel(logging.WARNING)
     logging.getLogger("telegram").setLevel(logging.WARNING)
+    
+    class TelegramNetworkFilter(logging.Filter):
+        def filter(self, record):
+            if record.exc_info:
+                exc_type, exc_val, _ = record.exc_info
+                exc_str = f"{exc_type.__name__}: {exc_val}"
+                if any(k in exc_str for k in ("ReadError", "ConnectError", "TimedOut", "NetworkError", "httpcore", "httpx")):
+                    record.msg = f"Telegram polling transient network issue (auto-reconnecting): {exc_val or exc_type.__name__}"
+                    record.exc_info = None
+                    record.exc_text = None
+            return True
+
+    logging.getLogger("telegram.ext.Updater").addFilter(TelegramNetworkFilter())
 
 # --- Global variable for web server status and tracking data ---
 _current_processing_status: Union[str, None] = None # Start with None, so frontend hides initially
@@ -4844,6 +4857,7 @@ _ALLOWED_API_ROUTES: set[str] = {
     '/login',
     '/logout',
     '/logout_all_admins',
+    '/verify_token',
     '/update_credentials',
     '/process_web_video',
     '/cancel_video_processing',
@@ -5037,8 +5051,8 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
         ) and (self.command == 'GET' or self.command == 'HEAD' or self.command == 'POST' or self.command == 'OPTIONS'):
             return
 
-        # Chunk uploads are high-frequency; suppress per-chunk request lines to avoid log spam.
-        if request_path == '/upload_chunk' and self.command == 'POST':
+        # Chunk uploads and token verifications are high-frequency; suppress per-request lines to avoid log spam.
+        if request_path in ('/upload_chunk', '/verify_token') and self.command == 'POST':
             return
 
         # Log other requests with a simplified format
@@ -5474,10 +5488,10 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
             invalidate_token(token) # Add to blacklist
             return None
         except jwt.InvalidTokenError as e:
-            logger.error(f"Invalid JWT: {e}")
+            logger.debug(f"Invalid JWT: {e}")
             return None
         except Exception as e:
-            logger.error(f"Unexpected error decoding JWT: {e}")
+            logger.debug(f"Unexpected error decoding JWT: {e}")
             return None
 
     def _authenticate_request(self) -> dict | None:
@@ -5549,6 +5563,25 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
         # ========== SECURITY GATE ==========
         request_path = urlparse(self.path).path
         if not self._validate_request_security(request_path):
+            return
+
+        if self.path == '/verify_token':
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+                payload = json.loads(post_body.decode('utf-8') or '{}')
+                token = payload.get('token') or self._get_auth_token()
+                if not token:
+                    self.send_api_response(400, {"valid": False, "error": "No token provided"})
+                    return
+                decoded = self._decode_jwt(token)
+                if decoded and decoded.get('username') in ADMIN_CREDENTIALS:
+                    self.send_api_response(200, {"valid": True, "username": decoded.get('username')})
+                else:
+                    self.send_api_response(200, {"valid": False, "error": "Invalid or expired token"})
+            except Exception as e:
+                logger.error(f"Error in /verify_token: {e}")
+                self.send_api_response(500, {"valid": False, "error": str(e)})
             return
 
         if self.path == '/admin_uptime_reconcile':
@@ -7141,7 +7174,6 @@ def _run_telegram_bot_loop(web_asyncio_loop):
         while True:
             app = _build_telegram_application()
             logger.info("Telegram Bot started. Listening for updates...")
-            logger.info(f"Bot token: {TELEGRAM_BOT_TOKEN[:20]}...")  # Log first 20 chars of token for debugging
             try:
                 # Initialize and start the bot application
                 await app.initialize()
@@ -7152,11 +7184,12 @@ def _run_telegram_bot_loop(web_asyncio_loop):
                     bootstrap_retries=-1,
                 )
                 logger.info("Polling started successfully")
-                # Keep the bot running
-                await app.idle()
+                # Keep the bot running until stopped
+                stop_event = asyncio.Event()
+                await stop_event.wait()
                 logger.info("Telegram polling exited normally.")
                 break
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, asyncio.CancelledError):
                 logger.info("Telegram polling interrupted by user.")
                 break
             except Exception as e:
@@ -7224,6 +7257,17 @@ def main():
     web_server_thread.start()
     logger.info(f"Web server started on port {WEB_SERVER_PORT}")
 
+    # --- Start Vault Server (Standalone Subprocess) ---
+    vault_server_process = None
+    try:
+        logger.info("Starting Vault server on port 5100...")
+        vault_env = os.environ.copy()
+        vault_env["JWT_SECRET_KEY"] = JWT_SECRET_KEY  # Share the same signing key
+        vault_server_process = subprocess.Popen([sys.executable, "vault_server.py"], env=vault_env)
+        logger.info(f"Vault server started with PID {vault_server_process.pid}")
+    except Exception as e:
+        logger.error(f"Failed to start Vault server: {e}")
+
     # --- Start Telegram Bot (OPTIONAL) ---
     if ENABLE_TELEGRAM and _TELEGRAM_AVAILABLE and TELEGRAM_BOT_TOKEN:
         telegram_thread = threading.Thread(target=_run_telegram_bot_loop, args=(web_asyncio_loop,), daemon=False)
@@ -7252,6 +7296,14 @@ def main():
             web_asyncio_loop.call_soon_threadsafe(web_asyncio_loop.stop)
         except Exception:
             pass
+        
+        if 'vault_server_process' in locals() and vault_server_process:
+            logger.info("Stopping Vault server...")
+            try:
+                vault_server_process.terminate()
+                vault_server_process.wait(timeout=5)
+            except Exception:
+                vault_server_process.kill()
 
 if __name__ == "__main__":
     try:

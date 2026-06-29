@@ -3607,6 +3607,10 @@
                     <i class="fas fa-key"></i>
                     <span>Password</span>
                 </button>
+                <a href="#" id="vaultLink" target="_blank" class="nav-pill nav-pill-accent hidden">
+                    <i class="fas fa-vault"></i>
+                    <span>Vault</span>
+                </a>
                 <button id="logoutAllAdminsBtn" class="nav-pill nav-pill-danger">
                     <i class="fas fa-users-slash"></i>
                     <span>Logout All</span>
@@ -3678,6 +3682,9 @@
                                     <button id="mobileChangePasswordBtn" class="mobile-dropdown-item" role="menuitem">
                                         <i class="fas fa-key"></i> Password Settings
                                     </button>
+                                    <a href="#" id="mobileVaultLink" target="_blank" class="mobile-dropdown-item hidden" role="menuitem">
+                                        <i class="fas fa-vault"></i> Vault Access
+                                    </a>
                                     <button id="mobileLogoutAllBtn" class="mobile-dropdown-item hidden" role="menuitem">
                                         <i class="fas fa-users-slash"></i> Logout All Sessions
                                     </button>
@@ -4168,6 +4175,8 @@
         const adminTrackerLink = document.getElementById('adminTrackerLink');
         const changePasswordBtn = document.getElementById('changePasswordBtn');
         const logoutAllAdminsBtn = document.getElementById('logoutAllAdminsBtn');
+        const vaultLink = document.getElementById('vaultLink');
+        const mobileVaultLink = document.getElementById('mobileVaultLink');
 
         // Password Change Modal elements
         const mobileOptionsPanel = document.getElementById('mobileOptionsPanel');
@@ -4524,12 +4533,42 @@
                 if (mobileLoggedInSection) mobileLoggedInSection.classList.remove('hidden');
                 if (mobileNotLoggedInSection) mobileNotLoggedInSection.classList.add('hidden');
                 
-                // Show logout all only for master
+                // Show logout all and vault only for master
                 if (mobileLogoutAllBtn) {
                     if (isMaster) {
                         mobileLogoutAllBtn.classList.remove('hidden');
+                        if (typeof mobileVaultLink !== 'undefined' && mobileVaultLink) {
+                            mobileVaultLink.classList.remove('hidden');
+                            mobileVaultLink.href = '#';
+                            mobileVaultLink.onclick = (e) => {
+                                e.preventDefault();
+                                const token = localStorage.getItem('adminToken') || '';
+                                if (!token) return;
+                                // Submit token via hidden POST form — token NEVER appears in URLs.
+                                // The server sets an HttpOnly cookie and redirects to the vault.
+                                const protocol = window.location.protocol === 'file:' ? 'http:' : window.location.protocol;
+                                const hostname = window.location.hostname || 'localhost';
+                                const establishUrl = IS_LOCAL_DEVELOPMENT 
+                                    ? protocol + '//' + hostname + ':5100/auth/establish'
+                                    : 'https://vault.projectglyphmotion.studio/auth/establish';
+                                const form = document.createElement('form');
+                                form.method = 'POST';
+                                form.action = establishUrl;
+                                form.target = '_blank';
+                                form.style.display = 'none';
+                                const input = document.createElement('input');
+                                input.type = 'hidden';
+                                input.name = 'token';
+                                input.value = token;
+                                form.appendChild(input);
+                                document.body.appendChild(form);
+                                form.submit();
+                                setTimeout(() => form.remove(), 100);
+                            };
+                        }
                     } else {
                         mobileLogoutAllBtn.classList.add('hidden');
+                        if (typeof mobileVaultLink !== 'undefined' && mobileVaultLink) mobileVaultLink.classList.add('hidden');
                     }
                 }
                 updateMobileOptionCount();
@@ -7413,8 +7452,38 @@
                 // Show logout all button only if master admin
                 if (isAdminMaster) {
                     logoutAllAdminsBtn.classList.remove('hidden');
+                    if (typeof vaultLink !== 'undefined' && vaultLink) {
+                        vaultLink.classList.remove('hidden');
+                        vaultLink.href = '#';
+                        vaultLink.onclick = (e) => {
+                            e.preventDefault();
+                            const token = localStorage.getItem('adminToken') || '';
+                            if (!token) return;
+                            // Submit token via hidden POST form — token NEVER appears in URLs.
+                            // The server sets an HttpOnly cookie and redirects to the vault.
+                            const protocol = window.location.protocol === 'file:' ? 'http:' : window.location.protocol;
+                            const hostname = window.location.hostname || 'localhost';
+                            const establishUrl = IS_LOCAL_DEVELOPMENT 
+                                ? protocol + '//' + hostname + ':5100/auth/establish'
+                                : 'https://vault.projectglyphmotion.studio/auth/establish';
+                            const form = document.createElement('form');
+                            form.method = 'POST';
+                            form.action = establishUrl;
+                            form.target = '_blank';
+                            form.style.display = 'none';
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = 'token';
+                            input.value = token;
+                            form.appendChild(input);
+                            document.body.appendChild(form);
+                            form.submit();
+                            setTimeout(() => form.remove(), 100);
+                        };
+                    }
                 } else {
                     logoutAllAdminsBtn.classList.add('hidden');
+                    if (typeof vaultLink !== 'undefined' && vaultLink) vaultLink.classList.add('hidden');
                 }
             } else {
                 adminLoginBtn.classList.remove('hidden');
