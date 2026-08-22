@@ -4,6 +4,8 @@ import html
 from collections import defaultdict
 import os
 
+YT_DLP_H264_PREFERRED_FORMAT = "bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/bestvideo[ext=mp4][vcodec!=av01]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc]+bestaudio/best"
+
 # --- Conditional Telegram Import ---
 # Telegram is optional due to regional bans (e.g., India)
 # Set ENABLE_TELEGRAM=true to enable the Telegram bot
@@ -2483,7 +2485,7 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
             "--simulate",
             "--get-filename",
             "-o", "%(title)s.%(ext)s",  # No dir prefix; we join manually below
-            "-f", "bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/bestvideo[ext=mp4][vcodec!*=av01]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc]+bestaudio/best",
+            "-f", YT_DLP_H264_PREFERRED_FORMAT,
             "--merge-output-format", "mp4",  # Ensure output format is mp4
             "--no-playlist",  # Only get filename for the target video, not the entire playlist
             "--js-runtimes", "node",  # Use Node.js as JS runtime for YouTube extraction
@@ -2537,7 +2539,7 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
             "-o", actual_output_path,
             # Prefer H.264 (avc) to ensure OpenCV compatibility. Explicitly avoid AV1 (av01) and VP9.
             # Fallback chain: H.264 mp4 → non-AV1 mp4 → H.264 any container → absolute best
-            "-f", "bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/bestvideo[ext=mp4][vcodec!*=av01]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc]+bestaudio/best",
+            "-f", YT_DLP_H264_PREFERRED_FORMAT,
             "--merge-output-format", "mp4",  # Ensure output is mp4
             "--progress",
             "--no-playlist",
@@ -6235,7 +6237,7 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
                         download_cmd = [
                             "yt-dlp",
                             "--no-playlist",
-                            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+                            "-f", YT_DLP_H264_PREFERRED_FORMAT,
                             "--merge-output-format", "mp4",  # Ensure output is mp4
                             "-o", f"{local_video_path}.%(ext)s",
                             "--no-warnings",

@@ -8,6 +8,10 @@ from datetime import datetime
 from typing import Tuple, Optional, Callable
 from env_config import get_env
 
+GITHUB_COMMIT_RETRY_DELAY_FACTOR = 0.6
+VIDEOS_JSON_RETRY_DELAY_FACTOR = 0.4
+ENTRY_VERIFICATION_DELAY_FACTOR = 2.0
+
 # Google Drive API imports
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -18,6 +22,10 @@ from googleapiclient.errors import HttpError
 
 # GitHub API imports
 from github import Github, InputGitTreeElement
+
+# Heuristic minimum length check to catch obviously invalid/placeholder tokens.
+# This is not a strict format validator for all possible GitHub token types.
+MIN_GITHUB_TOKEN_LENGTH = 30
 from github.GithubException import GithubException
 
 # --- Logging Setup ---
@@ -289,7 +297,7 @@ def delete_from_google_drive(service, file_id: str) -> bool:
 
 def authenticate_github():
     """Authenticates with GitHub API using a Personal Access Token."""
-    if not GITHUB_ACCESS_TOKEN or len(GITHUB_ACCESS_TOKEN) < 30: # Basic check for placeholder/empty token
+    if not GITHUB_ACCESS_TOKEN or len(GITHUB_ACCESS_TOKEN) < MIN_GITHUB_TOKEN_LENGTH: # Basic check for placeholder/empty token
         logger.error("GITHUB_ACCESS_TOKEN is not set or is invalid. Cannot authenticate with GitHub.")
         return None
     try:
@@ -348,7 +356,7 @@ def update_and_commit_github_file(repo, file_path, new_content, commit_message, 
             status = getattr(e, "status", None)
             is_conflict = status == 409 or "does not match" in str(e).lower()
             if is_conflict and attempt < max_retries:
-                delay = 0.6 * attempt
+                delay = GITHUB_COMMIT_RETRY_DELAY_FACTOR * attempt
                 logger.warning(
                     f"GitHub conflict while committing '{file_path}' (attempt {attempt}/{max_retries}). "
                     f"Retrying in {delay:.1f}s..."
@@ -365,7 +373,7 @@ def update_and_commit_github_file(repo, file_path, new_content, commit_message, 
     return None
 
 
-def _load_videos_json_and_sha(repo, branch: str) -> tuple[list, Optional[str]]:
+def _load_videos_json_and_sha(repo, branch: str) -> Tuple[list, Optional[str]]:
     """Loads videos.json list and current blob SHA (if file exists)."""
     try:
         contents = repo.get_contents(GITHUB_VIDEOS_JSON_PATH, ref=branch)
@@ -467,7 +475,7 @@ def upsert_video_entry_merge_safe(
             status = getattr(e, "status", None)
             is_conflict = status == 409 or "does not match" in str(e).lower()
             if is_conflict and attempt < max_retries:
-                delay = 0.4 * attempt
+                delay = VIDEOS_JSON_RETRY_DELAY_FACTOR * attempt
                 logger.warning(
                     f"Conflict while upserting videos.json (attempt {attempt}/{max_retries}). "
                     f"Retrying in {delay:.1f}s..."
@@ -506,7 +514,7 @@ def _verify_entry_exists_with_retry(repo, branch: str, entry: dict, max_retries:
             return True
         
         if attempt < max_retries:
-            delay = 2.0 * attempt  # 2s, 4s, 6s, 8s
+            delay = ENTRY_VERIFICATION_DELAY_FACTOR * attempt  # 2s, 4s, 6s, 8s
             logger.warning(
                 f"Entry verification pending (attempt {attempt}/{max_retries}). "
                 f"Retrying in {delay:.1f}s..."
@@ -690,7 +698,7 @@ async def update_github_pages_with_video(processed_video_path: str, original_vid
                 logger.info(f"commitSha verification passed on attempt {attempt}/4")
                 break
             if attempt < 4:
-                delay = 2.0 * attempt
+                delay = ENTRY_VERIFICATION_DELAY_FACTOR * attempt
                 logger.warning(
                     f"commitSha verification pending (attempt {attempt}/4). "
                     f"Retrying in {delay:.1f}s..."
