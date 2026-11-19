@@ -14,59 +14,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* ==========================================================================
-           PROJECT GLYPHMOTION — STYLESHEET
-           ==========================================================================
-           TABLE OF CONTENTS:
-           01. GLOBAL RESET & BASE STYLES
-           02. TYPOGRAPHY & BRANDING
-           03. BACKGROUND LAYERS & GLOW EFFECTS
-           04. NAVIGATION — Desktop
-           05. NAVIGATION — Mobile Drawer & Shell
-           06. HERO & STATUS STRIP
-           07. INPUT BAR (Bottom-Docked Bar)
-           08. INPUT BAR — ROI Drawer & Controls
-           09. INPUT BAR — Video File Chip & Indicators
-           10. BUTTONS & INTERACTIVE ELEMENTS
-           11. VIDEO GALLERY & CARDS
-           12. VIDEO PLAYER & THUMBNAIL PLACEHOLDERS
-           13. MODALS — Info Popup Modal
-           14. MODALS — Confirmation Modal
-           15. MODALS — Central Message Overlay
-           16. TOAST NOTIFICATIONS & PROGRESS BARS
-           17. ROI (Region of Interest) STYLES
-           18. STATUS ALERTS & BANNERS
-           19. ADMIN DASHBOARD & PASSWORD MODAL
-           20. LEGACY INPUT SECTION STYLES
-           21. FOOTER & LAYOUT PADDING
-           22. ANIMATIONS & KEYFRAMES
-           ========================================================================== */
 
-        /* ==========================================================================
-           01. GLOBAL RESET & BASE STYLES
-           ========================================================================== */
+        /* -- NEW BACKGROUND STYLES -- */
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #000000;
-            color: #EDEDF3;
-            position: relative;
-            min-height: 100vh;
-            overflow-x: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 0;
+            background-color: #030303;
+            color: #e4e4e7;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
-        * {
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        /* ==========================================================================
-           03. BACKGROUND LAYERS & GLOW EFFECTS
-           ========================================================================== */
         .bg-glow-main {
             position: fixed; top: -30vh; left: 50%; transform: translateX(-50%);
             width: 150vw; height: 100vh;
@@ -88,6 +44,24 @@
             position: fixed; inset: 0; pointer-events: none; z-index: 2;
             background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
             background-size: 100% 4px; opacity: 0.3;
+        }
+
+
+        /* Define custom cubic-bezier for a more "springy" feel */
+        /* Inspired by Mac-like animations, slightly overshoots and settles */
+        .cubic-ease-in-out {
+            transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1.25); /* More pronounced overshoot for opening */
+        }
+        .cubic-ease-out {
+            transition-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53); /* Snappy closing, slight bounce */
+        }
+        .subtle-spring {
+            transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Gentle spring for small interactions */
+        }
+        
+        /* Ultra-smooth spring animation */
+        .fluid-spring {
+            transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         /* ============================================ */
@@ -685,7 +659,36 @@
         }
 
 
-/* Main content card styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000000;
+            color: #EDEDF3;
+            position: relative;
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 0;
+        }
+
+        /* Background Glow - Static CSS gradients, no animations for performance */
+        .background-glow-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -10;
+            overflow: hidden;
+            pointer-events: none;
+            background: #000000;
+        }
+        /* Removed individual glow elements - they caused heavy GPU compositing */
+
+
+        /* Main content card styling */
         .content-card {
             background: #000000;
             border: 1px solid rgba(253, 161, 54, 0.25);
@@ -3527,9 +3530,6 @@
 </head>
 <body class="min-h-screen">
 
-    <!-- ========================================================================== -->
-    <!-- 01. BACKGROUND LAYERS & PROGRESS BARS                                      -->
-    <!-- ========================================================================== -->
     <div class="bg-glow-main"></div>
     <div class="bg-mesh"></div>
     <div class="scanlines"></div>
@@ -3537,9 +3537,8 @@
     <div id="deleteProgressBar" class="progress-bar"></div>
     <div id="uploadProgressBar" class="progress-bar"></div>
 
-    <!-- ========================================================================== -->
-    <!-- 02. MAIN CONTENT CONTAINER & HERO HEADER                                   -->
-    <!-- ========================================================================== -->
+    <!-- Background handled by CSS gradient on .background-glow-container -->
+    
     <div id="mainContentCard" class="container mx-auto max-w-full content-card p-4 sm:p-6 md:p-8 shadow-2xl relative z-10 viewport-layout" style="border-radius: 0; border-left: none; border-right: none;">
         <!-- Hero Header Section -->
         <header class="mb-5 text-center relative">
@@ -3772,40 +3771,146 @@
             </div>
         </nav>
 
-        <!-- ========================================================================== -->
-        <!-- LEGACY INPUT BRIDGE (Hidden — maintains state & DOM events for JS bridge)  -->
-        <!-- ========================================================================== -->
-        <section class="input-section input-section-legacy sr-only" aria-hidden="true" style="display: none !important;">
-            <input type="url" id="videoUrl" name="videoUrl" oninput="document.getElementById('videoFile').value = '';">
-            <label id="videoFileDropZone">
-                <input type="file" id="videoFile" name="videoFile" accept="video/*" class="sr-only" onchange="handleVideoFileChange(this);">
-                <span id="fileNameDisplay" class="hidden"></span>
-            </label>
-
-            <div id="legacyRoiSection" class="hidden">
-                <input type="checkbox" id="enableRoiToggle">
-                <div id="legacyRoiCanvasContainer">
-                    <div id="legacyRoiLoadingOverlay" class="hidden">
-                        <div class="roi-spinner"></div>
-                        <span>Loading preview...</span>
-                    </div>
-                    <img id="legacyRoiPreviewImage" src="" alt="ROI preview">
-                    <canvas id="legacyRoiCanvas"></canvas>
-                    <button type="button" id="legacyClearRoiBtn"></button>
-                    <div id="legacyRoiCoordsDisplay">No selection</div>
+        <!-- Main Input Section (Legacy - hidden, replaced by bottom bar) -->
+        <section class="input-section input-section-legacy">
+            <!-- Section Header -->
+            <div class="section-header">
+                <div class="section-icon">
+                    <i class="fas fa-video"></i>
                 </div>
-                <div id="legacyRoiNoPreview" class="hidden">
-                    <p></p>
+                <div>
+                    <h2 class="section-title">Upload Your Video</h2>
+                    <p class="section-subtitle">Paste a URL or upload a file to begin tracking</p>
                 </div>
             </div>
 
-            <button id="trackButton" type="button"></button>
-            <button id="cancelProcessingButton" class="hidden" type="button"></button>
+            <!-- Input Cards Container -->
+            <div class="input-cards-grid">
+                <!-- URL Input Card -->
+                <div class="input-card">
+                    <div class="input-card-header">
+                        <i class="fas fa-link"></i>
+                        <span>Video URL</span>
+                    </div>
+                    <input type="url" id="videoUrl" name="videoUrl" 
+                           placeholder="https://example.com/video.mp4"
+                           class="input-field"
+                           oninput="document.getElementById('videoFile').value = '';">
+                </div>
 
-            <div id="frameRestrictionInfo" class="hidden">
+                <!-- Divider -->
+                <div class="input-divider">
+                    <span>or</span>
+                </div>
+
+                <!-- File Upload Card -->
+                <div class="input-card">
+                    <div class="input-card-header">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Upload File</span>
+                    </div>
+                    <label class="file-upload-zone" id="videoFileDropZone">
+                        <input type="file" id="videoFile" name="videoFile" accept="video/*" class="sr-only"
+                               onchange="handleVideoFileChange(this);">
+                        <div class="file-upload-content">
+                            <i class="fas fa-file-video file-upload-icon"></i>
+                            <span id="fileNameDisplay" class="file-upload-text">Drop file or click to browse</span>
+                        </div>
+                        <span class="file-upload-btn">Browse</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- ROI Section -->
+            <div id="legacyRoiSection" class="roi-section-wrapper">
+                <div class="roi-toggle-container">
+                    <label class="roi-toggle-label">
+                        <span class="roi-icon"><i class="fas fa-crop-alt"></i></span>
+                        <div class="roi-toggle-text">
+                            <span class="roi-toggle-title">Region of Interest</span>
+                            <span class="roi-toggle-subtitle">Track objects in a specific area only</span>
+                        </div>
+                    </label>
+                    <label class="switch">
+                        <input type="checkbox" id="enableRoiToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div id="legacyRoiCanvasContainer">
+                    <div class="roi-preview-wrapper">
+                        <div id="legacyRoiLoadingOverlay">
+                            <div class="roi-spinner"></div>
+                            <span>Loading preview...</span>
+                        </div>
+                        <div class="roi-video-frame">
+                            <img id="legacyRoiPreviewImage" src="" alt="Video preview for ROI selection">
+                            <canvas id="legacyRoiCanvas"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="roi-instructions">
+                        <i class="fas fa-hand-pointer"></i>
+                        <span><strong>Drag</strong> to select tracking region</span>
+                    </div>
+
+                    <div class="roi-controls">
+                        <button type="button" id="legacyClearRoiBtn" class="roi-btn roi-btn-secondary">
+                            <i class="fas fa-eraser"></i> Clear
+                        </button>
+                        <div class="roi-coords-display" id="legacyRoiCoordsDisplay">
+                            No selection
+                        </div>
+                    </div>
+                </div>
+
+                <div id="legacyRoiNoPreview" class="roi-no-preview hidden">
+                    <i class="fas fa-video"></i>
+                    <p>Select a video to enable ROI</p>
+                </div>
+            </div>
+
+            <!-- Track Button -->
+            <button id="trackButton" class="track-button">
+                <span class="track-button-content">
+                    <i class="fas fa-play"></i>
+                    <span>Start Tracking</span>
+                </span>
+                <span class="track-button-shine"></span>
+            </button>
+
+            <button id="cancelProcessingButton" class="track-button cancel-processing-button hidden" type="button">
+                <span class="track-button-content">
+                    <i class="fas fa-stop-circle"></i>
+                    <span>Cancel Current Processing</span>
+                </span>
+                <span class="track-button-shine"></span>
+            </button>
+
+            <!-- Frame Restriction Info -->
+            <div id="frameRestrictionInfo" class="info-alert hidden">
+                <i class="fas fa-info-circle"></i>
                 <p id="frameRestrictionMessage"></p>
             </div>
-            <div id="benchmarkDisclaimer" class="hidden"></div>
+
+            <!-- Google Drive Transcoding Info -->
+            <div class="bg-cyan-500/5 border border-cyan-500/25 rounded-lg p-3 mt-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="flex-shrink-0 w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center">
+                        <i class="fas fa-info text-cyan-400 text-xs"></i>
+                    </div>
+                    <p class="text-xs text-cyan-200/85">Videos will be available for streaming on Google Drive. Check back in a while after uploading - longer videos take more time. Download is available immediately.</p>
+                </div>
+            </div>
+
+            <div id="benchmarkDisclaimer" class="hidden bg-amber-500/5 border border-amber-500/25 rounded-lg p-3 mt-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center">
+                        <i class="fas fa-flask text-amber-300 text-xs"></i>
+                    </div>
+                    <p class="text-xs text-amber-100/90">Benchmarking is enabled for research purposes only and measures pipeline quality/performance metrics. </p>
+                </div>
+            </div>
         </section>
 
         <!-- Status Messages -->
@@ -3861,9 +3966,7 @@
             </div>
         </section>
 
-        <!-- ========================================================================== -->
-        <!-- 04. BOTTOM-DOCKED INPUT BAR                                                -->
-        <!-- ========================================================================== -->
+        <!-- Bottom Floating Input Dock -->
         <div class="bottom-input-bar" id="bottomInputBar">
             <div class="bottom-input-bar-inner">
                 <!-- ROI expandable area (Moved above input row) -->
@@ -3988,9 +4091,8 @@
                 </button>
             </div>
         </div>
-    <!-- ========================================================================== -->
-    <!-- 05. MODALS, POPUPS & TOAST NOTIFICATIONS                                   -->
-    <!-- ========================================================================== -->
+    </div>
+
     <div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[1005] hidden">
         <div id="confirmationModalContent" class="bg-slate-800 p-6 rounded-lg shadow-xl border border-orange-500/40 max-w-sm mx-4 text-center">
             <p id="confirmationMessage" class="text-white text-lg mb-6"></p>
@@ -4040,28 +4142,6 @@
 
 
     <script>
-        // ==========================================================================
-        // PROJECT GLYPHMOTION — MAIN JAVASCRIPT LOGIC
-        // ==========================================================================
-        // TABLE OF CONTENTS:
-        // 01. DOM REFERENCES & ELEMENT CACHE
-        // 02. GLOBAL STATE VARIABLES & CONSTANTS
-        // 03. IDENTITY & AUTHENTICATION HELPERS
-        // 04. UI MESSAGES & TOAST NOTIFICATIONS
-        // 05. VIDEO GALLERY & CARD RENDERING
-        // 06. STATUS POLLING & SSE REAL-TIME UPDATES
-        // 07. VIDEO DELETION & LOCAL CACHE QUEUE
-        // 08. MODALS & POPUPS CONTROL
-        // 09. REGION OF INTEREST (ROI) ENGINE
-        // 10. TRACKING SUBMISSION & JOB MANAGEMENT
-        // 11. INITIALIZATION & EVENT LISTENERS
-        // 12. BOTTOM-DOCKED INPUT BAR BRIDGE
-        // 13. PWA SERVICE WORKER & INSTALL PROMPT
-        // ==========================================================================
-
-        // ==========================================================================
-        // 01. DOM REFERENCES & ELEMENT CACHE
-        // ==========================================================================
         const videoUrlInput = document.getElementById('videoUrl');
         const videoFileInput = document.getElementById('videoFile');
         const videoFileDropZone = document.getElementById('videoFileDropZone');
@@ -4134,9 +4214,6 @@
         const roiVideoFrame = document.querySelector('.roi-video-frame');
 
 
-        // ==========================================================================
-        // 02. GLOBAL STATE VARIABLES & CONSTANTS
-        // ==========================================================================
         let isAdminLoggedIn = false; // State to track admin login status
         let loggedInUsername = '';
         let isAdminMaster = false; // New state to track if the logged in user is a master admin
@@ -4156,9 +4233,6 @@
         let deleteQueueRunning = false;
         const CANCELLED_STATUS_SUPPRESS_WINDOW_MS = 20000;
 
-        // ==========================================================================
-        // 03. IDENTITY & AUTHENTICATION HELPERS
-        // ==========================================================================
         function getOrCreateClientId() {
             const existing = sessionStorage.getItem('glyphClientId');
             if (existing && /^[A-Za-z0-9._-]{8,96}$/.test(existing)) {
@@ -6116,7 +6190,7 @@
             const tempInput = document.createElement('textarea');
             tempInput.value = text;
             document.body.appendChild(tempInput);
-            tempInput.select();
+            textArea.select();
             let copySuccess = false;
             try {
                 copySuccess = document.execCommand('copy');
@@ -6657,6 +6731,46 @@
                 // Keep coordinates and preview session intact so user can reopen without losing work
             }
         });
+
+        // Load video preview frame for ROI selection
+        function loadVideoPreviewForRoi(file) {
+            roiLoadingOverlay.classList.remove('hidden');
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.muted = true;
+            video.playsInline = true;
+
+            video.onloadeddata = () => {
+                // Seek to 1 second or 10% of duration for a representative frame
+                const seekTime = Math.min(1, video.duration * 0.1);
+                video.currentTime = seekTime;
+            };
+
+            video.onseeked = () => {
+                // Create a canvas to capture the frame
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Set the preview image
+                roiPreviewImage.src = canvas.toDataURL('image/jpeg', 0.8);
+                URL.revokeObjectURL(video.src);
+            };
+
+            video.onerror = () => {
+                roiLoadingOverlay.classList.add('hidden');
+                roiCanvasContainer.classList.remove('show');
+                roiNoPreview.classList.remove('hidden');
+                roiNoPreview.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Could not load video preview. Please try a different file.</p>
+                `;
+            };
+
+            video.src = URL.createObjectURL(file);
+        }
 
         // Load video preview from server (for both URL and file uploads)
         // This uses the server to download/process the video and extract a frame
@@ -7791,9 +7905,9 @@
             });
         })();
 
-        // ==========================================================================
-        // 12. BOTTOM-DOCKED INPUT BAR BRIDGE
-        // ==========================================================================
+        // ============================================================
+        // Bottom Input Bar Bridge — syncs new bar to legacy inputs
+        // ============================================================
         (function initBottomInputBar() {
             const barUrl = document.getElementById('barVideoUrl');
             const barFileInput = document.getElementById('barVideoFile');
@@ -8120,9 +8234,7 @@
             });
         })();
 
-        // ==========================================================================
-        // 13. VIEWPORT DEBUG PANEL (Ctrl+Shift+D)
-        // ==========================================================================
+        // OPTIONAL DEBUG PANEL (Press Ctrl+Shift+D to toggle)
         const debugDiv = document.createElement('div');
         debugDiv.id = 'viewport-debug';
         debugDiv.style.cssText = `
