@@ -7270,8 +7270,152 @@ def _run_telegram_bot_loop(web_asyncio_loop):
         time.sleep(UPTIME_SHUTDOWN_BROADCAST_GRACE_SECONDS)
 
 
+def _run_startup_system_check() -> tuple[bool, list[str]]:
+    """Verify required packages, CUDA GPU, FFmpeg/libvmaf/NVENC, and runtime assets at startup."""
+    import importlib
+
+    warnings_list: list[str] = []
+    project_root = os.path.dirname(os.path.abspath(__file__))
+
+    required_modules = [
+        ("torch", "torch"),
+        ("torchvision", "torchvision"),
+        ("ultralytics", "ultralytics"),
+        ("cv2", "opencv-python"),
+        ("numpy", "numpy"),
+        ("scipy", "scipy"),
+        ("aiohttp", "aiohttp"),
+        ("cryptography", "cryptography"),
+        ("jwt", "PyJWT"),
+        ("bcrypt", "bcrypt"),
+        ("requests", "requests"),
+        ("psutil", "psutil"),
+        ("tqdm", "tqdm"),
+        ("yt_dlp", "yt-dlp"),
+        ("pymediainfo", "pymediainfo"),
+        ("rich", "rich"),
+        ("github", "PyGithub"),
+        ("googleapiclient", "google-api-python-client"),
+        ("google_auth_oauthlib", "google-auth-oauthlib"),
+    ]
+    if ENABLE_TELEGRAM:
+        required_modules.append(("telegram", "python-telegram-bot"))
+
+    missing_pkgs = []
+    for mod_name, pkg_name in required_modules:
+        try:
+            importlib.import_module(mod_name)
+        except Exception as exc:
+            missing_pkgs.append(f"{pkg_name} ({exc.__class__.__name__})")
+    if missing_pkgs:
+        warnings_list.append(f"Missing/broken Python packages: {', '.join(missing_pkgs)}")
+
+    # Check libmediainfo shared library backing pymediainfo
+    try:
+        from pymediainfo import MediaInfo
+        if not MediaInfo.can_parse():
+            warnings_list.append("libmediainfo shared library unavailable (pymediainfo.MediaInfo.can_parse() is False)")
+    except Exception:
+        pass
+
+    # Check GPU monitoring (pynvml or GPUtil)
+    gpu_monitor_ok = False
+    for mon_mod in ("pynvml", "GPUtil"):
+        try:
+            importlib.import_module(mon_mod)
+            gpu_monitor_ok = True
+            break
+        except Exception:
+            continue
+    if not gpu_monitor_ok:
+        warnings_list.append("Neither pynvml nor GPUtil available; GPU telemetry will use basic PyTorch fallback")
+
+    # Check CUDA GPU availability and tensor execution
+    gpu_name = None
+    try:
+        import torch
+        if torch.cuda.is_available():
+            gpu_name = torch.cuda.get_device_name(0)
+            _ = torch.zeros(1, device="cuda")
+        else:
+            warnings_list.append("PyTorch CUDA is unavailable; object tracking will run slowly on CPU")
+    except Exception as exc:
+        warnings_list.append(f"CUDA GPU check failed ({exc}); tracking may fall back to CPU")
+
+    # Check FFmpeg, ffprobe, libvmaf, and NVENC (hevc_nvenc + h264_nvenc)
+    ffmpeg_ok = False
+    ffprobe_ok = False
+    vmaf_ok = False
+    nvenc_ok = False
+    try:
+        subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, check=True, timeout=5)
+        ffmpeg_ok = True
+    except Exception as exc:
+        warnings_list.append(f"ffmpeg unavailable or broken ({exc})")
+
+    try:
+        subprocess.run(["ffprobe", "-version"], capture_output=True, text=True, check=True, timeout=5)
+        ffprobe_ok = True
+    except Exception as exc:
+        warnings_list.append(f"ffprobe unavailable or broken ({exc})")
+
+    if ffmpeg_ok:
+        vmaf_bin = os.path.join(project_root, "ffmpeg_local", "bin", "ffmpeg")
+        if not os.path.isfile(vmaf_bin):
+            vmaf_bin = "ffmpeg"
+        try:
+            subprocess.run([vmaf_bin, "-hide_banner", "-h", "filter=libvmaf"], capture_output=True, text=True, check=True, timeout=5)
+            vmaf_ok = True
+        except Exception:
+            warnings_list.append("FFmpeg libvmaf filter unavailable (quality benchmarks VMAF/PSNR/SSIM will be skipped)")
+
+        nvenc_failures = []
+        for codec in ("hevc_nvenc", "h264_nvenc"):
+            try:
+                res = subprocess.run(
+                    [
+                        "ffmpeg", "-hide_banner", "-loglevel", "error",
+                        "-f", "lavfi", "-i", "color=size=256x256:rate=1",
+                        "-frames:v", "1", "-c:v", codec, "-f", "null", "-",
+                    ],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if res.returncode != 0:
+                    reason = next((ln.strip() for ln in res.stderr.splitlines() if ln.strip()), f"exit {res.returncode}")
+                    nvenc_failures.append(f"{codec}: {reason}")
+            except Exception as exc:
+                nvenc_failures.append(f"{codec}: {exc}")
+        if nvenc_failures:
+            warnings_list.append(f"NVENC hardware encoding degraded ({'; '.join(nvenc_failures)}) — will fall back to CPU libx264")
+        else:
+            nvenc_ok = True
+
+    # Check essential local files
+    missing_files = [
+        rel for rel in ("ot.py", "vault_server.py", "yolov8m.pt")
+        if not os.path.isfile(os.path.join(project_root, rel))
+    ]
+    if missing_files:
+        warnings_list.append(f"Missing required project files: {', '.join(missing_files)}")
+
+    if not warnings_list:
+        logger.info(
+            "✅ System check passed: CUDA (%s), NVENC (H.264/HEVC), FFmpeg%s, and all required packages ready.",
+            gpu_name or "active",
+            "+libvmaf" if vmaf_ok else "",
+        )
+        return True, []
+
+    logger.warning("⚠️ System check found %d issue(s):", len(warnings_list))
+    for item in warnings_list:
+        logger.warning("   - %s", item)
+    return False, warnings_list
+
+
 # --- Main Function ---
 def main():
+    _run_startup_system_check()
+
     # Load tracking data and ad settings at startup
     load_tracking_data()
     load_uptime_data()

@@ -1,15 +1,20 @@
+import os
+import sys
+try:
+    import env_config  # Ensure ~/.local/bin and ~/.local/lib (libvmaf) are in PATH/LD_LIBRARY_PATH
+except ImportError:
+    pass
 import cv2
 from ultralytics import YOLO
 import argparse
 from tqdm import tqdm
 import torch
-import os
-import sys
 import subprocess
 import threading
 import time
 import queue
 import json
+import math
 import signal
 import re # Added for ffprobe output parsing
 import numpy as np
@@ -35,7 +40,17 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     print("⚠️ [WARNING] psutil library not found. RAM usage limiting and CPU/Memory utilization display will not be available.")
 
-# Attempt to import GPUtil for GPU monitoring
+# Attempt to import pynvml (fast C-binding GPU monitoring) and GPUtil fallback
+try:
+    import pynvml
+    pynvml.nvmlInit()
+    _PYNVML_HANDLE = pynvml.nvmlDeviceGetHandleByIndex(0)
+    PYNVML_AVAILABLE = True
+except Exception:
+    pynvml = None
+    _PYNVML_HANDLE = None
+    PYNVML_AVAILABLE = False
+
 try:
     import GPUtil
     GPUTIL_AVAILABLE = True
@@ -68,7 +83,7 @@ def detect_nvenc():
     try:
         result = subprocess.run([
             "ffmpeg", "-hide_banner", "-loglevel", "error",
-            "-f", "lavfi", "-i", "color=size=64x64:rate=1",
+            "-f", "lavfi", "-i", "color=size=256x256:rate=1",
             "-frames:v", "1", "-c:v", "hevc_nvenc", "-f", "null", "-",
         ], capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
@@ -303,12 +318,23 @@ def get_watermark_filter():
     return watermark_filter
 
 
+_UTIL_CACHE = {"ts": 0.0, "device": None, "stats": {}}
+
+
 def get_system_utilization(device_to_use):
     """
-    Retrieves current system utilization statistics (CPU, Memory, GPU).
-    Uses torch.cuda for GPU monitoring when GPUtil is not available.
+    Retrieves system utilization statistics (CPU, Memory, GPU), throttled to
+    UTILIZATION_UPDATE_INTERVAL so per-frame loops never stall on polling.
     """
-    global GPUTIL_AVAILABLE
+    global GPUTIL_AVAILABLE, PYNVML_AVAILABLE
+
+    now = time.monotonic()
+    if (
+        _UTIL_CACHE["stats"]
+        and _UTIL_CACHE["device"] == device_to_use
+        and (now - _UTIL_CACHE["ts"]) < UTILIZATION_UPDATE_INTERVAL
+    ):
+        return _UTIL_CACHE["stats"]
 
     util_stats = {}
     if PSUTIL_AVAILABLE:
@@ -320,8 +346,18 @@ def get_system_utilization(device_to_use):
 
     if device_to_use == "cuda":
         gpu_stats_collected = False
-        # Try GPUtil first (more accurate load reporting)
-        if GPUTIL_AVAILABLE:
+        # Prefer pynvml (~0.02 ms) over GPUtil (~30 ms nvidia-smi subprocess)
+        if PYNVML_AVAILABLE and _PYNVML_HANDLE is not None:
+            try:
+                util = pynvml.nvmlDeviceGetUtilizationRates(_PYNVML_HANDLE)
+                mem = pynvml.nvmlDeviceGetMemoryInfo(_PYNVML_HANDLE)
+                util_stats['gpu_load'] = float(util.gpu)
+                util_stats['gpu_mem_mb'] = mem.used / (1024 * 1024)
+                gpu_stats_collected = True
+            except Exception:
+                PYNVML_AVAILABLE = False
+
+        if not gpu_stats_collected and GPUTIL_AVAILABLE:
             try:
                 gpus = GPUtil.getGPUs()
                 if gpus:
@@ -336,21 +372,21 @@ def get_system_utilization(device_to_use):
         # Fallback: use torch.cuda built-in monitoring (always works when CUDA is available)
         if not gpu_stats_collected and torch.cuda.is_available():
             try:
-                # VRAM usage from PyTorch (reliable, no extra dependency)
                 vram_used_mb = torch.cuda.memory_allocated(0) / (1024 * 1024)
                 vram_reserved_mb = torch.cuda.memory_reserved(0) / (1024 * 1024)
-                util_stats['gpu_mem_mb'] = round(vram_reserved_mb, 1)  # Reserved is more accurate for peak tracking
+                util_stats['gpu_mem_mb'] = round(vram_reserved_mb, 1)
 
-                # GPU utilization from torch (available in PyTorch 2.0+)
                 try:
-                    gpu_util = torch.cuda.utilization(0)  # Returns 0-100 int
+                    gpu_util = torch.cuda.utilization(0)
                     util_stats['gpu_load'] = float(gpu_util)
                 except Exception:
-                    # torch.cuda.utilization not available in older PyTorch — estimate from activity
                     util_stats['gpu_load'] = 50.0 if vram_used_mb > 100 else 0.0
             except Exception:
                 pass
 
+    _UTIL_CACHE["ts"] = now
+    _UTIL_CACHE["device"] = device_to_use
+    _UTIL_CACHE["stats"] = util_stats
     return util_stats
 
 def format_utilization_string(stats):
@@ -366,6 +402,23 @@ def format_utilization_string(stats):
     return " | ".join(parts) if parts else "Stats N/A"
 
 
+def compute_processing_dimensions(original_width, original_height, max_dim=None):
+    """
+    Compute even internal tracking dimensions capped at max_dim along the longer edge.
+    Handles both landscape (3840x2160 -> 1920x1080) and portrait (2160x3840 -> 1080x1920)
+    uniformly so portrait 4K videos do not process 3x as many pixels.
+    """
+    if max_dim and max_dim > 0 and max(original_width, original_height) > max_dim:
+        scale = max_dim / float(max(original_width, original_height))
+        proc_w = max(2, int(round(original_width * scale)) & ~1)
+        proc_h = max(2, int(round(original_height * scale)) & ~1)
+        return proc_w, proc_h, True
+
+    proc_w = original_width - (original_width % 2) if original_width > 1 else 2
+    proc_h = original_height - (original_height % 2) if original_height > 1 else 2
+    return proc_w, proc_h, False
+
+
 def frame_reader_thread_func(cap, frame_input_queue, stop_event, original_width, original_height, target_processing_width=None, pass_original=False):
     """
     Thread function to read frames from video, resize for processing, and put into a queue.
@@ -376,7 +429,7 @@ def frame_reader_thread_func(cap, frame_input_queue, stop_event, original_width,
         stop_event (threading.Event): Event to signal thread to stop.
         original_width (int): Original width of the video as reported by OpenCV.
         original_height (int): Original height of the video as reported by OpenCV.
-        target_processing_width (int, optional): Target width for internal processing.
+        target_processing_width (int, optional): Max dimension for internal processing.
                                                   If None, original resolution is used.
     """
     print("[INFO] Frame reader thread started.")
@@ -391,27 +444,14 @@ def frame_reader_thread_func(cap, frame_input_queue, stop_event, original_width,
                 continue
         return False
 
-    # Determine the resolution for internal tracking
-    # Note: original_width/height here are the raw dimensions from cap.get(), not necessarily display dimensions.
-    processing_width = original_width
-    processing_height = original_height
-    do_resize_for_processing = False
-
-    if target_processing_width and target_processing_width > 0 and target_processing_width < original_width:
-        aspect_ratio = original_height / original_width
-        processing_width = target_processing_width
-        # Calculate height to maintain aspect ratio, ensuring it's an even number for codecs
-        processing_height = int(processing_width * aspect_ratio)
-        if processing_height % 2 != 0:
-            processing_height = processing_height - 1 if processing_height > 1 else 2 # Ensure even height
-        do_resize_for_processing = True
+    processing_width, processing_height, do_resize_for_processing = compute_processing_dimensions(
+        original_width, original_height, target_processing_width
+    )
+    if do_resize_for_processing:
         print(f"[INFO] Frame reader: Resizing frames from {original_width}x{original_height} to {processing_width}x{processing_height} for internal processing.")
     else:
-        # If no target_processing_width is set, ensure original dimensions are even for processing compatibility
-        if processing_width % 2 != 0: processing_width = processing_width - 1 if processing_width > 1 else 2
-        if processing_height % 2 != 0: processing_height = processing_height - 1 if processing_height > 1 else 2
         if original_width != processing_width or original_height != processing_height:
-             print(f"⚠️ [WARNING] Frame reader: Adjusted original resolution to {processing_width}x{processing_height} for processing codec compatibility (even dimensions).")
+            print(f"⚠️ [WARNING] Frame reader: Adjusted original resolution to {processing_width}x{processing_height} for processing codec compatibility (even dimensions).")
         print(f"[INFO] Frame reader: Processing at original resolution {processing_width}x{processing_height}.")
 
 
@@ -820,10 +860,9 @@ def apply_roi_hfdr(frame, hf_detail, roi_mask, alpha_multipliers=None, priority_
             blended = cv2.addWeighted(frame, 1.0, hf_detail, alpha_scale, -128.0 * alpha_scale)
             result[level_mask] = blended[level_mask]
     else:
-        roi_bool = roi_mask > 0
-        if np.any(roi_bool):
+        if cv2.countNonZero(roi_mask) > 0:
             blended = apply_hf_detail(frame, hf_detail)
-            result[roi_bool] = blended[roi_bool]
+            cv2.copyTo(blended, roi_mask, result)
     return result
 
 
@@ -1272,21 +1311,13 @@ def main():
     # This is what the frame_reader_thread_func will resize frames to.
     # These internal dimensions are derived from original_width/height as reported by OpenCV,
     # because the actual frames read by OpenCV are still in their raw encoded orientation.
-    effective_tracking_width = original_width
-    effective_tracking_height = original_height
-    target_width_for_reader = None
-
-    if TARGET_PROCESSING_WIDTH and TARGET_PROCESSING_WIDTH > 0 and TARGET_PROCESSING_WIDTH < original_width:
-        aspect_ratio = original_height / original_width
-        target_width_for_reader = TARGET_PROCESSING_WIDTH # Reader will resize to this width
-        effective_tracking_width = TARGET_PROCESSING_WIDTH
-        effective_tracking_height = int(effective_tracking_width * aspect_ratio)
-        if effective_tracking_height % 2 != 0:
-            effective_tracking_height = effective_tracking_height - 1 if effective_tracking_height > 1 else 2
+    effective_tracking_width, effective_tracking_height, needs_resize = compute_processing_dimensions(
+        original_width, original_height, TARGET_PROCESSING_WIDTH
+    )
+    target_width_for_reader = TARGET_PROCESSING_WIDTH if needs_resize else None
+    if needs_resize:
         print(f"[INFO] Internal object tracking will be performed on frames resized to {effective_tracking_width}x{effective_tracking_height}.")
     else:
-        if effective_tracking_width % 2 != 0: effective_tracking_width = effective_tracking_width - 1 if effective_tracking_width > 1 else 2
-        if effective_tracking_height % 2 != 0: effective_tracking_height = effective_tracking_height - 1 if effective_tracking_height > 1 else 2
         print(f"[INFO] Internal object tracking will be performed on frames at raw original resolution: {effective_tracking_width}x{effective_tracking_height}.")
 
 
@@ -1445,34 +1476,29 @@ def main():
             if frame_count > 5:
                 tracking_stats["frame_latencies"].append(inference_time_ms)
 
-            # Create a copy of the frame to draw annotations on
-            annotated_frame = frame_to_process.copy()
-            
-            # Get frame dimensions for ROI calculations
-            frame_h, frame_w = annotated_frame.shape[:2]
+            # Collect detections in tracking-frame coordinates first so we preserve full-res
+            # source pixels (and extract HFDR from the clean original frame before drawing).
+            frame_h, frame_w = frame_to_process.shape[:2]
             frame_detections = []
             detections_in_frame = 0
             current_centers = {}
 
-            # Draw bounding boxes and labels if objects are detected
             if results and results[0].boxes:
                 for box in results[0].boxes:
-                    if box.id is None: continue # Skip if no tracking ID
+                    if box.id is None:
+                        continue
                     cls_id = int(box.cls[0])
                     class_name = model.names[cls_id]
                     track_id = int(box.id[0])
 
-                    # Only draw for allowed classes
                     if class_name in args.allowed_classes:
-                        x1,y1,x2,y2=map(int,box.xyxy[0]) # Bounding box coordinates
-                        
-                        # ROI filtering: skip objects outside the region of interest
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
+
                         if roi_enabled and roi_coords:
                             if not is_box_in_roi((x1, y1, x2, y2), roi_coords, frame_w, frame_h):
-                                continue  # Skip this detection - outside ROI
-                        
-                        conf=box.conf[0] # Confidence score
-                        conf_float = float(conf)
+                                continue
+
+                        conf_float = float(box.conf[0])
                         detections_in_frame += 1
                         total_detections += 1
                         sum_confidence += conf_float
@@ -1481,31 +1507,19 @@ def main():
                         tracking_stats["unique_ids"].add(track_id)
                         tracking_stats["id_appearances"][track_id] = tracking_stats["id_appearances"].get(track_id, 0) + 1
                         class_counts[class_name] += 1
-                        frame_detections.append((x1, y1, x2, y2, class_name, conf_float))
+                        frame_detections.append((x1, y1, x2, y2, track_id, class_name, conf_float))
 
-                        # Track motion vectors per object
                         cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
                         if track_id in prev_centers_for_motion:
                             prev_cx, prev_cy = prev_centers_for_motion[track_id]
-                            import math
                             tracking_stats["motion_vectors"].append(math.hypot(cx - prev_cx, cy - prev_cy))
                         current_centers[track_id] = (cx, cy)
-                        label=f"ID:{track_id} {class_name} {conf:.2f}"
-
-                        cv2.rectangle(annotated_frame,(x1,y1),(x2,y2),(0,255,0),2) # Green rectangle
-                        (tw,th),_=cv2.getTextSize(label,cv2.FONT_HERSHEY_SIMPLEX,0.5,1)
-                        cv2.rectangle(annotated_frame,(x1,y1-th-10),(x1+tw,y1-5),(0,255,0),-1) # Background for text
-                        cv2.putText(annotated_frame,label,(x1,y1-5),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,0),1) # Black text
 
             # Update motion vector tracking
             prev_centers_for_motion = current_centers
             tracking_stats["objects_per_frame"].append(detections_in_frame)
             if motion_score < 1.0:  # valid score (not initial)
                 tracking_stats["spatial_complexities"].append(motion_score)
-
-            # Draw ROI overlay if enabled
-            if roi_enabled and roi_coords and roi_show_overlay:
-                annotated_frame = draw_roi_overlay(annotated_frame, roi_coords, roi_overlay_opacity)
 
             avg_conf_for_mode = (sum_confidence / max(1, total_detections)) if total_detections > 0 else 0.5
             active_mode = unified_controller.decide_mode(motion_score, detections_in_frame, avg_conf_for_mode)
@@ -1521,26 +1535,15 @@ def main():
                 avg_conf_for_mode
             )
 
-            # --- Upscale the annotated frame to the final output resolution ---
-            annotated_frame_for_output = annotated_frame
-            # Only resize if the current frame's dimensions don't match the desired FFmpeg input dimensions.
-            # FFmpeg is told to expect `original_width` x `original_height` raw frames.
-            if annotated_frame.shape[1] != original_width or annotated_frame.shape[0] != original_height:
-                annotated_frame_for_output = cv2.resize(
-                    annotated_frame,
-                    (original_width, original_height), # Resize to raw dimensions for FFmpeg input
-                    interpolation=cv2.INTER_CUBIC
-                )
-                # print(f"[DEBUG] Resized frame from {annotated_frame.shape[1]}x{annotated_frame.shape[0]} to {original_width}x{original_height} for FFmpeg input.")
-
+            # Determine HFDR state and extract detail from the untouched original frame first
             hfdr_state = "NONE"
+            skip_temporal = False
+            temporal_blended = False
             should_gate = motion_score >= ADAPTIVE_MOTION_GATE_THRESHOLD
             if should_gate:
                 telemetry["hfdr_gated_count"] += 1
                 hfdr_state = "GATED"
             else:
-                skip_temporal = False
-                temporal_blended = False
                 if current_gray is not None and (frame_count % ADAPTIVE_TEMPORAL_KEYFRAME_INTERVAL != 0):
                     skip_temporal, _, temporal_blended = should_reuse_frame(current_gray, prev_gray_for_temporal, ADAPTIVE_TEMPORAL_THRESHOLD)
 
@@ -1555,8 +1558,8 @@ def main():
 
                 if original_frame is not None:
                     try:
-                        if annotated_frame_for_output.shape[1] != original_frame.shape[1] or annotated_frame_for_output.shape[0] != original_frame.shape[0]:
-                            original_for_hf = cv2.resize(original_frame, (annotated_frame_for_output.shape[1], annotated_frame_for_output.shape[0]), interpolation=cv2.INTER_AREA)
+                        if original_frame.shape[1] != original_width or original_frame.shape[0] != original_height:
+                            original_for_hf = cv2.resize(original_frame, (original_width, original_height), interpolation=cv2.INTER_AREA)
                         else:
                             original_for_hf = original_frame
 
@@ -1568,19 +1571,65 @@ def main():
                         else:
                             telemetry["hfdr_cached_count"] += 1
                             hfdr_state = "CACHED"
-
-                        if cached_hf_detail is not None:
-                            if active_mode == "B" and len(frame_detections) > 0:
-                                roi_refresh_interval = adaptive_controller.compute_roi_refresh_interval(motion_score)
-                                if cached_roi_mask is None or (frame_count - roi_mask_last_rebuild) >= roi_refresh_interval:
-                                    cached_roi_mask = build_roi_mask(annotated_frame_for_output.shape, frame_detections, margin=ADAPTIVE_ROI_MARGIN_PX)
-                                    roi_mask_last_rebuild = frame_count
-                                annotated_frame_for_output = apply_roi_hfdr(annotated_frame_for_output, cached_hf_detail, cached_roi_mask)
-                            else:
-                                annotated_frame_for_output = apply_hf_detail(annotated_frame_for_output, cached_hf_detail)
                     except Exception as hfdr_error:
                         if frame_count <= 5:
-                            print(f"⚠️ [WARNING] HFDR application failed on frame {frame_count}: {hfdr_error}")
+                            print(f"⚠️ [WARNING] HFDR extraction failed on frame {frame_count}: {hfdr_error}")
+
+            # Use the full-resolution original frame directly for output when available
+            # so background pixels are never downscaled/upscaled; only fall back to
+            # INTER_CUBIC upscaling if original_frame was not supplied.
+            if original_frame is not None and original_frame.shape[1] == original_width and original_frame.shape[0] == original_height:
+                annotated_frame_for_output = original_frame
+            elif frame_to_process.shape[1] != original_width or frame_to_process.shape[0] != original_height:
+                annotated_frame_for_output = cv2.resize(
+                    frame_to_process,
+                    (original_width, original_height),
+                    interpolation=cv2.INTER_CUBIC
+                )
+            else:
+                annotated_frame_for_output = frame_to_process.copy()
+
+            out_h, out_w = annotated_frame_for_output.shape[:2]
+            sx = out_w / float(max(1, frame_w))
+            sy = out_h / float(max(1, frame_h))
+            draw_scale = max(1.0, out_w / 1920.0)
+            box_thickness = max(2, int(round(2 * draw_scale)))
+            font_scale = 0.5 * draw_scale
+            font_thickness = max(1, int(round(1 * draw_scale)))
+            pad_y = max(5, int(round(5 * draw_scale)))
+            pad_top = max(10, int(round(10 * draw_scale)))
+
+            scaled_roi_detections = []
+            for x1, y1, x2, y2, track_id, class_name, conf_float in frame_detections:
+                ox1 = int(round(x1 * sx))
+                oy1 = int(round(y1 * sy))
+                ox2 = int(round(x2 * sx))
+                oy2 = int(round(y2 * sy))
+                scaled_roi_detections.append((ox1, oy1, ox2, oy2, class_name, conf_float))
+
+                label = f"ID:{track_id} {class_name} {conf_float:.2f}"
+                cv2.rectangle(annotated_frame_for_output, (ox1, oy1), (ox2, oy2), (0, 255, 0), box_thickness)
+                (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)
+                cv2.rectangle(annotated_frame_for_output, (ox1, oy1 - th - pad_top), (ox1 + tw, oy1 - pad_y), (0, 255, 0), -1)
+                cv2.putText(annotated_frame_for_output, label, (ox1, oy1 - pad_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), font_thickness)
+
+            if roi_enabled and roi_coords and roi_show_overlay:
+                annotated_frame_for_output = draw_roi_overlay(annotated_frame_for_output, roi_coords, roi_overlay_opacity)
+
+            # Apply cached/fresh HFDR onto annotated output frame
+            if not should_gate and original_frame is not None and cached_hf_detail is not None:
+                try:
+                    if active_mode == "B" and len(scaled_roi_detections) > 0:
+                        roi_refresh_interval = adaptive_controller.compute_roi_refresh_interval(motion_score)
+                        if cached_roi_mask is None or (frame_count - roi_mask_last_rebuild) >= roi_refresh_interval:
+                            cached_roi_mask = build_roi_mask(annotated_frame_for_output.shape, scaled_roi_detections, margin=ADAPTIVE_ROI_MARGIN_PX)
+                            roi_mask_last_rebuild = frame_count
+                        annotated_frame_for_output = apply_roi_hfdr(annotated_frame_for_output, cached_hf_detail, cached_roi_mask)
+                    else:
+                        annotated_frame_for_output = apply_hf_detail(annotated_frame_for_output, cached_hf_detail)
+                except Exception as hfdr_error:
+                    if frame_count <= 5:
+                        print(f"⚠️ [WARNING] HFDR application failed on frame {frame_count}: {hfdr_error}")
 
             # --- TEMPORAL BLENDING ---
             # If temporal blend is recommended, mix with previous output for smoother transitions
