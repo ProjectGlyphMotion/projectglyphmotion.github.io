@@ -2337,7 +2337,8 @@ async def _stream_output_and_update_message(
     progress_message_obj, # Can be Update.message or WebProgressReporter
     context: ContextTypes.DEFAULT_TYPE,
     stream_name: str,
-    progress_type: str # 'wget', 'tqdm', 'ffmpeg', 'general', 'yt-dlp'
+    progress_type: str, # 'wget', 'tqdm', 'ffmpeg', 'general', 'yt-dlp'
+    tracking_state: Optional[dict] = None,
 ):
     """
     Reads from a subprocess stream, handling carriage returns for real-time updates,
@@ -2378,7 +2379,7 @@ async def _stream_output_and_update_message(
                             new_progress_text = f"Downloading: {progress_info}"
                         elif yt_dlp_post_process_regex.search(progress_info):
                             new_progress_text = f"Post-processing: {progress_info}"
-                    elif progress_type == 'tqdm':
+                    elif progress_type == 'tqdm' and (tracking_state is None or tracking_state.get('phase') == 'tracking'):
                         tqdm_match = tqdm_regex.search(progress_info)
                         if tqdm_match:
                             new_progress_text = f"Processing: {tqdm_match.group(1).strip()}"
@@ -2399,13 +2400,27 @@ async def _stream_output_and_update_message(
                 current_line_buffer = ""
             elif char == '\n':
                 full_line = current_line_buffer.strip()
+                if tracking_state is not None and stream_name == 'ot_stdout' and 'Main loop finished. Signaling I/O threads to stop' in full_line:
+                    tracking_state['phase'] = 'finalizing'
+                    finalizing_text = 'Finalizing video and audio...'
+                    set_processing_status(finalizing_text)
+                    if progress_message_obj:
+                        try:
+                            await progress_message_obj.edit_text(finalizing_text)
+                        except Exception as e:
+                            logger.warning(f"Could not update finalizing status: {e}")
                 # Suppress [ADAPTIVE] telemetry to DEBUG to avoid terminal spam
                 if adaptive_line_regex.search(full_line):
                     logger.debug(f"[{stream_name} full line] {full_line}")
                 else:
                     # Keep terminal noise lower for heavy tracker output while preserving diagnostics in DEBUG.
                     if stream_name in ("ot_stdout", "ot_stderr"):
-                        logger.debug(f"[{stream_name} full line] {full_line}")
+                        if "[ERROR]" in full_line:
+                            logger.error("[%s] %s", stream_name, full_line)
+                        elif "[WARNING]" in full_line:
+                            logger.warning("[%s] %s", stream_name, full_line)
+                        else:
+                            logger.debug(f"[{stream_name} full line] {full_line}")
                     else:
                         logger.info(f"[{stream_name} full line] {full_line}")
                 if "ERROR" in full_line:
@@ -2437,7 +2452,7 @@ async def _stream_output_and_update_message(
                     new_progress_text = f"Downloading: {progress_info}"
                 elif yt_dlp_post_process_regex.search(progress_info):
                     new_progress_text = f"Post-processing: {progress_info}"
-            elif progress_type == 'tqdm':
+            elif progress_type == 'tqdm' and (tracking_state is None or tracking_state.get('phase') == 'tracking'):
                 tqdm_match = tqdm_regex.search(progress_info)
                 if tqdm_match:
                     new_progress_text = f"Processing: {tqdm_match.group(1).strip()}"
@@ -2662,11 +2677,12 @@ async def run_tracking_script_and_stream_output(
         )
         _register_async_process(process, "ot.py")
 
+        tracking_state = {'phase': 'tracking'}
         stdout_task = asyncio.create_task(
-            _stream_output_and_update_message(process.stdout, progress_message_obj, context, "ot_stdout", 'general')
+            _stream_output_and_update_message(process.stdout, progress_message_obj, context, "ot_stdout", 'general', tracking_state)
         )
         stderr_task = asyncio.create_task(
-            _stream_output_and_update_message(process.stderr, progress_message_obj, context, "ot_stderr", 'tqdm')
+            _stream_output_and_update_message(process.stderr, progress_message_obj, context, "ot_stderr", 'tqdm', tracking_state)
         )
 
         try:
@@ -2902,7 +2918,7 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
             set_processing_status("⛔ Processing cancelled. Server is ready for the next video.")
             reset_status_after_delay(4)
             return False
-        set_processing_status("Object tracking failed.") # Update global status
+        set_processing_status("Object tracking failed. Check the server terminal for details.")
         reset_status_after_delay() # Reset status after failure
         return False
 
@@ -6731,6 +6747,24 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
             if token:
                 invalidate_token(token)
                 logger.info(f"Token {token[:10]}... invalidated for logout.")
+                
+                # Notify the Vault server to revoke this token immediately
+                try:
+                    import urllib.request
+                    vault_port = os.environ.get("VAULT_PORT", "5100")
+                    url = f"http://127.0.0.1:{vault_port}/internal/revoke_token"
+                    payload = json.dumps({"token": token}).encode('utf-8')
+                    req = urllib.request.Request(
+                        url, 
+                        data=payload, 
+                        headers={'Content-Type': 'application/json'},
+                        method='POST'
+                    )
+                    with urllib.request.urlopen(req, timeout=1.0) as resp:
+                        pass
+                except Exception as ex:
+                    logger.debug(f"Vault server notification failed on token revocation: {ex}")
+
                 self.send_api_response(200, {"message": "Logged out successfully."})
             else:
                 self.send_api_response(400, {"message": "No token provided for logout."})
@@ -6742,6 +6776,18 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
             if self._authorize_master_admin(admin_payload):
                 clear_all_sessions() # Invalidate all sessions
                 logger.info(f"Master admin '{admin_payload.get('username')}' triggered logout of all sessions.")
+                
+                # Notify the Vault server to revoke all sessions immediately
+                try:
+                    import urllib.request
+                    vault_port = os.environ.get("VAULT_PORT", "5100")
+                    url = f"http://127.0.0.1:{vault_port}/internal/revoke_all"
+                    req = urllib.request.Request(url, method='POST')
+                    with urllib.request.urlopen(req, timeout=1.0) as resp:
+                        pass
+                except Exception as ex:
+                    logger.debug(f"Vault server notification failed on global revocation: {ex}")
+
                 self.send_api_response(200, {"message": "All admin sessions have been invalidated."})
         elif self.path == '/update_credentials': # New endpoint for admin password update (protected)
             admin_payload = self._authenticate_request()
