@@ -4,6 +4,7 @@ import json
 import logging
 import time
 import asyncio
+import requests
 from datetime import datetime
 from typing import Tuple, Optional, Callable
 from env_config import get_env
@@ -86,7 +87,12 @@ def authenticate_google_drive():
         else:
             logger.error("Failed to obtain Google Drive credentials.")
             return None
-    return build('drive', 'v3', credentials=creds)
+    service = build('drive', 'v3', credentials=creds)
+    try:
+        service._creds = creds
+    except Exception:
+        pass
+    return service
 
 def get_or_create_google_drive_folder(service, folder_path, parent_id=None):
     """
@@ -128,23 +134,263 @@ def get_or_create_google_drive_folder(service, folder_path, parent_id=None):
             
     return current_parent_id # Return the ID of the innermost folder
 
-# Chunk size for resumable Google Drive uploads (5 MB - sweet spot for performance/progress)
-_GDRIVE_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024
+# Fallback chunk size for googleapiclient MediaFileUpload (32 MB instead of 5 MB)
+_GDRIVE_UPLOAD_CHUNK_SIZE = 32 * 1024 * 1024
+# Streaming read size for live progress & low memory (~2 MB per socket read)
+_GDRIVE_STREAM_BUFFER_SIZE = 2 * 1024 * 1024
+_GDRIVE_CHUNK_ALIGN = 256 * 1024
 # Max retries per chunk on transient errors
-_GDRIVE_CHUNK_MAX_RETRIES = 3
+_GDRIVE_CHUNK_MAX_RETRIES = 4
+
+
+def _choose_drive_chunk_size(file_size_bytes: int) -> int:
+    """Picks a 256 KiB-aligned chunk size up to 128 MB so 500+ MB 4K files need only a few PUTs."""
+    env_mb = (get_env('GDRIVE_UPLOAD_CHUNK_MB', '') or '').strip()
+    if env_mb.isdigit() and int(env_mb) > 0:
+        requested = max(_GDRIVE_CHUNK_ALIGN, int(env_mb) * 1024 * 1024)
+        return ((requested + _GDRIVE_CHUNK_ALIGN - 1) // _GDRIVE_CHUNK_ALIGN) * _GDRIVE_CHUNK_ALIGN
+    if file_size_bytes <= 64 * 1024 * 1024:
+        aligned = ((max(file_size_bytes, _GDRIVE_CHUNK_ALIGN) + _GDRIVE_CHUNK_ALIGN - 1) // _GDRIVE_CHUNK_ALIGN) * _GDRIVE_CHUNK_ALIGN
+        return aligned
+    if file_size_bytes < 256 * 1024 * 1024:
+        return 64 * 1024 * 1024
+    return 128 * 1024 * 1024
+
+
+def _extract_drive_credentials(service):
+    creds = getattr(service, '_creds', None)
+    if creds is None:
+        creds = getattr(getattr(service, '_http', None), 'credentials', None)
+    return creds
+
+
+def _refresh_creds_if_needed(creds, force: bool = False):
+    if not creds:
+        return None
+    if force or not creds.valid or not creds.token:
+        if creds.refresh_token:
+            creds.refresh(Request())
+    return creds.token
+
+
+def _parse_drive_range_end(range_header: str) -> Optional[int]:
+    if not range_header or 'bytes=' not in range_header:
+        return None
+    try:
+        span = range_header.split('bytes=', 1)[1].split(',', 1)[0].strip()
+        _, end_s = span.split('-', 1)
+        return int(end_s)
+    except Exception:
+        return None
+
+
+class _ChunkStreamReader:
+    """Sized byte-slice iterable so requests sends fixed Content-Length without Transfer-Encoding: chunked."""
+
+    def __init__(self, fp, offset: int, length: int, on_bytes_read: Callable[[int], None]):
+        self._fp = fp
+        self._offset = offset
+        self._length = length
+        self._on_bytes_read = on_bytes_read
+
+    def __len__(self) -> int:
+        return self._length
+
+    def __iter__(self):
+        self._fp.seek(self._offset)
+        remaining = self._length
+        sent = 0
+        while remaining > 0:
+            buf = self._fp.read(min(_GDRIVE_STREAM_BUFFER_SIZE, remaining))
+            if not buf:
+                break
+            remaining -= len(buf)
+            sent += len(buf)
+            self._on_bytes_read(self._offset + sent)
+            yield buf
+
+
+def _upload_via_requests_streaming(
+    creds,
+    file_path: str,
+    file_name: str,
+    file_size_bytes: int,
+    mime_type: str,
+    folder_id: str,
+    progress_callback: Callable = None,
+):
+    """
+    High-throughput Google Drive v3 resumable upload using persistent requests.Session,
+    128 MB chunks for large 4K files, and 2 MB socket streaming with live progress.
+    Returns parsed response JSON dict on completion.
+    """
+    chunk_size = _choose_drive_chunk_size(file_size_bytes)
+    total_mb = file_size_bytes / (1024 * 1024)
+    logger.info(
+        f"Starting fast Google Drive upload for '{file_name}' ({total_mb:.1f} MB) "
+        f"using {max(1, chunk_size // (1024 * 1024))} MB streaming chunks..."
+    )
+
+    session = requests.Session()
+    try:
+        token = _refresh_creds_if_needed(creds)
+        if not token:
+            raise RuntimeError("Missing valid OAuth token for fast streaming upload")
+
+        init_url = (
+            "https://www.googleapis.com/upload/drive/v3/files"
+            "?uploadType=resumable&fields=id,webContentLink,webViewLink"
+        )
+        init_headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json; charset=UTF-8",
+            "X-Upload-Content-Type": mime_type,
+            "X-Upload-Content-Length": str(file_size_bytes),
+        }
+        init_resp = session.post(
+            init_url,
+            headers=init_headers,
+            json={"name": file_name, "parents": [folder_id]},
+            timeout=(15, 60),
+        )
+        if init_resp.status_code == 401:
+            token = _refresh_creds_if_needed(creds, force=True)
+            init_headers["Authorization"] = f"Bearer {token}"
+            init_resp = session.post(
+                init_url,
+                headers=init_headers,
+                json={"name": file_name, "parents": [folder_id]},
+                timeout=(15, 60),
+            )
+        if init_resp.status_code not in (200, 201):
+            raise RuntimeError(f"Resumable init failed ({init_resp.status_code}): {init_resp.text[:250]}")
+
+        upload_uri = init_resp.headers.get("Location")
+        if not upload_uri:
+            raise RuntimeError("Missing resumable upload Location header from Google Drive")
+
+        offset = 0
+        upload_start_ts = time.monotonic()
+        last_progress_emit = 0.0
+
+        def _emit_progress(bytes_sent: int, force: bool = False):
+            nonlocal last_progress_emit
+            now = time.monotonic()
+            if not force and (now - last_progress_emit) < 0.45:
+                return
+            last_progress_emit = now
+            pct = min(99 if bytes_sent < file_size_bytes else 100, int((bytes_sent / file_size_bytes) * 100))
+            uploaded_mb = bytes_sent / (1024 * 1024)
+            elapsed = max(0.1, now - upload_start_ts)
+            speed_mbps = uploaded_mb / elapsed
+            sys.stdout.write(
+                f"\r\033[K\033[1;35mUploading:\033[0m {pct}% "
+                f"({uploaded_mb:.1f}/{total_mb:.1f} MB | {speed_mbps:.1f} MB/s) → Google Drive"
+            )
+            sys.stdout.flush()
+            if progress_callback:
+                try:
+                    progress_callback(pct, uploaded_mb, total_mb)
+                except Exception:
+                    pass
+
+        with open(file_path, "rb") as fp:
+            while offset < file_size_bytes:
+                send_len = min(chunk_size, file_size_bytes - offset)
+                end_byte = offset + send_len - 1
+                chunk_retries = 0
+
+                while True:
+                    token = _refresh_creds_if_needed(creds)
+                    body_stream = _ChunkStreamReader(fp, offset, send_len, _emit_progress)
+                    put_headers = {
+                        "Authorization": f"Bearer {token}",
+                        "Content-Length": str(send_len),
+                        "Content-Range": f"bytes {offset}-{end_byte}/{file_size_bytes}",
+                    }
+                    try:
+                        resp = session.put(
+                            upload_uri,
+                            headers=put_headers,
+                            data=body_stream,
+                            timeout=(15, 300),
+                        )
+                    except requests.RequestException as req_err:
+                        chunk_retries += 1
+                        if chunk_retries > _GDRIVE_CHUNK_MAX_RETRIES:
+                            raise
+                        backoff = 2 ** chunk_retries
+                        logger.warning(
+                            f"Drive streaming retry {chunk_retries}/{_GDRIVE_CHUNK_MAX_RETRIES} "
+                            f"after network error ({backoff}s): {req_err}"
+                        )
+                        time.sleep(backoff)
+                        # Sync exact committed byte offset on Drive before retrying chunk
+                        try:
+                            probe = session.put(
+                                upload_uri,
+                                headers={
+                                    "Authorization": f"Bearer {_refresh_creds_if_needed(creds)}",
+                                    "Content-Length": "0",
+                                    "Content-Range": f"bytes */{file_size_bytes}",
+                                },
+                                timeout=(15, 30),
+                            )
+                            if probe.status_code in (200, 201):
+                                _emit_progress(file_size_bytes, force=True)
+                                return probe.json()
+                            if probe.status_code == 308:
+                                committed_end = _parse_drive_range_end(probe.headers.get("Range", ""))
+                                if committed_end is not None and committed_end + 1 > offset:
+                                    offset = committed_end + 1
+                                    break
+                        except Exception:
+                            pass
+                        continue
+
+                    if resp.status_code in (200, 201):
+                        _emit_progress(file_size_bytes, force=True)
+                        return resp.json()
+
+                    if resp.status_code == 308:
+                        committed_end = _parse_drive_range_end(resp.headers.get("Range", ""))
+                        offset = (committed_end + 1) if committed_end is not None else (end_byte + 1)
+                        _emit_progress(offset, force=(offset >= file_size_bytes))
+                        break
+
+                    if resp.status_code == 401 and chunk_retries < _GDRIVE_CHUNK_MAX_RETRIES:
+                        chunk_retries += 1
+                        _refresh_creds_if_needed(creds, force=True)
+                        continue
+
+                    if resp.status_code in (408, 429, 500, 502, 503, 504) and chunk_retries < _GDRIVE_CHUNK_MAX_RETRIES:
+                        chunk_retries += 1
+                        backoff = 2 ** chunk_retries
+                        logger.warning(
+                            f"Drive chunk HTTP {resp.status_code} (retry {chunk_retries}/{_GDRIVE_CHUNK_MAX_RETRIES}, "
+                            f"backoff {backoff}s)"
+                        )
+                        time.sleep(backoff)
+                        continue
+
+                    raise RuntimeError(f"Google Drive chunk upload failed ({resp.status_code}): {resp.text[:250]}")
+
+        raise RuntimeError("Upload loop exited without completion response from Google Drive")
+    finally:
+        session.close()
 
 
 def upload_to_google_drive(service, file_path, folder_id, progress_callback: Callable = None):
     """
-    Uploads a file to Google Drive within a specified folder using chunked
-    resumable uploads for reliability with large files.
+    Uploads a file to Google Drive within a specified folder using high-speed
+    streaming resumable uploads (falling back to MediaFileUpload if needed).
 
     Args:
         service: Authenticated Google Drive API service instance.
         file_path: Local path of the file to upload.
         folder_id: Google Drive folder ID to upload into.
         progress_callback: Optional callable(percent: int, uploaded_mb: float, total_mb: float)
-                           invoked after each chunk for progress reporting.
+                           invoked continuously during upload for progress reporting.
     """
     file_name = os.path.basename(file_path)
     file_size_bytes = os.path.getsize(file_path)
@@ -163,62 +409,81 @@ def upload_to_google_drive(service, file_path, folder_id, progress_callback: Cal
     elif file_name.lower().endswith('.webm'):
         mime_type = 'video/webm'
 
-    media = MediaFileUpload(
-        file_path,
-        mimetype=mime_type,
-        resumable=True,
-        chunksize=_GDRIVE_UPLOAD_CHUNK_SIZE
-    )
-
-    logger.info(f"Starting Google Drive upload for '{file_name}' ({file_size_mb:.1f} MB) "
-                f"in {_GDRIVE_UPLOAD_CHUNK_SIZE // (1024*1024)} MB chunks...")
-
     try:
-        request = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields='id, webContentLink, webViewLink'
-        )
-
         response = None
-        last_progress_log_time = 0
-        while response is None:
-            chunk_retries = 0
-            while True:
-                try:
-                    status, response = request.next_chunk()
-                    break  # Chunk succeeded
-                except Exception as chunk_err:
-                    chunk_retries += 1
-                    if chunk_retries > _GDRIVE_CHUNK_MAX_RETRIES:
-                        logger.error(
-                            f"Google Drive upload chunk failed after {_GDRIVE_CHUNK_MAX_RETRIES} retries: {chunk_err}"
-                        )
-                        raise  # Re-raise to be caught by outer handler
-                    backoff = 2 ** chunk_retries
-                    logger.warning(
-                        f"Google Drive chunk upload error (retry {chunk_retries}/{_GDRIVE_CHUNK_MAX_RETRIES}, "
-                        f"backoff {backoff}s): {chunk_err}"
-                    )
-                    time.sleep(backoff)
+        creds = _extract_drive_credentials(service)
+        if creds and file_size_bytes > 0:
+            try:
+                response = _upload_via_requests_streaming(
+                    creds=creds,
+                    file_path=file_path,
+                    file_name=file_name,
+                    file_size_bytes=file_size_bytes,
+                    mime_type=mime_type,
+                    folder_id=folder_id,
+                    progress_callback=progress_callback,
+                )
+            except Exception as fast_err:
+                logger.warning(f"Fast streaming Drive upload failed ({fast_err}); falling back to MediaFileUpload...")
+                response = None
 
-            if status is not None:
-                percent = int(status.progress() * 100)
-                uploaded_mb = (status.resumable_progress or 0) / (1024 * 1024)
-                now = time.time()
-                # Log at most once per second to avoid spam
-                if now - last_progress_log_time >= 1.0:
-                    sys.stdout.write(
-                        f"\r\033[K\033[1;35mUploading:\033[0m {percent}% "
-                        f"({uploaded_mb:.1f}/{file_size_mb:.1f} MB) → Google Drive"
-                    )
-                    sys.stdout.flush()
-                    last_progress_log_time = now
-                if progress_callback:
+        if response is None:
+            fallback_chunk = _choose_drive_chunk_size(file_size_bytes) if file_size_bytes > 0 else _GDRIVE_UPLOAD_CHUNK_SIZE
+            media = MediaFileUpload(
+                file_path,
+                mimetype=mime_type,
+                resumable=True,
+                chunksize=min(fallback_chunk, _GDRIVE_UPLOAD_CHUNK_SIZE),
+            )
+
+            logger.info(
+                f"Starting fallback MediaFileUpload for '{file_name}' ({file_size_mb:.1f} MB) "
+                f"in {min(fallback_chunk, _GDRIVE_UPLOAD_CHUNK_SIZE) // (1024 * 1024) or 1} MB chunks..."
+            )
+
+            request = service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields='id, webContentLink, webViewLink'
+            )
+
+            last_progress_log_time = 0
+            while response is None:
+                chunk_retries = 0
+                while True:
                     try:
-                        progress_callback(percent, uploaded_mb, file_size_mb)
-                    except Exception:
-                        pass  # Never let callback errors kill the upload
+                        status, response = request.next_chunk()
+                        break  # Chunk succeeded
+                    except Exception as chunk_err:
+                        chunk_retries += 1
+                        if chunk_retries > _GDRIVE_CHUNK_MAX_RETRIES:
+                            logger.error(
+                                f"Google Drive upload chunk failed after {_GDRIVE_CHUNK_MAX_RETRIES} retries: {chunk_err}"
+                            )
+                            raise  # Re-raise to be caught by outer handler
+                        backoff = 2 ** chunk_retries
+                        logger.warning(
+                            f"Google Drive chunk upload error (retry {chunk_retries}/{_GDRIVE_CHUNK_MAX_RETRIES}, "
+                            f"backoff {backoff}s): {chunk_err}"
+                        )
+                        time.sleep(backoff)
+
+                if status is not None:
+                    percent = int(status.progress() * 100)
+                    uploaded_mb = (status.resumable_progress or 0) / (1024 * 1024)
+                    now = time.time()
+                    if now - last_progress_log_time >= 1.0:
+                        sys.stdout.write(
+                            f"\r\033[K\033[1;35mUploading:\033[0m {percent}% "
+                            f"({uploaded_mb:.1f}/{file_size_mb:.1f} MB) → Google Drive"
+                        )
+                        sys.stdout.flush()
+                        last_progress_log_time = now
+                    if progress_callback:
+                        try:
+                            progress_callback(percent, uploaded_mb, file_size_mb)
+                        except Exception:
+                            pass
 
         # Clear the in-place progress line and log final success
         sys.stdout.write("\r\033[K")

@@ -1216,7 +1216,10 @@ def set_processing_status(message: Union[str, None]):
         if (
             message.startswith("Processing:") or
             message.startswith("Downloading:") or
+            message.startswith("Transcoding ") or
             message.startswith("Merging") or
+            message.startswith("Finalizing") or
+            message.startswith("Post-processing:") or
             message.startswith("Uploading:") or
             message.startswith("📊 Benchmark")
         ):
@@ -2272,26 +2275,40 @@ async def _terminate_async_process(process: asyncio.subprocess.Process, label: s
         else:
             logger.warning(f"Subprocess '{label}' (pid={process.pid}) still appears alive after termination attempts.")
 
+def _ffmpeg_subprocess_env() -> dict:
+    """Ensures ~/.local/bin and ~/.local/lib (libvmaf) are available to ffmpeg/ffprobe."""
+    env = _ytdlp_subprocess_env()
+    local_lib = os.path.expanduser("~/.local/lib")
+    if os.path.isdir(local_lib):
+        existing = [p for p in env.get("LD_LIBRARY_PATH", "").split(os.pathsep) if p]
+        if local_lib not in existing:
+            existing.insert(0, local_lib)
+        env["LD_LIBRARY_PATH"] = os.pathsep.join(existing)
+    return env
+
+
 async def ensure_h264_codec(video_path: str, progress_message_obj=None) -> tuple[bool, str]:
     """
-    Checks if the video uses a codec compatible with OpenCV (H.264).
-    If it's AV1, VP9, or other incompatible codec, transcodes to H.264 using GPU if available.
-    Overwrites the original file with the transcoded version so paths stay consistent.
+    Checks if the video uses a codec/pixel format compatible with OpenCV (8-bit H.264).
+    If it's AV1, VP9, 10-bit HDR, or other incompatible format (e.g., 4K YouTube streams),
+    transcodes to 8-bit yuv420p H.264 using zero-copy CUDA NVDEC->NVENC first (high-quality
+    VBR CQ 16, preset p2, no faststart double-write), falling back to hybrid CUDA->NVENC
+    and multi-threaded CPU libx264 (-threads 0), while streaming real-time progress.
     Returns (success, final_video_path).
     """
-    # Codecs that OpenCV's VideoCapture cannot reliably decode
-    INCOMPATIBLE_CODECS = {'av1', 'av01', 'vp9', 'vp8'}
+    INCOMPATIBLE_CODECS = {'av1', 'av01', 'vp9', 'vp09', 'vp8', 'hevc', 'h265'}
+    ff_env = _ffmpeg_subprocess_env()
     try:
-        # Detect codec using ffprobe
+        # Detect video codec, pixel format, and total duration using ffprobe
         cmd = [
             "ffprobe", "-v", "error",
             "-select_streams", "v:0",
-            "-show_entries", "stream=codec_name",
-            "-of", "default=nokey=1:noprint_wrappers=1",
+            "-show_entries", "stream=codec_name,pix_fmt,duration:format=duration",
+            "-of", "json",
             video_path
         ]
         process = await asyncio.create_subprocess_exec(
-            *cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            *cmd, env=ff_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             **_start_new_session_kwargs()
         )
         _register_async_process(process, "ffprobe-codec")
@@ -2302,63 +2319,199 @@ async def ensure_h264_codec(video_path: str, progress_message_obj=None) -> tuple
             raise
         finally:
             _unregister_async_process(process)
-        codec = stdout.decode('utf-8', errors='ignore').strip().lower()
-        logger.info(f"Detected video codec: '{codec}' for {video_path}")
 
-        if codec not in INCOMPATIBLE_CODECS:
-            logger.info(f"Codec '{codec}' is OpenCV-compatible. No transcode needed.")
+        codec = ''
+        pix_fmt = ''
+        duration_sec = 0.0
+        try:
+            probe_json = json.loads(stdout.decode('utf-8', errors='ignore') or '{}')
+            stream_info = (probe_json.get('streams') or [{}])[0]
+            fmt_info = probe_json.get('format') or {}
+            codec = str(stream_info.get('codec_name') or '').strip().lower()
+            pix_fmt = str(stream_info.get('pix_fmt') or '').strip().lower()
+            for dur_raw in (stream_info.get('duration'), fmt_info.get('duration')):
+                try:
+                    dur_val = float(dur_raw)
+                    if dur_val > 0:
+                        duration_sec = dur_val
+                        break
+                except (TypeError, ValueError):
+                    pass
+        except Exception:
+            pass
+
+        is_10bit = ('10' in pix_fmt) or ('12' in pix_fmt)
+        is_zerocopy_yuv = pix_fmt in {'yuv420p', 'nv12', 'yuvj420p'}
+        logger.info(f"Detected video codec: '{codec}', pix_fmt: '{pix_fmt or 'unknown'}', duration: {duration_sec:.2f}s for {video_path}")
+
+        if codec and codec not in INCOMPATIBLE_CODECS and not is_10bit:
+            logger.info(f"Codec '{codec}' ({pix_fmt}) is OpenCV-compatible. No transcode needed.")
             return True, video_path
 
-        # Codec is incompatible — need to transcode to H.264
-        logger.warning(f"Codec '{codec}' is not compatible with OpenCV. Transcoding to H.264...")
+        # Codec or pixel format is incompatible — transcode to 8-bit yuv420p H.264
+        codec_label = (codec or 'video').upper()
+        logger.warning(f"Codec '{codec}' ({pix_fmt}) requires H.264 yuv420p transcoding...")
+        start_msg = f"Transcoding {codec_label} → H.264: 0% (Starting...)"
         if progress_message_obj:
-            await progress_message_obj.edit_text(f"Transcoding from {codec.upper()} to H.264 for processing (this may take a moment)...")
-        set_processing_status(f"Transcoding from {codec.upper()} to H.264...")
+            await progress_message_obj.edit_text(start_msg)
+        set_processing_status(start_msg)
 
         temp_path = video_path + '.transcode_tmp.mp4'
 
-        # Try GPU (NVENC) first for speed, fall back to CPU
-        for encoder, extra_args in [('h264_nvenc', ['-preset', 'p4']), ('libx264', ['-preset', 'ultrafast', '-crf', '18'])]:
-            transcode_cmd = [
-                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-                "-i", video_path,
-                "-c:v", encoder, *extra_args,
-                "-c:a", "copy",
-                temp_path
-            ]
-            logger.info(f"Transcoding with {encoder}: {' '.join(transcode_cmd)}")
-            transcode_proc = await asyncio.create_subprocess_exec(
-                *transcode_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                **_start_new_session_kwargs()
-            )
-            _register_async_process(transcode_proc, f"ffmpeg-transcode-{encoder}")
-            try:
-                _, stderr = await transcode_proc.communicate()
-            except asyncio.CancelledError:
-                await _terminate_async_process(transcode_proc, f"ffmpeg-transcode-{encoder}")
-                raise
-            finally:
-                _unregister_async_process(transcode_proc)
-            if transcode_proc.returncode == 0:
-                # Replace original file with transcoded version
+        # 1. Zero-copy CUDA decode + NVENC encode (8-bit yuv420p/nv12 sources: no CPU decode/PCIe copy)
+        # 2. Hybrid CUDA NVDEC decode + 8-bit yuv420p NVENC encode (handles 10-bit/HDR/non-420 formats)
+        # 3. Multi-threaded CPU libx264 fallback using all cores (-threads 0)
+        transcode_attempts = []
+        if is_zerocopy_yuv and not is_10bit:
+            transcode_attempts.append((
+                'h264_nvenc',
+                'NVENC CUDA',
+                ['-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda'],
+                ['-c:v', 'h264_nvenc', '-preset', 'p2', '-rc', 'vbr', '-cq', '16', '-b:v', '0'],
+            ))
+        transcode_attempts.append((
+            'h264_nvenc',
+            'NVENC GPU',
+            ['-threads', '0', '-hwaccel', 'cuda'],
+            ['-c:v', 'h264_nvenc', '-preset', 'p2', '-rc', 'vbr', '-cq', '16', '-b:v', '0', '-pix_fmt', 'yuv420p'],
+        ))
+        transcode_attempts.append((
+            'libx264',
+            'CPU 16T',
+            ['-threads', '0'],
+            ['-c:v', 'libx264', '-preset', 'superfast', '-crf', '17', '-threads', '0', '-pix_fmt', 'yuv420p'],
+        ))
+
+        for encoder, encoder_label, hw_in_args, enc_args in transcode_attempts:
+            for audio_args in (['-c:a', 'copy'], ['-c:a', 'aac', '-b:a', '192k']):
+                transcode_cmd = [
+                    "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                    "-progress", "pipe:1", "-nostats",
+                    *hw_in_args,
+                    "-i", video_path,
+                    *enc_args,
+                    *audio_args,
+                    temp_path
+                ]
+                logger.info(f"Transcoding with {encoder_label} ({' '.join(audio_args)}): {' '.join(transcode_cmd)}")
+                transcode_proc = await asyncio.create_subprocess_exec(
+                    *transcode_cmd,
+                    env=ff_env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    **_start_new_session_kwargs()
+                )
+                _register_async_process(transcode_proc, f"ffmpeg-transcode-{encoder}")
+
+                stderr_task = asyncio.create_task(transcode_proc.stderr.read())
+                progress_state = {
+                    'frame': '',
+                    'fps': '',
+                    'speed': '',
+                    'out_time_us': 0,
+                }
+                last_emit_time = time.monotonic()
+                last_emitted_text = ""
+
+                async def _emit_transcode_progress(force: bool = False):
+                    nonlocal last_emit_time, last_emitted_text
+                    now = time.monotonic()
+                    if not force and (now - last_emit_time) < 0.75:
+                        return
+                    out_sec = max(0.0, progress_state['out_time_us'] / 1_000_000.0)
+                    speed_raw = progress_state['speed'].strip()
+                    speed_val = 0.0
+                    if speed_raw.endswith('x'):
+                        try:
+                            speed_val = float(speed_raw[:-1])
+                        except ValueError:
+                            speed_val = 0.0
+                    fps_raw = progress_state['fps'].strip()
+                    details = [encoder_label]
+                    if fps_raw and fps_raw != '0.0':
+                        details.append(f"{fps_raw} fps")
+                    if speed_raw and speed_raw != 'N/A':
+                        details.append(speed_raw)
+                    if duration_sec > 0:
+                        pct = min(99, max(0, int(round((out_sec / duration_sec) * 100))))
+                        if speed_val > 0 and out_sec < duration_sec:
+                            eta_sec = max(0, int(round((duration_sec - out_sec) / speed_val)))
+                            details.append(f"ETA: {_format_eta_seconds(eta_sec)}")
+                        status_txt = f"Transcoding {codec_label} → H.264: {pct}% ({' | '.join(details)})"
+                    else:
+                        frame_raw = progress_state['frame'] or '0'
+                        status_txt = f"Transcoding {codec_label} → H.264: frame {frame_raw} ({' | '.join(details)})"
+                    if status_txt != last_emitted_text:
+                        set_processing_status(status_txt)
+                        if progress_message_obj:
+                            try:
+                                await progress_message_obj.edit_text(status_txt)
+                            except Exception:
+                                pass
+                        last_emitted_text = status_txt
+                        last_emit_time = now
+
                 try:
-                    os.replace(temp_path, video_path)
-                except OSError as e:
-                    logger.error(f"Could not replace original file after transcode: {e}")
-                    return False, video_path
-                logger.info(f"Transcode to H.264 successful using {encoder}. File updated: {video_path}")
-                return True, video_path
-            else:
-                err_msg = stderr.decode('utf-8', errors='ignore').strip()
-                logger.warning(f"Transcode with {encoder} failed (will try next): {err_msg[:200]}")
-                # Clean up failed temp file if it exists
-                if os.path.exists(temp_path):
+                    while True:
+                        raw_line = await transcode_proc.stdout.readline()
+                        if not raw_line:
+                            break
+                        line = raw_line.decode('utf-8', errors='ignore').strip()
+                        if '=' not in line:
+                            continue
+                        key, val = line.split('=', 1)
+                        key = key.strip()
+                        val = val.strip()
+                        if key in ('out_time_us', 'out_time_ms') and val.lstrip('-').isdigit():
+                            raw_num = max(0, int(val))
+                            # ffmpeg out_time_ms is historically also in microseconds in -progress output
+                            progress_state['out_time_us'] = raw_num
+                        elif key == 'frame':
+                            progress_state['frame'] = val
+                        elif key == 'fps':
+                            progress_state['fps'] = val
+                        elif key == 'speed':
+                            progress_state['speed'] = val
+                        elif key == 'progress':
+                            await _emit_transcode_progress(force=(val == 'end'))
+                    await transcode_proc.wait()
+                    stderr_bytes = await stderr_task
+                except asyncio.CancelledError:
+                    await _terminate_async_process(transcode_proc, f"ffmpeg-transcode-{encoder}")
+                    stderr_task.cancel()
+                    raise
+                finally:
+                    _unregister_async_process(transcode_proc)
+
+                if transcode_proc.returncode == 0 and os.path.exists(temp_path):
+                    done_txt = f"Transcoding {codec_label} → H.264: 100% ({encoder_label} complete)"
+                    set_processing_status(done_txt)
+                    if progress_message_obj:
+                        try:
+                            await progress_message_obj.edit_text(done_txt)
+                        except Exception:
+                            pass
+                    target_mp4 = os.path.splitext(video_path)[0] + '.mp4'
                     try:
-                        os.remove(temp_path)
-                    except OSError:
-                        pass
+                        os.replace(temp_path, target_mp4)
+                        if os.path.abspath(target_mp4) != os.path.abspath(video_path) and os.path.exists(video_path):
+                            try:
+                                os.remove(video_path)
+                            except OSError:
+                                pass
+                    except OSError as e:
+                        logger.error(f"Could not replace original file after transcode: {e}")
+                        return False, video_path
+                    logger.info(f"Transcode to H.264 successful using {encoder}. File updated: {target_mp4}")
+                    return True, target_mp4
+                else:
+                    err_msg = stderr_bytes.decode('utf-8', errors='ignore').strip()
+                    logger.warning(f"Transcode with {encoder} ({' '.join(audio_args)}) failed: {err_msg[:200]}")
+                    if os.path.exists(temp_path):
+                        try:
+                            os.remove(temp_path)
+                        except OSError:
+                            pass
 
         logger.error(f"All transcode attempts failed for {video_path}.")
         return False, video_path
@@ -2395,12 +2548,32 @@ async def _stream_output_and_update_message(
     wget_progress_regex = re.compile(r"^\s*\d+[KMGT]?\s+[\.\s]+\s*\d+%.*")
     tqdm_regex = re.compile(r"Processing Frames \(.*\): (.*)")
     ffmpeg_regex = re.compile(r"frame=\s*\d+\s+fps=[\d\.]+\s+q=[\d\.\-]+.*")
-    # New regex for yt-dlp progress
-    yt_dlp_progress_regex = re.compile(r"\[download\]\s+.*% of.*\s+at\s+.*B/s.*")
-    yt_dlp_post_process_regex = re.compile(r'\[Merger\] Merging formats into \"(.*)\"')
+    # Match both DASH HTTPS and HLS fragment progress lines (as well as 100% completion lines)
+    yt_dlp_progress_regex = re.compile(r"\[download\]\s+(\d+(?:\.\d+)?)%\s+of\b.*")
+    yt_dlp_post_process_regex = re.compile(r'\[(?:Merger|FixupM3u8|Fixup[^\]]+|ffmpeg)\]\s*(.*)')
     # Regex to detect [ADAPTIVE] telemetry lines (suppressed to DEBUG)
     adaptive_line_regex = re.compile(r"\[ADAPTIVE\]")
 
+    def _parse_line_progress(line_text: str) -> str:
+        if progress_type == 'wget':
+            if wget_progress_regex.search(line_text):
+                return f"Downloading: {line_text}"
+        elif progress_type == 'yt-dlp':
+            if yt_dlp_progress_regex.search(line_text):
+                return f"Downloading: {line_text}"
+            elif yt_dlp_post_process_regex.search(line_text):
+                return f"Merging downloaded streams (99%)..."
+            elif '[jsc:' in line_text:
+                return "Downloading: 0% (Solving YouTube challenge...)"
+        elif progress_type == 'tqdm' and (tracking_state is None or tracking_state.get('phase') == 'tracking'):
+            tqdm_match = tqdm_regex.search(line_text)
+            if tqdm_match:
+                return f"Processing: {tqdm_match.group(1).strip()}"
+        elif progress_type == 'ffmpeg':
+            ffmpeg_match = ffmpeg_regex.search(line_text)
+            if ffmpeg_match:
+                return f"Merging Audio: {ffmpeg_match.group(0).strip()}"
+        return ""
 
     while True:
         chunk = await stream.read(128)
@@ -2413,26 +2586,8 @@ async def _stream_output_and_update_message(
             if char == '\r':
                 if current_line_buffer:
                     progress_info = current_line_buffer.strip()
-                    new_progress_text = ""
-
-                    if progress_type == 'wget':
-                        if wget_progress_regex.search(progress_info):
-                            new_progress_text = f"Downloading: {progress_info}"
-                    elif progress_type == 'yt-dlp':
-                        if yt_dlp_progress_regex.search(progress_info):
-                            new_progress_text = f"Downloading: {progress_info}"
-                        elif yt_dlp_post_process_regex.search(progress_info):
-                            new_progress_text = f"Post-processing: {progress_info}"
-                    elif progress_type == 'tqdm' and (tracking_state is None or tracking_state.get('phase') == 'tracking'):
-                        tqdm_match = tqdm_regex.search(progress_info)
-                        if tqdm_match:
-                            new_progress_text = f"Processing: {tqdm_match.group(1).strip()}"
-                    elif progress_type == 'ffmpeg':
-                        ffmpeg_match = ffmpeg_regex.search(progress_info)
-                        if ffmpeg_match:
-                            new_progress_text = f"Merging Audio: {ffmpeg_match.group(0).strip()}"
-                    
-                    if new_progress_text and new_progress_text != last_progress_text and (time.time() - last_update_time > 1):
+                    new_progress_text = _parse_line_progress(progress_info)
+                    if new_progress_text and new_progress_text != last_progress_text and (time.time() - last_update_time >= 0.75):
                         set_processing_status(new_progress_text)
                         try:
                             if progress_message_obj:
@@ -2444,15 +2599,33 @@ async def _stream_output_and_update_message(
                 current_line_buffer = ""
             elif char == '\n':
                 full_line = current_line_buffer.strip()
-                if tracking_state is not None and stream_name == 'ot_stdout' and 'Main loop finished. Signaling I/O threads to stop' in full_line:
-                    tracking_state['phase'] = 'finalizing'
-                    finalizing_text = 'Finalizing video and audio...'
-                    set_processing_status(finalizing_text)
+                milestone_text = ""
+                if stream_name in ('ot_stdout', 'ot_stderr'):
+                    if 'Loading YOLO' in full_line or 'Loading model' in full_line:
+                        milestone_text = "Initializing YOLOv8 model & tracker (0%)..."
+                    elif 'Main loop finished. Signaling I/O threads to stop' in full_line:
+                        if tracking_state is not None:
+                            tracking_state['phase'] = 'finalizing'
+                        milestone_text = 'Finalizing video stream (96%)...'
+                    elif '[AUDIO_MERGE] Attempting to extract and merge audio' in full_line:
+                        if tracking_state is not None:
+                            tracking_state['phase'] = 'audio_merge'
+                        milestone_text = 'Merging Audio (98%)...'
+                elif progress_type == 'yt-dlp' and full_line:
+                    parsed_yt = _parse_line_progress(full_line)
+                    if parsed_yt:
+                        milestone_text = parsed_yt
+
+                if milestone_text and milestone_text != last_progress_text:
+                    set_processing_status(milestone_text)
+                    last_progress_text = milestone_text
+                    last_update_time = time.time()
                     if progress_message_obj:
                         try:
-                            await progress_message_obj.edit_text(finalizing_text)
+                            await progress_message_obj.edit_text(milestone_text)
                         except Exception as e:
-                            logger.warning(f"Could not update finalizing status: {e}")
+                            logger.warning(f"Could not update milestone status: {e}")
+
                 # Suppress [ADAPTIVE] telemetry to DEBUG to avoid terminal spam
                 if adaptive_line_regex.search(full_line):
                     logger.debug(f"[{stream_name} full line] {full_line}")
@@ -2485,26 +2658,9 @@ async def _stream_output_and_update_message(
             else:
                 current_line_buffer += char
         
-        if current_line_buffer and time.time() - last_update_time > 1:
+        if current_line_buffer and time.time() - last_update_time >= 0.75:
             progress_info = current_line_buffer.strip()
-            new_progress_text = ""
-            if progress_type == 'wget':
-                if wget_progress_regex.search(progress_info):
-                    new_progress_text = f"Downloading: {progress_info}"
-            elif progress_type == 'yt-dlp':
-                if yt_dlp_progress_regex.search(progress_info):
-                    new_progress_text = f"Downloading: {progress_info}"
-                elif yt_dlp_post_process_regex.search(progress_info):
-                    new_progress_text = f"Post-processing: {progress_info}"
-            elif progress_type == 'tqdm' and (tracking_state is None or tracking_state.get('phase') == 'tracking'):
-                tqdm_match = tqdm_regex.search(progress_info)
-                if tqdm_match:
-                    new_progress_text = f"Processing: {tqdm_match.group(1).strip()}"
-            elif progress_type == 'ffmpeg':
-                ffmpeg_match = ffmpeg_regex.search(progress_info)
-                if ffmpeg_match:
-                    new_progress_text = f"Merging Audio: {ffmpeg_match.group(0).strip()}"
-
+            new_progress_text = _parse_line_progress(progress_info)
             if new_progress_text and new_progress_text != last_progress_text:
                 set_processing_status(new_progress_text)
                 try:
@@ -2516,75 +2672,203 @@ async def _stream_output_and_update_message(
                     logger.warning(f"Could not edit progress message (partial {progress_type} progress): {e}")
 
 # MODIFIED: Use yt-dlp for video downloads instead of wget for robustness
+# Prioritize true highest resolution (4K/2160p VP9/AV1 > 1440p > 1080p) and highest FPS;
+# ensure_h264_codec() automatically converts VP9/AV1/10-bit streams to OpenCV-safe H.264.
+YTDLP_BEST_4K_FORMAT = "bestvideo+bestaudio/best"
+YTDLP_BEST_4K_SORT = "res,fps,vcodec:h264,ext:mp4:m4a"
+
+
+def _resolve_ytdlp_executable() -> str:
+    candidates = [
+        shutil.which("yt-dlp"),
+        os.path.expanduser("~/.local/bin/yt-dlp"),
+        "/usr/local/bin/yt-dlp",
+    ]
+    for path in candidates:
+        if path and os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return "yt-dlp"
+
+
+def _ytdlp_subprocess_env() -> dict:
+    env = os.environ.copy()
+    extra_bins = [
+        os.path.expanduser("~/.deno/bin"),
+        os.path.expanduser("~/.bun/bin"),
+        os.path.expanduser("~/.local/bin"),
+        "/usr/local/bin",
+    ]
+    current_path = env.get("PATH", "")
+    path_parts = [p for p in current_path.split(os.pathsep) if p]
+    for bin_dir in reversed(extra_bins):
+        if os.path.isdir(bin_dir) and bin_dir not in path_parts:
+            path_parts.insert(0, bin_dir)
+    env["PATH"] = os.pathsep.join(path_parts)
+    return env
+
+
+def _build_ytdlp_runtime_args() -> list[str]:
+    """Builds --js-runtimes and optional --cookies / EJS args for modern yt-dlp YouTube extraction."""
+    args: list[str] = []
+    search_candidates = {
+        "deno": [
+            shutil.which("deno"),
+            os.path.expanduser("~/.deno/bin/deno"),
+            os.path.expanduser("~/.local/bin/deno"),
+            "/usr/local/bin/deno",
+            "/usr/bin/deno",
+        ],
+        "bun": [
+            shutil.which("bun"),
+            os.path.expanduser("~/.bun/bin/bun"),
+            os.path.expanduser("~/.local/bin/bun"),
+            "/usr/local/bin/bun",
+        ],
+        "node": [
+            shutil.which("node"),
+            os.path.expanduser("~/.local/bin/node"),
+            "/usr/local/bin/node",
+            "/usr/bin/node",
+        ],
+    }
+
+    runtimes_added = 0
+    for runtime_name, paths in search_candidates.items():
+        found_path = next((p for p in paths if p and os.path.isfile(p) and os.access(p, os.X_OK)), None)
+        if not found_path:
+            continue
+        # Validate runtime minimum version for yt-dlp (e.g., Node >= 22, Deno >= 2.3, Bun >= 1.2.11)
+        if runtime_name == "node":
+            try:
+                ver_out = subprocess.check_output([found_path, "--version"], text=True, timeout=3).strip().lstrip("v")
+                major = int(ver_out.split(".")[0])
+                if major < 22:
+                    continue
+            except Exception:
+                continue
+        args.extend(["--js-runtimes", f"{runtime_name}:{found_path}"])
+        runtimes_added += 1
+
+    # Always keep remote EJS solver enabled as fallback if bundled/pip script needs solver updates
+    args.extend(["--remote-components", "ejs:github"])
+
+    cookies_file = (get_env("YTDLP_COOKIES_FILE", "") or "").strip()
+    if not cookies_file:
+        default_cookies = os.path.join(BASE_DIR, "cookies.txt")
+        if os.path.isfile(default_cookies):
+            cookies_file = default_cookies
+    if cookies_file and os.path.isfile(cookies_file):
+        args.extend(["--cookies", cookies_file])
+    else:
+        cookies_browser = (get_env("YTDLP_COOKIES_FROM_BROWSER", "") or "").strip()
+        if cookies_browser:
+            args.extend(["--cookies-from-browser", cookies_browser])
+
+    return args
+
+
+def _is_youtube_url(url: str) -> bool:
+    host = (urlparse(url or "").netloc or "").lower()
+    return any(domain in host for domain in ("youtube.com", "youtu.be", "youtube-nocookie.com"))
+
+
+def _ytdlp_attempt_strategies(url: str) -> list[tuple[str, list[str]]]:
+    """Ordered yt-dlp client/network strategies to try on YouTube 403 / extraction failures."""
+    if not _is_youtube_url(url):
+        return [("default", [])]
+    return [
+        ("default-ejs", []),
+        ("ipv4-ejs", ["--force-ipv4"]),
+        ("tv-websafari-ipv4", ["--force-ipv4", "--extractor-args", "youtube:player_client=tv,web_safari,web"]),
+        ("mweb-tv-ipv4", ["--force-ipv4", "--extractor-args", "youtube:player_client=mweb,tv,web"]),
+        ("android-vr-ios-ipv4", ["--force-ipv4", "--extractor-args", "youtube:player_client=android_vr,ios,web_embedded"]),
+    ]
+
+
+def _cleanup_partial_ytdlp_files(base_output_path: str):
+    """Removes stale .part / .ytdl files between failed download attempts so retries start clean."""
+    target_dir = os.path.dirname(base_output_path) or "."
+    prefix = os.path.basename(base_output_path)
+    if not os.path.isdir(target_dir):
+        return
+    for name in os.listdir(target_dir):
+        if name.startswith(prefix) and (name.endswith(".part") or name.endswith(".ytdl")):
+            try:
+                os.remove(os.path.join(target_dir, name))
+            except OSError:
+                pass
+
+
 async def download_video_async(url: str, output_dir: str, progress_message_obj=None, context=None) -> tuple[bool, str]:
     """
-    Asynchronously downloads a video from a URL using yt-dlp and streams progress.
+    Asynchronously downloads a video from a URL using yt-dlp (preferring true 4K when available)
+    and tries multiple YouTube client/IPv4 strategies if extraction or download returns HTTP 403.
     Returns (success, actual_output_filepath).
     """
     try:
         os.makedirs(output_dir, exist_ok=True)
-        # Use yt-dlp for robust video downloading
-        # -o: output template. %(id)s.%(ext)s ensures a unique filename with correct extension.
-        # -f: format selection. 'bestvideo+bestaudio/best' to get the highest quality available.
-        # --progress: show progress bar.
-        # --no-playlist: prevent downloading entire playlists if URL is part of one.
-        # --output-na-placeholder "": prevents outputting 'NA' for missing fields in filename
-        # --continue: resume download if file partially exists.
-        # --external-downloader aria2c: if aria2c is installed, it can speed up downloads.
-        # --external-downloader-args "-x 16 -s 16 -k 1M": arguments for aria2c (16 connections, 16 segments, 1MB min size).
-        
-        # Determine the full output path including filename using yt-dlp's output template logic
-        # yt-dlp automatically names files based on the video's title and extension.
-        # We need to ensure it saves to INPUT_SUBDIRECTORY.
-        
-        # First, dry-run to get the expected filename.
-        dry_run_command = [
-            "yt-dlp",
-            "--simulate",
-            "--get-filename",
-            "-o", "%(title)s.%(ext)s",  # No dir prefix; we join manually below
-            "-f", "bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/bestvideo[ext=mp4][vcodec!*=av01]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc]+bestaudio/best",
-            "--merge-output-format", "mp4",  # Ensure output format is mp4
-            "--no-playlist",  # Only get filename for the target video, not the entire playlist
-            "--js-runtimes", "node",  # Use Node.js as JS runtime for YouTube extraction
-            url
-        ]
-        logger.info(f"Starting yt-dlp dry-run to get filename: {' '.join(dry_run_command)}")
-        dry_run_process = await asyncio.create_subprocess_exec(
-            *dry_run_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            **_start_new_session_kwargs()
-        )
-        _register_async_process(dry_run_process, "yt-dlp-dry-run")
-        try:
-            stdout, stderr = await dry_run_process.communicate()
-        except asyncio.CancelledError:
-            await _terminate_async_process(dry_run_process, "yt-dlp-dry-run")
-            raise
-        finally:
-            _unregister_async_process(dry_run_process)
-        
-        if dry_run_process.returncode != 0:
-            error_msg = stderr.decode('utf-8', errors='ignore').strip()
-            logger.error(f"yt-dlp dry-run failed with exit code {dry_run_process.returncode}: {error_msg}")
-            if progress_message_obj:
-                await progress_message_obj.edit_text(f"Download setup failed (dry-run): {error_msg[:200]}...")
-            return False, ""
+        ytdlp_bin = _resolve_ytdlp_executable()
+        ytdlp_env = _ytdlp_subprocess_env()
+        runtime_args = _build_ytdlp_runtime_args()
+        strategies = _ytdlp_attempt_strategies(url)
 
-        raw_dry_run_output = stdout.decode('utf-8', errors='ignore').strip()
-        # Take only the FIRST non-empty line — safety net if playlist output slips through
-        actual_output_filename = next(
-            (line.strip() for line in raw_dry_run_output.splitlines() if line.strip()), ""
-        )
-        # Remove any remaining OS-unsafe characters
+        # Resolve expected output filename cleanly across strategies
+        set_processing_status("Downloading: 0% (Resolving 4K streams...)")
+        if progress_message_obj:
+            await progress_message_obj.edit_text("Downloading: 0% (Resolving 4K streams...)")
+        actual_output_filename = ""
+        last_error_msg = ""
+        for strategy_name, extra_flags in strategies:
+            dry_run_command = [
+                ytdlp_bin,
+                "--no-update",
+                "--simulate",
+                "--get-filename",
+                "-o", "%(title)s.%(ext)s",
+                "-f", YTDLP_BEST_4K_FORMAT,
+                "-S", YTDLP_BEST_4K_SORT,
+                "--merge-output-format", "mp4",
+                "--no-playlist",
+                *runtime_args,
+                *extra_flags,
+                url
+            ]
+            logger.info(f"Starting yt-dlp dry-run ({strategy_name}): {' '.join(dry_run_command)}")
+            dry_run_process = await asyncio.create_subprocess_exec(
+                *dry_run_command,
+                env=ytdlp_env,
+                cwd=BASE_DIR,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                **_start_new_session_kwargs()
+            )
+            _register_async_process(dry_run_process, "yt-dlp-dry-run")
+            try:
+                stdout, stderr = await dry_run_process.communicate()
+            except asyncio.CancelledError:
+                await _terminate_async_process(dry_run_process, "yt-dlp-dry-run")
+                raise
+            finally:
+                _unregister_async_process(dry_run_process)
+
+            if dry_run_process.returncode == 0:
+                raw_dry_run_output = stdout.decode('utf-8', errors='ignore').strip()
+                candidate = next((line.strip() for line in raw_dry_run_output.splitlines() if line.strip()), "")
+                if candidate:
+                    actual_output_filename = candidate
+                    break
+            last_error_msg = stderr.decode('utf-8', errors='ignore').strip()
+            logger.warning(f"yt-dlp dry-run ({strategy_name}) failed (code {dry_run_process.returncode}): {last_error_msg[:220]}")
+
+        if not actual_output_filename:
+            actual_output_filename = f"video_{int(time.time())}.mp4"
+
+        # Sanitize filename and clamp length within Linux 255-byte limit
         actual_output_filename = re.sub(r'[\\/:*?"<>|]', '_', actual_output_filename)
-        # Ensure filename ends with .mp4
         if not actual_output_filename.lower().endswith('.mp4'):
             actual_output_filename = os.path.splitext(actual_output_filename)[0] + '.mp4'
-        # Truncate stem so total filename stays well within the Linux 255-byte limit
         stem, ext = os.path.splitext(actual_output_filename)
-        max_stem_bytes = 180  # leaves room for extension + headroom
+        max_stem_bytes = 180
         encoded_stem = stem.encode('utf-8')
         if len(encoded_stem) > max_stem_bytes:
             stem = encoded_stem[:max_stem_bytes].decode('utf-8', errors='ignore').rstrip()
@@ -2592,67 +2876,82 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
         actual_output_filename = stem + ext
         actual_output_path = os.path.join(output_dir, actual_output_filename)
 
-        command = [
-            "yt-dlp",
-            "-o", actual_output_path,
-            # Prefer H.264 (avc) to ensure OpenCV compatibility. Explicitly avoid AV1 (av01) and VP9.
-            # Fallback chain: H.264 mp4 → non-AV1 mp4 → H.264 any container → absolute best
-            "-f", "bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/bestvideo[ext=mp4][vcodec!*=av01]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc]+bestaudio/best",
-            "--merge-output-format", "mp4",  # Ensure output is mp4
-            "--progress",
-            "--no-playlist",
-            "--output-na-placeholder", "",
-            "--continue",
-            "--js-runtimes", "node",  # Use Node.js as JS runtime for YouTube extraction
-            url
-        ]
-        logger.info(f"Starting yt-dlp command: {' '.join(command)}")
-
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            cwd=BASE_DIR,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            **_start_new_session_kwargs()
-        )
-        _register_async_process(process, "yt-dlp-download")
-
-        stdout_task = asyncio.create_task(
-            _stream_output_and_update_message(process.stdout, progress_message_obj, context, "yt-dlp_stdout", 'yt-dlp')
-        )
-        stderr_task = asyncio.create_task(
-            _stream_output_and_update_message(process.stderr, progress_message_obj, context, "yt-dlp_stderr", 'yt-dlp')
-        )
-
-        try:
-            return_code = await process.wait()
-            await stdout_task
-            await stderr_task
-        except asyncio.CancelledError:
-            await _terminate_async_process(process, "yt-dlp-download")
-            stdout_task.cancel()
-            stderr_task.cancel()
-            raise
-        finally:
-            _unregister_async_process(process)
-
-        if return_code == 0:
-            logger.info(f"yt-dlp download finished successfully. Saved to: {actual_output_path}")
-            return True, actual_output_path
-        else:
-            remaining_stderr = (await process.stderr.read()).decode('utf-8', errors='ignore').strip()
-            if remaining_stderr:
-                logger.error(f"yt-dlp download failed with exit code {return_code}:\n{remaining_stderr}")
+        last_returncode = 1
+        for attempt_idx, (strategy_name, extra_flags) in enumerate(strategies):
+            if attempt_idx > 0:
+                _cleanup_partial_ytdlp_files(actual_output_path)
                 if progress_message_obj:
-                    await progress_message_obj.edit_text(f"Download failed with exit code {return_code}. Details: {remaining_stderr[:200]}...")
-            else:
-                logger.error(f"yt-dlp download failed with exit code {return_code}.")
-                if progress_message_obj:
-                    await progress_message_obj.edit_text(f"Download failed with exit code {return_code}. Check logs for details.")
-            return False, ""
+                    await progress_message_obj.edit_text(f"Retrying download with fallback method ({strategy_name})...")
+                set_processing_status(f"Retrying download ({strategy_name})...")
+
+            command = [
+                ytdlp_bin,
+                "--no-update",
+                "-o", actual_output_path,
+                "-f", YTDLP_BEST_4K_FORMAT,
+                "-S", YTDLP_BEST_4K_SORT,
+                "--merge-output-format", "mp4",
+                "--progress",
+                "--no-playlist",
+                "--output-na-placeholder", "",
+                "--retries", "3",
+                "--fragment-retries", "3",
+                *runtime_args,
+                *extra_flags,
+                url
+            ]
+            logger.info(f"Starting yt-dlp download ({strategy_name}): {' '.join(command)}")
+
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                env=ytdlp_env,
+                cwd=BASE_DIR,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                **_start_new_session_kwargs()
+            )
+            _register_async_process(process, "yt-dlp-download")
+
+            stdout_task = asyncio.create_task(
+                _stream_output_and_update_message(process.stdout, progress_message_obj, context, "yt-dlp_stdout", 'yt-dlp')
+            )
+            stderr_task = asyncio.create_task(
+                _stream_output_and_update_message(process.stderr, progress_message_obj, context, "yt-dlp_stderr", 'yt-dlp')
+            )
+
+            try:
+                last_returncode = await process.wait()
+                await stdout_task
+                await stderr_task
+            except asyncio.CancelledError:
+                await _terminate_async_process(process, "yt-dlp-download")
+                stdout_task.cancel()
+                stderr_task.cancel()
+                raise
+            finally:
+                _unregister_async_process(process)
+
+            if last_returncode == 0 and os.path.exists(actual_output_path):
+                logger.info(f"yt-dlp download finished successfully ({strategy_name}). Saved to: {actual_output_path}")
+                return True, actual_output_path
+
+            # Also check if yt-dlp saved with a fallback container (e.g., .mkv/.webm) alongside stem
+            stem_no_ext = os.path.splitext(actual_output_path)[0]
+            for alt_ext in (".mp4", ".mkv", ".webm"):
+                candidate_alt = stem_no_ext + alt_ext
+                if last_returncode == 0 and os.path.exists(candidate_alt):
+                    logger.info(f"yt-dlp download finished successfully ({strategy_name}). Saved to: {candidate_alt}")
+                    return True, candidate_alt
+
+            logger.warning(f"yt-dlp attempt ({strategy_name}) failed with exit code {last_returncode}.")
+
+        logger.error(f"All yt-dlp download strategies failed (last exit code {last_returncode}).")
+        if progress_message_obj:
+            await progress_message_obj.edit_text(f"Download failed across all fallback methods (exit code {last_returncode}). Check server logs.")
+        return False, ""
 
     except FileNotFoundError:
-        logger.error("yt-dlp command not found. Please ensure it is installed (e.g., pip install yt-dlp) and in your system's PATH.")
+        logger.error("yt-dlp command not found. Please ensure it is installed (e.g., pip install -U 'yt-dlp[default]') and in PATH.")
         if progress_message_obj:
             await progress_message_obj.edit_text("Error: yt-dlp command not found on the server. Please install it.")
         return False, ""
@@ -6278,54 +6577,65 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
                     local_video_path = os.path.join(PREVIEW_SUBDIRECTORY, f"{new_session_id}_downloaded")
                     
                     try:
-                        # First, try to get the video title using yt-dlp (for better filename)
+                        ytdlp_bin = _resolve_ytdlp_executable()
+                        ytdlp_env = _ytdlp_subprocess_env()
+                        runtime_args = _build_ytdlp_runtime_args()
+                        strategies = _ytdlp_attempt_strategies(video_url)
+
+                        # Try to get the video title for a cleaner filename
                         title_cmd = [
-                            "yt-dlp",
+                            ytdlp_bin,
+                            "--no-update",
                             "--no-playlist",
                             "--print", "title",
                             "--no-warnings",
+                            *runtime_args,
                             video_url
                         ]
-                        title_result = subprocess.run(title_cmd, capture_output=True, text=True, timeout=30)
+                        title_result = subprocess.run(title_cmd, capture_output=True, text=True, timeout=30, env=ytdlp_env, cwd=BASE_DIR)
                         if title_result.returncode == 0 and title_result.stdout.strip():
-                            video_title = title_result.stdout.strip()
-                            # Sanitize the title for use as filename
-                            video_title = re.sub(r'[\\/:*?"<>|]', '_', video_title)
-                            video_title = video_title[:100]  # Limit length
+                            video_title = title_result.stdout.strip().splitlines()[0].strip()
+                            video_title = re.sub(r'[\\/:*?"<>|]', '_', video_title)[:100]
                             logger.info(f"Got video title from yt-dlp: {video_title}")
-                        
-                        # Use yt-dlp to download the video
-                        # Use 'bestvideo+bestaudio/best' and let yt-dlp merge to mp4
-                        download_cmd = [
-                            "yt-dlp",
-                            "--no-playlist",
-                            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
-                            "--merge-output-format", "mp4",  # Ensure output is mp4
-                            "-o", f"{local_video_path}.%(ext)s",
-                            "--no-warnings",
-                            video_url
-                        ]
-                        
-                        logger.info(f"Downloading video for preview: {' '.join(download_cmd)}")
-                        result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=300)  # Increased timeout for larger videos
-                        
-                        if result.returncode != 0:
-                            logger.error(f"yt-dlp failed: {result.stderr}")
-                            self.send_api_response(400, {"success": False, "message": f"Failed to download video: {result.stderr[:200]}"})
-                            return
-                        
-                        # Find the downloaded file (yt-dlp adds extension)
-                        # Filter out .part and .ytdl files which are incomplete downloads
-                        downloaded_files = [
-                            f for f in os.listdir(PREVIEW_SUBDIRECTORY) 
-                            if f.startswith(f"{new_session_id}_downloaded") 
-                            and not f.endswith('.part') 
-                            and not f.endswith('.ytdl')
-                        ]
+
+                        # Download highest available quality (4K when available) across fallback client strategies
+                        result = None
+                        downloaded_files = []
+                        for strategy_name, extra_flags in strategies:
+                            _cleanup_partial_ytdlp_files(local_video_path)
+                            download_cmd = [
+                                ytdlp_bin,
+                                "--no-update",
+                                "--no-playlist",
+                                "-f", YTDLP_BEST_4K_FORMAT,
+                                "-S", YTDLP_BEST_4K_SORT,
+                                "--merge-output-format", "mp4",
+                                "-o", f"{local_video_path}.%(ext)s",
+                                "--retries", "3",
+                                "--fragment-retries", "3",
+                                *runtime_args,
+                                *extra_flags,
+                                video_url
+                            ]
+                            logger.info(f"Downloading video for preview ({strategy_name}): {' '.join(download_cmd)}")
+                            result = subprocess.run(download_cmd, capture_output=True, text=True, timeout=300, env=ytdlp_env, cwd=BASE_DIR)
+                            if result.returncode == 0:
+                                downloaded_files = [
+                                    f for f in os.listdir(PREVIEW_SUBDIRECTORY)
+                                    if f.startswith(f"{new_session_id}_downloaded")
+                                    and not f.endswith('.part')
+                                    and not f.endswith('.ytdl')
+                                ]
+                                if downloaded_files:
+                                    break
+                            logger.warning(f"Preview yt-dlp ({strategy_name}) failed: {(result.stderr or '')[:220]}")
+
                         if not downloaded_files:
-                            self.send_api_response(500, {"success": False, "message": "Downloaded video file not found. Download may have failed."})
+                            err_text = (result.stderr if result else '') or 'Download failed across fallback strategies.'
+                            logger.error(f"yt-dlp preview failed: {err_text}")
+                            self.send_api_response(400, {"success": False, "message": f"Failed to download video: {err_text[:200]}"})
                             return
-                        
+
                         local_video_path = os.path.join(PREVIEW_SUBDIRECTORY, downloaded_files[0])
                         logger.info(f"Video downloaded for preview: {local_video_path}")
                         

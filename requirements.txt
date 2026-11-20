@@ -1,23 +1,48 @@
-bcrypt
-google-api-python-client
-google-auth-oauthlib
-matplotlib
-numpy
-opencv-python
-pandas
-psutil
-PyGithub
-PyJWT
-python-docx
-# python-telegram-bot is OPTIONAL - only needed if ENABLE_TELEGRAM=true in .env
-# Due to regional bans (e.g., India), Telegram support is disabled by default
-# To enable: pip install python-telegram-bot && set ENABLE_TELEGRAM=true in .env
-# (Commented out: python-telegram-bot)
-reportlab
-requests
-scikit-learn
-seaborn
+# ============================================================================
+# GlyphMotion — Python Dependencies
+# Generated: 2026-07-27 | Python 3.12 | Ubuntu 24.04
+# ============================================================================
+
+# --- Core ML / Computer Vision ---
+# NOTE: Install PyTorch separately with CUDA wheels:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 torch
 torchvision
-tqdm
 ultralytics
+opencv-python
+numpy
+scipy
+
+# --- Research & Benchmarking ---
+boxmot              # BoT-SORT & OC-SORT baselines
+POT                 # Python Optimal Transport (UGW topology matching)
+pandas
+matplotlib
+seaborn
+scikit-learn
+tqdm
+psutil
+GPUtil
+pytz
+
+# --- Web Backend / Server ---
+aiohttp              # Vault WebSocket server
+cryptography         # ECDH key exchange, AES-GCM encryption
+PyJWT                # JWT authentication tokens
+bcrypt               # Admin password hashing
+requests             # HTTP client
+
+# --- GitHub & Google Drive Integration ---
+PyGithub
+google-api-python-client
+google-auth-oauthlib
+
+# --- Video Analysis & Diagnostics ---
+rich                 # Pretty terminal output (recon.py, pipeline_delta.py)
+pymediainfo          # Media metadata (requires: sudo apt install libmediainfo-dev)
+motmetrics           # MOT evaluation metrics
+yt-dlp               # Video URL download support (tg.py)
+python-dotenv        # Optional .env parsing
+
+# --- Optional ---
+# python-telegram-bot  # Only if ENABLE_TELEGRAM=true in .env

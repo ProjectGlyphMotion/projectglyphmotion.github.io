@@ -1028,98 +1028,6 @@
             bottom: max(0.75rem, env(safe-area-inset-bottom));
         }
 
-        /* --- Fullscreen button: refined Liquid Glass finish (overrides above) --- */
-        .video-fs-btn {
-            width: 2.15rem;
-            height: 2.15rem;
-            border-radius: 50%;
-            color: #fff7ed;
-            background:
-                radial-gradient(120% 120% at 30% 15%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.06) 45%, transparent 70%),
-                linear-gradient(145deg, rgba(253, 161, 54, 0.38) 0%, rgba(234, 88, 12, 0.22) 100%),
-                rgba(12, 12, 18, 0.7);
-            -webkit-backdrop-filter: blur(12px) saturate(170%);
-            backdrop-filter: blur(12px) saturate(170%);
-            box-shadow:
-                0 8px 18px -6px rgba(0, 0, 0, 0.75),
-                0 0 0 1px rgba(255, 255, 255, 0.1),
-                inset 0 0 0 1px rgba(253, 186, 116, 0.38),
-                inset 0 1.5px 0 rgba(255, 255, 255, 0.45),
-                inset 0 -6px 10px -6px rgba(234, 88, 12, 0.45);
-            opacity: 0.92;
-            overflow: hidden;
-            animation: fsBtnIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-
-        .video-fs-btn::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.4) 50%, transparent 65%);
-            transform: translateX(-130%);
-            transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-            pointer-events: none;
-        }
-
-        .video-fs-btn:hover::after,
-        .video-fs-btn:focus-visible::after {
-            transform: translateX(130%);
-        }
-
-        .video-fs-btn svg {
-            position: relative;
-            width: 1.1rem;
-            height: 1.1rem;
-            z-index: 1;
-        }
-
-        .video-fs-btn:hover {
-            color: #ffffff;
-            background:
-                radial-gradient(120% 120% at 30% 15%, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.08) 45%, transparent 70%),
-                linear-gradient(145deg, rgba(253, 161, 54, 0.62) 0%, rgba(234, 88, 12, 0.4) 100%),
-                rgba(12, 12, 18, 0.62);
-            box-shadow:
-                0 10px 22px -6px rgba(0, 0, 0, 0.8),
-                0 0 18px -2px rgba(253, 161, 54, 0.6),
-                inset 0 0 0 1px rgba(254, 215, 170, 0.6),
-                inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
-                inset 0 -6px 10px -6px rgba(234, 88, 12, 0.6);
-        }
-
-        .video-fs-btn:active {
-            transform: scale(0.9);
-        }
-
-        @keyframes fsBtnIn {
-            from {
-                opacity: 0;
-                transform: scale(0.6) translateY(6px);
-            }
-
-            to {
-                opacity: 0.92;
-                transform: scale(1) translateY(0);
-            }
-        }
-
-        .video-container:fullscreen .video-fs-btn,
-        .video-container:-webkit-full-screen .video-fs-btn {
-            width: 2.4rem;
-            height: 2.4rem;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .video-fs-btn {
-                animation: none;
-            }
-
-            .video-fs-btn::after {
-                transition: none;
-            }
-        }
-
         .video-thumbnail-placeholder {
             position: absolute;
             top: 0;
@@ -11441,15 +11349,43 @@
                     });
                     clearTimeout(completeTimer);
                 } else {
-                    const uploadController = new AbortController();
-                    const uploadTimer = setTimeout(() => uploadController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
-                    response = await fetch(LOCAL_API_ENDPOINT, {
-                        method: 'POST',
-                        headers: getIdentityHeaders(),
-                        body: formData,
-                        signal: uploadController.signal
-                    });
-                    clearTimeout(uploadTimer);
+                    if (isFileUpload && !previewSessionId) {
+                        response = await new Promise((resolve, reject) => {
+                            const xhr = new XMLHttpRequest();
+                            xhr.open('POST', LOCAL_API_ENDPOINT, true);
+                            xhr.timeout = UPLOAD_REQUEST_TIMEOUT_MS;
+                            const identityHeaders = getIdentityHeaders();
+                            Object.entries(identityHeaders).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+
+                            xhr.upload.onprogress = (e) => {
+                                if (!e.lengthComputable || e.total <= 0) return;
+                                const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
+                                const msg = `Uploading video: ${pct}% (${formatBytes(e.loaded)} / ${formatBytes(e.total)})`;
+                                showStatus(msg);
+                                liveStatusMessage.textContent = msg;
+                            };
+                            xhr.onload = () => {
+                                resolve({
+                                    ok: xhr.status >= 200 && xhr.status < 300,
+                                    status: xhr.status,
+                                    json: async () => JSON.parse(xhr.responseText || '{}')
+                                });
+                            };
+                            xhr.onerror = () => reject(new Error('Network error while uploading video.'));
+                            xhr.ontimeout = () => reject(new Error('Upload timed out.'));
+                            xhr.send(formData);
+                        });
+                    } else {
+                        const uploadController = new AbortController();
+                        const uploadTimer = setTimeout(() => uploadController.abort(), UPLOAD_REQUEST_TIMEOUT_MS);
+                        response = await fetch(LOCAL_API_ENDPOINT, {
+                            method: 'POST',
+                            headers: getIdentityHeaders(),
+                            body: formData,
+                            signal: uploadController.signal
+                        });
+                        clearTimeout(uploadTimer);
+                    }
                 }
 
                 if (!response.ok) {
