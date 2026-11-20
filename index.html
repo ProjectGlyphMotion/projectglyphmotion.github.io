@@ -58,6 +58,7 @@
             position: relative;
             min-height: 100vh;
             overflow-x: hidden;
+            overflow-x: clip;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -903,6 +904,7 @@
 
         input::placeholder {
             animation: placeholderFade 2s infinite ease-in-out;
+            opacity: 0.72;
         }
 
         /* Video Container and Thumbnail Placeholder Styles */
@@ -915,7 +917,7 @@
             overflow: hidden;
             border-radius: 0.75rem;
             /* rounded-xl */
-            background-color: #1A1A1A;
+            background-color: #000000;
             /* Dark background for placeholders/loading */
         }
 
@@ -927,10 +929,195 @@
             width: 100%;
             height: 100%;
             border: 0;
+            display: block;
+            background-color: #000000;
             opacity: 0;
             /* Start invisible for fade-in */
             transition: opacity 0.3s ease-out;
             /* Smooth transition */
+        }
+
+        @media (min-width: 768px) {
+            .video-container iframe:fullscreen,
+            .video-container iframe:-webkit-full-screen {
+                position: fixed !important;
+                inset: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                transform: none !important;
+            }
+        }
+
+        /* Custom fullscreen wrapper: the container (not the Drive iframe) goes fullscreen so the
+           iframe can be scaled inside it and Drive's controls render compact. */
+        .video-container:fullscreen,
+        .video-container:-webkit-full-screen {
+            padding-bottom: 0 !important;
+            border-radius: 0 !important;
+            background: #000 !important;
+            margin: 0 !important;
+        }
+
+        .video-fs-btn {
+            position: absolute;
+            right: 0.5rem;
+            bottom: 0.5rem;
+            z-index: 6;
+            width: 2rem;
+            height: 2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 0;
+            border-radius: 0.7rem;
+            color: #f8fafc;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 100%),
+                rgba(14, 14, 20, 0.62);
+            -webkit-backdrop-filter: blur(10px) saturate(160%);
+            backdrop-filter: blur(10px) saturate(160%);
+            box-shadow:
+                0 6px 16px -6px rgba(0, 0, 0, 0.7),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+                inset 0 1px 0 rgba(255, 255, 255, 0.28);
+            opacity: 0.88;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), background 0.25s ease, color 0.25s ease, box-shadow 0.3s ease, opacity 0.25s ease;
+        }
+
+        .video-fs-btn svg {
+            width: 1.05rem;
+            height: 1.05rem;
+            filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+            transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .video-fs-btn:hover {
+            opacity: 1;
+            color: #fde68a;
+            background:
+                linear-gradient(180deg, rgba(253, 161, 54, 0.3) 0%, rgba(253, 161, 54, 0.1) 100%),
+                rgba(14, 14, 20, 0.68);
+            box-shadow:
+                0 8px 20px -6px rgba(0, 0, 0, 0.75),
+                0 0 14px -4px rgba(253, 161, 54, 0.45),
+                inset 0 0 0 1px rgba(253, 161, 54, 0.45),
+                inset 0 1px 0 rgba(255, 255, 255, 0.32);
+        }
+
+        .video-fs-btn:hover svg {
+            transform: scale(1.12);
+        }
+
+        .video-fs-btn:active {
+            transform: scale(0.92);
+        }
+
+        .video-fs-btn:focus-visible {
+            outline: 2px solid rgba(253, 161, 54, 0.8);
+            outline-offset: 2px;
+        }
+
+        .video-container:fullscreen .video-fs-btn,
+        .video-container:-webkit-full-screen .video-fs-btn {
+            width: 2.2rem;
+            height: 2.2rem;
+            right: max(0.75rem, env(safe-area-inset-right));
+            bottom: max(0.75rem, env(safe-area-inset-bottom));
+        }
+
+        /* --- Fullscreen button: refined Liquid Glass finish (overrides above) --- */
+        .video-fs-btn {
+            width: 2.15rem;
+            height: 2.15rem;
+            border-radius: 50%;
+            color: #fff7ed;
+            background:
+                radial-gradient(120% 120% at 30% 15%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.06) 45%, transparent 70%),
+                linear-gradient(145deg, rgba(253, 161, 54, 0.38) 0%, rgba(234, 88, 12, 0.22) 100%),
+                rgba(12, 12, 18, 0.7);
+            -webkit-backdrop-filter: blur(12px) saturate(170%);
+            backdrop-filter: blur(12px) saturate(170%);
+            box-shadow:
+                0 8px 18px -6px rgba(0, 0, 0, 0.75),
+                0 0 0 1px rgba(255, 255, 255, 0.1),
+                inset 0 0 0 1px rgba(253, 186, 116, 0.38),
+                inset 0 1.5px 0 rgba(255, 255, 255, 0.45),
+                inset 0 -6px 10px -6px rgba(234, 88, 12, 0.45);
+            opacity: 0.92;
+            overflow: hidden;
+            animation: fsBtnIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        .video-fs-btn::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.4) 50%, transparent 65%);
+            transform: translateX(-130%);
+            transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+            pointer-events: none;
+        }
+
+        .video-fs-btn:hover::after,
+        .video-fs-btn:focus-visible::after {
+            transform: translateX(130%);
+        }
+
+        .video-fs-btn svg {
+            position: relative;
+            width: 1.1rem;
+            height: 1.1rem;
+            z-index: 1;
+        }
+
+        .video-fs-btn:hover {
+            color: #ffffff;
+            background:
+                radial-gradient(120% 120% at 30% 15%, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.08) 45%, transparent 70%),
+                linear-gradient(145deg, rgba(253, 161, 54, 0.62) 0%, rgba(234, 88, 12, 0.4) 100%),
+                rgba(12, 12, 18, 0.62);
+            box-shadow:
+                0 10px 22px -6px rgba(0, 0, 0, 0.8),
+                0 0 18px -2px rgba(253, 161, 54, 0.6),
+                inset 0 0 0 1px rgba(254, 215, 170, 0.6),
+                inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
+                inset 0 -6px 10px -6px rgba(234, 88, 12, 0.6);
+        }
+
+        .video-fs-btn:active {
+            transform: scale(0.9);
+        }
+
+        @keyframes fsBtnIn {
+            from {
+                opacity: 0;
+                transform: scale(0.6) translateY(6px);
+            }
+
+            to {
+                opacity: 0.92;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .video-container:fullscreen .video-fs-btn,
+        .video-container:-webkit-full-screen .video-fs-btn {
+            width: 2.4rem;
+            height: 2.4rem;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .video-fs-btn {
+                animation: none;
+            }
+
+            .video-fs-btn::after {
+                transition: none;
+            }
         }
 
         .video-thumbnail-placeholder {
@@ -1104,15 +1291,35 @@
         }
 
         .btn-custom-primary {
-            @apply bg-gradient-to-br from-orange-500 to-amber-500 text-white focus:ring-orange-400 shadow-orange-600/40 hover:from-orange-600 hover:to-amber-600;
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+            background-image: linear-gradient(to bottom right, #f97316, #f59e0b);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(234, 88, 12, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2);
             /* Thin white outline shadow */
         }
 
+        .btn-custom-primary:hover {
+            background-image: linear-gradient(to bottom right, #ea580c, #d97706);
+        }
+
+        .btn-custom-primary:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.55), 0 4px 12px rgba(234, 88, 12, 0.4);
+        }
+
         .btn-danger {
-            @apply bg-gradient-to-br from-red-500 to-rose-500 text-white focus:ring-red-400 shadow-red-600/40 hover:from-red-600 hover:to-rose-600;
-            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+            background-image: linear-gradient(to bottom right, #ef4444, #f43f5e);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(225, 29, 72, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2);
             /* Thin white outline shadow */
+        }
+
+        .btn-danger:hover {
+            background-image: linear-gradient(to bottom right, #dc2626, #e11d48);
+        }
+
+        .btn-danger:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.55), 0 4px 12px rgba(225, 29, 72, 0.4);
         }
 
         .btn-neutral {
@@ -2028,10 +2235,11 @@
             z-index: 10010;
             /* Above infoModal, below confirmationModal */
             opacity: 0;
-            /* Start hidden */
+            visibility: hidden;
+            /* Start hidden and skip GPU blur compositing while closed */
             pointer-events: none;
             /* Allow clicks to pass through when hidden */
-            transition: opacity 0.3s ease-in-out;
+            transition: opacity 0.3s ease-in-out, visibility 0s linear 0.3s;
         }
 
         #centralMessageContent {
@@ -2059,7 +2267,9 @@
 
         #centralMessageOverlay.show {
             opacity: 1;
+            visibility: visible;
             pointer-events: auto;
+            transition: opacity 0.3s ease-in-out, visibility 0s;
             /* Enable clicks when shown */
         }
 
@@ -2288,15 +2498,18 @@
             justify-content: center;
             z-index: 10000;
             opacity: 0;
-            /* Start hidden */
+            visibility: hidden;
+            /* Start hidden and avoid offscreen backdrop-filter compositing while closed */
             pointer-events: none;
             /* Allow clicks to pass through when hidden */
-            transition: opacity 0.3s ease-in-out;
+            transition: opacity 0.3s ease-in-out, visibility 0s linear 0.3s;
         }
 
         #infoModal.show {
             opacity: 1;
+            visibility: visible;
             pointer-events: auto;
+            transition: opacity 0.3s ease-in-out, visibility 0s;
         }
 
         /* New keyframes for confirmation modal pop-in/out */
@@ -3620,6 +3833,7 @@
             bottom: 1.5rem;
             left: 50%;
             transform: translateX(-50%);
+            transform: translate3d(-50%, 0, 0);
             z-index: 50;
             width: calc(100% - 2rem);
             max-width: 1000px;
@@ -3627,6 +3841,8 @@
             padding: 0;
             margin: 0;
             transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            contain: layout style;
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
             /* filter: drop-shadow removed to fix backdrop-filter bug */
         }
 
@@ -4610,9 +4826,11 @@
             border: 0 !important;
             box-shadow: none !important;
         }
+
         .videos-section-hero {
             border-top: 0;
         }
+
         .hero-header {
             position: relative;
             isolation: isolate;
@@ -4628,9 +4846,8 @@
             width: min(820px, 96vw);
             height: 11.5rem;
             background:
-                radial-gradient(ellipse 60% 55% at 50% 42%, rgba(245, 158, 11, 0.17) 0%, rgba(253, 161, 54, 0.055) 48%, transparent 74%),
-                radial-gradient(ellipse 35% 30% at 50% 35%, rgba(254, 240, 138, 0.08) 0%, transparent 70%);
-            filter: blur(18px);
+                radial-gradient(ellipse 62% 58% at 50% 42%, rgba(245, 158, 11, 0.16) 0%, rgba(253, 161, 54, 0.05) 50%, transparent 76%),
+                radial-gradient(ellipse 38% 34% at 50% 35%, rgba(254, 240, 138, 0.075) 0%, transparent 72%);
             pointer-events: none;
             z-index: -1;
         }
@@ -4647,6 +4864,7 @@
             pointer-events: none;
             z-index: -1;
         }
+
         .hero-title {
             display: inline-block;
             padding: 0.08em 0;
@@ -4668,15 +4886,14 @@
             width: min(420px, 68vw);
             height: 1px;
             margin: 0.12rem auto 0.68rem;
-            background: linear-gradient(
-                90deg,
-                transparent 0%,
-                rgba(255, 255, 255, 0.11) 24%,
-                rgba(253, 161, 54, 0.42) 50%,
-                rgba(255, 255, 255, 0.11) 76%,
-                transparent 100%
-            );
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    rgba(255, 255, 255, 0.11) 24%,
+                    rgba(253, 161, 54, 0.42) 50%,
+                    rgba(255, 255, 255, 0.11) 76%,
+                    transparent 100%);
         }
+
         .hero-horizon-rule::after {
             content: "";
             position: absolute;
@@ -4685,11 +4902,15 @@
             transform: translate(-50%, -50%);
             width: 56px;
             height: 3px;
+            width: 72px;
+            height: 6px;
             border-radius: 9999px;
             background: rgba(253, 186, 116, 0.45);
             filter: blur(3px);
+            background: radial-gradient(ellipse at center, rgba(253, 186, 116, 0.48) 0%, transparent 74%);
             pointer-events: none;
         }
+
         .hero-subtitle-pill {
             display: inline-flex;
             align-items: center;
@@ -4721,6 +4942,7 @@
             color: rgba(251, 191, 36, 0.72);
             flex-shrink: 0;
         }
+
         .hero-subtitle-accent {
             display: inline-flex;
             align-items: center;
@@ -4748,6 +4970,7 @@
                 padding-top: 0.1rem;
                 margin-bottom: 0.65rem !important;
             }
+
             .hero-header::before {
                 height: 7.5rem;
             }
@@ -4760,6 +4983,7 @@
                 width: min(220px, 60vw);
                 margin: 0.06rem auto 0.42rem;
             }
+
             .hero-subtitle-pill {
                 padding: 0.2rem 0.28rem 0.2rem 0.58rem;
                 gap: 0.28rem;
@@ -4770,14 +4994,17 @@
                 width: 0.7rem;
                 height: 0.7rem;
             }
+
             .hero-subtitle-accent {
                 padding: 0.06rem 0.36rem;
                 font-size: 0.59rem;
             }
+
             .hero-status-strip {
                 margin-top: 0.44rem !important;
                 gap: 0.34rem !important;
             }
+
             .status-widget,
             .benchmark-mode-widget {
                 height: 1.54rem !important;
@@ -4859,6 +5086,7 @@
 
         .bottom-input-bar.drag-over {
             transform: translateX(-50%) scale(1.015);
+            transform: translate3d(-50%, 0, 0) scale(1.015);
         }
 
         .bottom-input-bar.drag-over .bottom-input-bar-inner {
@@ -5358,6 +5586,8 @@
         /* --- Video Cards: Liquid Glass Surface + Specular Spotlight + Stagger --- */
         .video-card.glass-effect {
             position: relative;
+            content-visibility: auto;
+            contain-intrinsic-size: auto 360px;
             background:
                 radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.075), transparent 65%),
                 linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.018) 100%);
@@ -6140,6 +6370,7 @@
         .mobile-nav {
             margin-bottom: 0.35rem;
         }
+
         .mobile-nav-shell {
             position: relative;
             border: 0 !important;
@@ -6201,6 +6432,7 @@
             box-shadow: none;
             transition: transform 0.32s var(--ease-hover), background 0.3s var(--ease-hover), box-shadow 0.32s var(--ease-hover), color 0.25s ease;
         }
+
         .mobile-quick-link .ui-icon {
             width: 0.72rem;
             height: 0.72rem;
@@ -6794,6 +7026,7 @@
                 gap: 0.18rem;
                 font-size: 0.58rem;
             }
+
             .mobile-quick-link .ui-icon {
                 width: 0.68rem;
                 height: 0.68rem;
@@ -6827,6 +7060,130 @@
         @media (max-width: 340px) {
             .bar-track-btn span {
                 display: none !important;
+            }
+        }
+
+        /* --- Mobile & Touch Scroll Performance: Preserve Liquid Glass Look at 60fps --- */
+        @media (max-width: 1024px),
+        (hover: none) and (pointer: coarse) {
+
+            a,
+            button,
+            input,
+            .video-thumbnail-placeholder,
+            .nav-pill,
+            .mobile-dropdown-item {
+                touch-action: manipulation;
+            }
+
+            .bg-glow-main {
+                position: absolute;
+                top: -160px;
+                width: 100%;
+                height: 480px;
+                will-change: auto;
+                contain: strict;
+            }
+
+            .bg-mesh {
+                position: absolute;
+                inset: 0;
+                opacity: 0.65;
+                contain: strict;
+            }
+
+            .scanlines {
+                display: none;
+            }
+
+            .hero-title {
+                filter: drop-shadow(0 2px 8px rgba(245, 158, 11, 0.32));
+            }
+
+            .videos-section-hero {
+                overflow: visible;
+            }
+
+            .video-card.glass-effect {
+                content-visibility: visible;
+                contain: layout style;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+                background: linear-gradient(180deg, rgba(22, 22, 27, 0.94) 0%, rgba(13, 13, 17, 0.97) 100%);
+                box-shadow:
+                    inset 0 0 0 1px rgba(255, 255, 255, 0.085),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+                animation: none !important;
+                transition: none;
+            }
+
+            .video-card.glass-effect::before,
+            .mobile-nav-shell::before {
+                display: none;
+            }
+
+            .btn {
+                box-shadow:
+                    inset 0 0 0 1px rgba(255, 255, 255, 0.11),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+                transition: none;
+            }
+
+            .play-glass-capsule {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+                background: rgba(18, 18, 24, 0.8);
+                transition: none;
+            }
+
+            .video-thumbnail-placeholder img {
+                transition: none;
+            }
+
+            .hero-subtitle-pill,
+            .status-widget,
+            .benchmark-mode-widget,
+            .mobile-nav-shell {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+
+            .hero-subtitle-pill {
+                background: linear-gradient(180deg, rgba(24, 24, 30, 0.92) 0%, rgba(14, 14, 19, 0.95) 100%);
+            }
+
+            .mobile-nav-shell {
+                background: linear-gradient(180deg, rgba(22, 22, 28, 0.94) 0%, rgba(12, 12, 17, 0.96) 100%) !important;
+                box-shadow:
+                    inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+            }
+
+            .bar-roi-btn,
+            .bar-browse-btn,
+            .bar-frame-label,
+            .bar-info-dot {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+
+            .bar-liquid-chrome::before {
+                display: none;
+            }
+
+            .bottom-input-bar-inner {
+                background: linear-gradient(180deg, rgba(22, 22, 29, 0.94) 0%, rgba(11, 11, 16, 0.97) 100%);
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+                box-shadow:
+                    0 14px 32px -10px rgba(0, 0, 0, 0.85),
+                    inset 0 0 0 1px rgba(255, 255, 255, 0.11),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                    inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+            }
+
+            .bottom-input-bar-inner::before {
+                display: none;
             }
         }
 
@@ -6956,9 +7313,11 @@
             <div class="hero-horizon-rule" aria-hidden="true"></div>
             <div class="flex justify-center">
                 <p class="hero-subtitle-pill">
-                    <svg class="hero-subtitle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="3.2" fill="currentColor" fill-opacity="0.24"/>
-                        <path d="M4.5 9V6.5a2 2 0 0 1 2-2H9M15 4.5h2.5a2 2 0 0 1 2 2V9M19.5 15v2.5a2 2 0 0 1-2 2H15M9 19.5H6.5a2 2 0 0 1-2-2V15"/>
+                    <svg class="hero-subtitle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3.2" fill="currentColor" fill-opacity="0.24" />
+                        <path
+                            d="M4.5 9V6.5a2 2 0 0 1 2-2H9M15 4.5h2.5a2 2 0 0 1 2 2V9M19.5 15v2.5a2 2 0 0 1-2 2H15M9 19.5H6.5a2 2 0 0 1-2-2V15" />
                     </svg>
                     <span>Real-time object tracking powered by</span>
                     <span class="hero-subtitle-accent">YOLOv8</span>
@@ -8828,8 +9187,11 @@
      * @param {string} originalEmbedUrl The original embed URL (from videos.json) to store for future play.
      */
         function stopAndRevertVideo(videoContainerElement, googleDriveFileId, originalEmbedUrl) {
+            removeCustomFullscreenButton(videoContainerElement);
             const iframe = videoContainerElement.querySelector('iframe');
             const existingLoader = videoContainerElement.querySelector('.video-shimmer-loader');
+
+            videoContainerElement.classList.remove('is-playing');
 
             // Remove any existing iframe and loader with a fade-out effect
             if (iframe) {
@@ -8858,7 +9220,9 @@
             thumbnailPlaceholder.setAttribute('data-file-id', resolvedFileId);
             thumbnailPlaceholder.innerHTML = `
             <img alt="Video thumbnail" class="w-full h-full object-cover rounded-lg" loading="lazy" decoding="async" /> <div class="play-overlay">
-                            <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            <div class="play-glass-capsule">
+                                <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
                         </div>
         `;
             const thumbImg = thumbnailPlaceholder.querySelector('img');
@@ -8880,6 +9244,144 @@
                 currentlyPlayingVideoElement = null;
             }
         }
+
+        function isFullscreenActiveFor(iframe) {
+            const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+            return Boolean(fsEl && (!iframe || fsEl === iframe || fsEl.contains(iframe)));
+        }
+
+        const FS_ICON_ENTER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 4H6a2 2 0 0 0-2 2v2.5M15.5 4H18a2 2 0 0 1 2 2v2.5M8.5 20H6a2 2 0 0 1-2-2v-2.5M15.5 20H18a2 2 0 0 0 2-2v-2.5"/></svg>';
+        const FS_ICON_EXIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5h2.5A2 2 0 0 0 8.5 6.5V4M20 8.5h-2.5a2 2 0 0 1-2-2V4M4 15.5h2.5a2 2 0 0 1 2 2V20M20 15.5h-2.5a2 2 0 0 0-2 2V20"/></svg>';
+
+        function toggleContainerFullscreen(container) {
+            const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+            if (fsEl) {
+                (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+                return;
+            }
+            const req = container.requestFullscreen || container.webkitRequestFullscreen;
+            if (req) {
+                const result = req.call(container);
+                if (result && typeof result.catch === 'function') result.catch(() => { });
+            }
+        }
+
+        function addCustomFullscreenButton(container) {
+            if (!container || container.querySelector('.video-fs-btn')) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'video-fs-btn';
+            btn.setAttribute('aria-label', 'Toggle fullscreen');
+            btn.innerHTML = FS_ICON_ENTER;
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleContainerFullscreen(container);
+            });
+            container.appendChild(btn);
+        }
+
+        function removeCustomFullscreenButton(container) {
+            const btn = container && container.querySelector('.video-fs-btn');
+            if (btn) btn.remove();
+            const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+            if (container && fsEl === container) {
+                (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+            }
+        }
+
+        const FULLSCREEN_OVERRIDE_PROPS = [
+            'position', 'top', 'left', 'right', 'bottom',
+            'margin', 'width', 'height', 'max-width', 'max-height',
+            'transform', 'transform-origin'
+        ];
+
+        function clearIframeLayoutOverrides(iframe) {
+            for (const prop of FULLSCREEN_OVERRIDE_PROPS) {
+                iframe.style.removeProperty(prop);
+            }
+        }
+
+        /**
+         * Scales Google Drive /preview iframes in narrow/mobile containers (< 768px) from a
+         * 1080x608 16:9 viewport when inline, and from a balanced 560px virtual width when
+         * fullscreened in narrow portrait viewports so controls aren't magnified or clipped.
+         */
+        function fitDriveIframeToContainer(iframe, videoContainer) {
+            if (!iframe || !videoContainer) return;
+            if (isFullscreenActiveFor(iframe)) {
+                const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+                const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+                if (vw > 0 && vw < 768 && vh > 0) {
+                    // Wide virtual viewport (same width class as the inline player) shrinks Drive's
+                    // touch HUD to ~1/3 size so it hugs the edges instead of covering the video.
+                    const fsVirtualWidth = 1080;
+                    const scale = vw / fsVirtualWidth;
+                    const fsVirtualHeight = Math.ceil(vh / scale);
+                    iframe.style.setProperty('position', 'fixed', 'important');
+                    iframe.style.setProperty('top', '0', 'important');
+                    iframe.style.setProperty('left', '0', 'important');
+                    iframe.style.setProperty('right', 'auto', 'important');
+                    iframe.style.setProperty('bottom', 'auto', 'important');
+                    iframe.style.setProperty('margin', '0', 'important');
+                    iframe.style.setProperty('width', `${fsVirtualWidth}px`, 'important');
+                    iframe.style.setProperty('height', `${fsVirtualHeight}px`, 'important');
+                    iframe.style.setProperty('max-width', 'none', 'important');
+                    iframe.style.setProperty('max-height', 'none', 'important');
+                    iframe.style.setProperty('transform', `scale(${scale})`, 'important');
+                    iframe.style.setProperty('transform-origin', '0 0', 'important');
+                } else {
+                    clearIframeLayoutOverrides(iframe);
+                    iframe.style.setProperty('width', '100%', 'important');
+                    iframe.style.setProperty('height', '100%', 'important');
+                    iframe.style.setProperty('transform', 'none', 'important');
+                }
+                return;
+            }
+
+            clearIframeLayoutOverrides(iframe);
+            const cw = videoContainer.clientWidth;
+            const ch = videoContainer.clientHeight;
+            if (cw > 0 && cw < 768) {
+                const virtualWidth = 1080;
+                const scale = cw / virtualWidth;
+                const virtualHeight = Math.max(Math.ceil((ch || (cw * 9) / 16) / scale), 608);
+                iframe.style.width = `${virtualWidth}px`;
+                iframe.style.height = `${virtualHeight}px`;
+                iframe.style.transform = `scale(${scale})`;
+                iframe.style.transformOrigin = '0 0';
+            } else {
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.transform = 'none';
+                iframe.style.transformOrigin = '';
+            }
+        }
+
+        const syncActiveDriveIframeLayout = () => {
+            if (!currentlyPlayingVideoElement) return;
+            const container = currentlyPlayingVideoElement.closest('.video-container');
+            if (container) fitDriveIframeToContainer(currentlyPlayingVideoElement, container);
+        };
+
+        const handleFullscreenLayoutChange = () => {
+            const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+            document.querySelectorAll('.video-fs-btn').forEach((b) => {
+                b.innerHTML = (fsEl && fsEl === b.parentElement) ? FS_ICON_EXIT : FS_ICON_ENTER;
+            });
+            syncActiveDriveIframeLayout();
+            window.requestAnimationFrame(syncActiveDriveIframeLayout);
+        };
+
+        let driveIframeResizeRaf = null;
+        window.addEventListener('resize', () => {
+            if (!currentlyPlayingVideoElement || driveIframeResizeRaf !== null) return;
+            driveIframeResizeRaf = window.requestAnimationFrame(() => {
+                driveIframeResizeRaf = null;
+                syncActiveDriveIframeLayout();
+            });
+        }, { passive: true });
+        document.addEventListener('fullscreenchange', handleFullscreenLayoutChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenLayoutChange);
 
         /**
          * Handles the click on a video thumbnail, stopping previous video and playing the new one.
@@ -8920,23 +9422,30 @@
             // Create and append the new iframe
             const iframe = document.createElement('iframe');
             iframe.src = originalEmbedUrl; // Use the original embed URL for the iframe
-            iframe.setAttribute('allow', 'fullscreen; picture-in-picture; web-share');
-            iframe.setAttribute('allowfullscreen', '');
+            iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share');
+            // Fullscreen is intentionally NOT granted to the Drive iframe: browsers force
+            // UA-!important sizing on a fullscreened iframe, so it can't be scaled. We fullscreen
+            // our own wrapper instead (see addCustomFullscreenButton) and scale the iframe inside.
             iframe.setAttribute('frameborder', '0');
             // Store data attributes on the iframe itself for later retrieval when stopping
             iframe.setAttribute('data-file-id', fileId);
             iframe.setAttribute('data-embed-url', originalEmbedUrl);
-            iframe.classList.add('w-full', 'h-full', 'absolute', 'top-0', 'left-0');
+            iframe.classList.add('absolute', 'top-0', 'left-0');
             iframe.style.opacity = '0'; // Start invisible for fade-in
+            iframe.style.pointerEvents = 'none';
+            fitDriveIframeToContainer(iframe, videoContainer);
 
             // Append iframe to the container
             videoContainer.appendChild(iframe);
+            addCustomFullscreenButton(videoContainer);
 
             // Listen for the iframe to load
             iframe.onload = () => {
+                fitDriveIframeToContainer(iframe, videoContainer);
                 // Fade out the shimmer loader and fade in the iframe
                 shimmerLoader.style.opacity = '0';
                 iframe.style.opacity = '1';
+                iframe.style.pointerEvents = 'auto';
                 iframe.style.transition = 'opacity 0.3s ease-out'; // Apply transition here
 
                 // After transitions, remove the shimmer loader
@@ -11738,80 +12247,124 @@
 
             const barStatusRow = document.getElementById('barStatusRow');
 
-            // --- Sync state from legacy to bar ---
+            // --- Sync state from legacy to bar (dirty-checked so idle ticks trigger zero reflows) ---
+            const barQueueInfoEl = document.getElementById('barQueueInfo');
+            const barQueueTooltipEl = document.getElementById('barQueueTooltip');
+            const trackLabelEl = trackButton ? trackButton.querySelector('.track-button-content span') : null;
+            let prevDisabled = null;
+            let prevStatusActive = null;
+            let prevCancelVisible = null;
+            let prevProcDotsHidden = null;
+            let prevStatusText = null;
+            let prevStatusIdle = null;
+            let prevQueueLine = null;
+            let prevQueueBadge = null;
+            let prevFrameMsg = null;
+            let prevBenchHidden = null;
+
             const updateBarState = () => {
-                const isProcessing = trackButton && trackButton.disabled;
-                const isCancelVisible = cancelProcessingButton && !cancelProcessingButton.classList.contains('hidden');
-                const liveVisible = liveProcessingStatusDiv && !liveProcessingStatusDiv.classList.contains('hidden');
+                if (document.hidden) return;
+                const isProcessing = !!(trackButton && trackButton.disabled);
+                const isCancelVisible = !!(cancelProcessingButton && !cancelProcessingButton.classList.contains('hidden'));
+                const liveVisible = !!(liveProcessingStatusDiv && !liveProcessingStatusDiv.classList.contains('hidden'));
+                const trackLabelText = trackLabelEl ? trackLabelEl.textContent : '';
+                const hasQueue = trackLabelText.includes('Queued #');
 
                 // Track button: disable during processing
-                barTrackBtn.disabled = isProcessing;
+                if (isProcessing !== prevDisabled) {
+                    prevDisabled = isProcessing;
+                    barTrackBtn.disabled = isProcessing;
+                }
 
-                // Show status row only when something is happening (processing, queued, or live status active)
-                if (barStatusRow) {
-                    const hasQueue = trackButton && trackButton.querySelector('.track-button-content span') &&
-                        trackButton.querySelector('.track-button-content span').textContent.includes('Queued #');
-                    barStatusRow.classList.toggle('active', isProcessing || liveVisible || hasQueue);
+                // Show status row only when something is happening
+                const statusActive = isProcessing || liveVisible || hasQueue;
+                if (barStatusRow && statusActive !== prevStatusActive) {
+                    prevStatusActive = statusActive;
+                    barStatusRow.classList.toggle('active', statusActive);
                 }
 
                 // Cancel button: show when cancel is available
-                if (barCancelBtn) {
+                if (barCancelBtn && isCancelVisible !== prevCancelVisible) {
+                    prevCancelVisible = isCancelVisible;
                     barCancelBtn.classList.toggle('visible', isCancelVisible);
                 }
 
                 // Processing dots
-                if (barProcDots) {
+                const dotsHidden = !liveVisible;
+                if (barProcDots && dotsHidden !== prevProcDotsHidden) {
+                    prevProcDotsHidden = dotsHidden;
                     barProcDots.style.display = liveVisible ? '' : 'none';
                 }
 
                 // Status text — sync from legacy live status
                 if (barStatusText) {
-                    if (liveVisible && liveStatusMessage && liveStatusMessage.textContent) {
-                        barStatusText.textContent = liveStatusMessage.textContent;
-                        barStatusText.classList.remove('idle');
+                    const liveMsg = liveStatusMessage ? liveStatusMessage.textContent : '';
+                    if (liveVisible && liveMsg) {
+                        if (prevStatusText !== liveMsg || prevStatusIdle !== false) {
+                            prevStatusText = liveMsg;
+                            prevStatusIdle = false;
+                            barStatusText.textContent = liveMsg;
+                            barStatusText.classList.remove('idle');
+                        }
                     } else if (!isProcessing) {
-                        barStatusText.textContent = 'Ready';
-                        barStatusText.classList.add('idle');
+                        if (prevStatusText !== 'Ready' || prevStatusIdle !== true) {
+                            prevStatusText = 'Ready';
+                            prevStatusIdle = true;
+                            barStatusText.textContent = 'Ready';
+                            barStatusText.classList.add('idle');
+                        }
                     }
                 }
 
-                // Update new queue info element
-                const barQueueInfo = document.getElementById('barQueueInfo');
-                const barQueueTooltip = document.getElementById('barQueueTooltip');
-                if (barQueueInfo && barQueueTooltip) {
+                // Update queue info element
+                if (barQueueInfoEl && barQueueTooltipEl) {
                     const queueStatusLine = (window.latestStatusData && window.latestStatusData.queueStatusLine) || '';
-                    if (queueStatusLine) {
-                        barQueueInfo.style.display = '';
-                        barQueueTooltip.textContent = queueStatusLine;
-                    } else {
-                        barQueueInfo.style.display = 'none';
+                    if (queueStatusLine !== prevQueueLine) {
+                        prevQueueLine = queueStatusLine;
+                        if (queueStatusLine) {
+                            barQueueInfoEl.style.display = '';
+                            barQueueTooltipEl.textContent = queueStatusLine;
+                        } else {
+                            barQueueInfoEl.style.display = 'none';
+                        }
                     }
                 }
 
                 // Queue badge from legacy track button label
                 if (barQueueBadge) {
-                    const trackLabel = trackButton ? trackButton.querySelector('.track-button-content span') : null;
-                    if (trackLabel && trackLabel.textContent.includes('Queued #')) {
-                        barQueueBadge.style.display = '';
-                        barQueueBadge.textContent = trackLabel.textContent;
-                    } else {
-                        barQueueBadge.style.display = 'none';
+                    const nextBadge = hasQueue ? trackLabelText : '';
+                    if (nextBadge !== prevQueueBadge) {
+                        prevQueueBadge = nextBadge;
+                        if (nextBadge) {
+                            barQueueBadge.style.display = '';
+                            barQueueBadge.textContent = nextBadge;
+                        } else {
+                            barQueueBadge.style.display = 'none';
+                        }
                     }
                 }
 
                 // Frame restriction label
-                if (barFrameTooltip && frameRestrictionMessage && frameRestrictionMessage.textContent) {
-                    barFrameTooltip.textContent = frameRestrictionMessage.textContent;
-                    const match = frameRestrictionMessage.textContent.match(/([\d,]+)\s*frame/i);
-                    if (match && barFrameLabelText) {
-                        const num = parseInt(match[1].replace(/,/g, ''));
-                        barFrameLabelText.textContent = num >= 1000 ? Math.round(num / 1000) + 'K limit' : num + ' limit';
+                if (barFrameTooltip && frameRestrictionMessage) {
+                    const frameMsg = frameRestrictionMessage.textContent || '';
+                    if (frameMsg && frameMsg !== prevFrameMsg) {
+                        prevFrameMsg = frameMsg;
+                        barFrameTooltip.textContent = frameMsg;
+                        const match = frameMsg.match(/([\d,]+)\s*frame/i);
+                        if (match && barFrameLabelText) {
+                            const num = parseInt(match[1].replace(/,/g, ''), 10);
+                            barFrameLabelText.textContent = num >= 1000 ? Math.round(num / 1000) + 'K limit' : num + ' limit';
+                        }
                     }
                 }
 
                 // Benchmark icon
                 if (barBenchmarkInfoBtn && benchmarkDisclaimer) {
-                    barBenchmarkInfoBtn.classList.toggle('hidden', benchmarkDisclaimer.classList.contains('hidden'));
+                    const benchHidden = benchmarkDisclaimer.classList.contains('hidden');
+                    if (benchHidden !== prevBenchHidden) {
+                        prevBenchHidden = benchHidden;
+                        barBenchmarkInfoBtn.classList.toggle('hidden', benchHidden);
+                    }
                 }
             };
 
@@ -11932,12 +12485,26 @@
             }
 
             // 3. Scroll-reactive bottom dock depth
+            // 3. Scroll-reactive bottom dock depth (rAF-throttled, avoids redundant writes)
             const bottomBar = document.getElementById('bottomInputBar');
             if (bottomBar) {
+                let lastScrolled = null;
+                let scrollRafId = null;
                 const syncScrollDepth = () => {
                     bottomBar.classList.toggle('is-scrolled', window.scrollY > 24);
+                    scrollRafId = null;
+                    const isScrolled = window.scrollY > 24;
+                    if (isScrolled !== lastScrolled) {
+                        lastScrolled = isScrolled;
+                        bottomBar.classList.toggle('is-scrolled', isScrolled);
+                    }
                 };
                 window.addEventListener('scroll', syncScrollDepth, { passive: true });
+                window.addEventListener('scroll', () => {
+                    if (scrollRafId === null) {
+                        scrollRafId = window.requestAnimationFrame(syncScrollDepth);
+                    }
+                }, { passive: true });
                 syncScrollDepth();
 
                 // Drag-over glass halo when dragging a file anywhere over the window/dock
