@@ -63,11 +63,12 @@ TELEGRAM_BOT_API_LOCAL_MODE = get_env("TELEGRAM_BOT_API_LOCAL_MODE", "false").st
 ENABLE_TELEGRAM = get_env("ENABLE_TELEGRAM", "false").strip().lower() in {"1", "true", "yes", "on"}
 USE_GITHUB_PAGES = True  # Switch to enable/disable GitHub Pages integration (set to True to use gh.py)
 PUBLIC_WEBSITE_URL = get_env("PUBLIC_WEBSITE_URL", "https://projectglyphmotion.github.io/")
-OUTPUT_SUBDIRECTORY = "output"
-INPUT_SUBDIRECTORY = "input"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_SUBDIRECTORY = os.path.join(BASE_DIR, "output")
+INPUT_SUBDIRECTORY = os.path.join(BASE_DIR, "input")
 WEB_SERVER_PORT = 5000 # Port for the local web server
-TRACKING_SUBDIRECTORY = "tracking"
-LEGACY_TRACKING_DATA_FILE = 'tracking_data.json'
+TRACKING_SUBDIRECTORY = os.path.join(BASE_DIR, "tracking")
+LEGACY_TRACKING_DATA_FILE = os.path.join(BASE_DIR, 'tracking_data.json')
 TRACKING_DATA_FILE = os.path.join(TRACKING_SUBDIRECTORY, 'tracking_data.json')
 UPTIME_DATA_FILE = os.path.join(TRACKING_SUBDIRECTORY, 'uptime_data.json')
 TELEGRAM_CHAT_LOG_FILE = os.path.join(TRACKING_SUBDIRECTORY, 'telegram_chat_logs.jsonl')
@@ -100,24 +101,33 @@ _ADS_ENABLED_GLOBALLY = False # Default to False, can be changed by master admin
 _SHOW_ADS_TO_ADMINS = False # Default to False, can be changed by master admin
 
 # File to persist ad settings
-AD_SETTINGS_FILE = 'ad_settings.json'
+AD_SETTINGS_FILE = os.path.join(BASE_DIR, 'ad_settings.json')
 
 # --- ROI Preview Configuration ---
 # Directory to store temporary preview files
-PREVIEW_SUBDIRECTORY = "preview_temp"
+PREVIEW_SUBDIRECTORY = os.path.join(BASE_DIR, "preview_temp")
 # Directory for chunked upload session files
-CHUNK_UPLOAD_SUBDIRECTORY = "chunk_uploads"
+CHUNK_UPLOAD_SUBDIRECTORY = os.path.join(BASE_DIR, "chunk_uploads")
 # Time in seconds before an abandoned preview is cleaned up (5 minutes)
 PREVIEW_CLEANUP_TIMEOUT_SECONDS = 300
 # Interval for preview cleanup check (60 seconds)
 PREVIEW_CLEANUP_INTERVAL_SECONDS = 60
 
-# Ensure input and output directories exist
-os.makedirs(OUTPUT_SUBDIRECTORY, exist_ok=True)
-os.makedirs(INPUT_SUBDIRECTORY, exist_ok=True)
-os.makedirs(PREVIEW_SUBDIRECTORY, exist_ok=True)
-os.makedirs(CHUNK_UPLOAD_SUBDIRECTORY, exist_ok=True)
-os.makedirs(TRACKING_SUBDIRECTORY, exist_ok=True)
+
+def ensure_runtime_directories():
+    """Creates all required runtime directories if they were removed or are missing."""
+    for directory in (
+        OUTPUT_SUBDIRECTORY,
+        INPUT_SUBDIRECTORY,
+        PREVIEW_SUBDIRECTORY,
+        CHUNK_UPLOAD_SUBDIRECTORY,
+        TRACKING_SUBDIRECTORY,
+    ):
+        os.makedirs(directory, exist_ok=True)
+
+
+# Ensure input, output, preview, chunk, and tracking directories exist
+ensure_runtime_directories()
 
 # --- Logging ---
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -1114,20 +1124,53 @@ def sanitize_filename_value(filename: str, fallback_prefix: str = "uploaded_vide
     return safe_name
 
 
-def persist_uploaded_field_to_input(upload_field, fallback_prefix: str = "uploaded_video") -> str:
-    """Persists a cgi.FieldStorage file payload to INPUT_SUBDIRECTORY and returns saved path."""
-    filename = resolve_uploaded_filename(upload_field, fallback_prefix=fallback_prefix)
+def build_unique_input_path(filename: str, fallback_prefix: str = "uploaded_video") -> str:
+    """Ensures INPUT_SUBDIRECTORY exists and returns a non-colliding path inside it."""
+    os.makedirs(INPUT_SUBDIRECTORY, exist_ok=True)
     safe_name = sanitize_filename_value(filename, fallback_prefix=fallback_prefix)
     target_path = os.path.join(INPUT_SUBDIRECTORY, safe_name)
     if os.path.exists(target_path):
         stem, ext = os.path.splitext(safe_name)
-        target_path = os.path.join(INPUT_SUBDIRECTORY, f"{stem}_{int(time.time())}{ext or '.mp4'}")
+        target_path = os.path.join(
+            INPUT_SUBDIRECTORY,
+            f"{stem}_{int(time.time())}_{uuid.uuid4().hex[:6]}{ext or '.mp4'}",
+        )
+    return target_path
+
+
+def persist_uploaded_field_to_input(upload_field, fallback_prefix: str = "uploaded_video") -> str:
+    """Persists a cgi.FieldStorage file payload to INPUT_SUBDIRECTORY and returns saved path."""
+    filename = resolve_uploaded_filename(upload_field, fallback_prefix=fallback_prefix)
+    target_path = build_unique_input_path(filename, fallback_prefix=fallback_prefix)
 
     if hasattr(upload_field.file, "seek"):
         upload_field.file.seek(0)
     with open(target_path, "wb") as output_file:
         shutil.copyfileobj(upload_field.file, output_file)
     return target_path
+
+
+def parse_multipart_form(handler) -> tuple[Optional[cgi.FieldStorage], Optional[str]]:
+    """Safely parses multipart/form-data requests, returning (form, error_message)."""
+    content_type_header = handler.headers.get('Content-Type') or handler.headers.get('content-type') or ''
+    ctype, pdict = cgi.parse_header(content_type_header)
+    if ctype != 'multipart/form-data' or 'boundary' not in pdict or not pdict['boundary']:
+        return None, "Expected multipart/form-data payload with boundary."
+
+    environ = {
+        'REQUEST_METHOD': 'POST',
+        'CONTENT_TYPE': content_type_header,
+    }
+    content_length = handler.headers.get('Content-Length')
+    if content_length is not None:
+        environ['CONTENT_LENGTH'] = str(content_length)
+
+    form = cgi.FieldStorage(
+        fp=handler.rfile,
+        headers=handler.headers,
+        environ=environ,
+    )
+    return form, None
 
 def invalidate_token(token: str):
     """Adds a token to the invalidated list."""
@@ -1951,6 +1994,7 @@ def save_tracking_data():
     """Saves tracking data to the JSON file."""
     with _tracking_data_lock:
         try:
+            os.makedirs(os.path.dirname(TRACKING_DATA_FILE) or TRACKING_SUBDIRECTORY, exist_ok=True)
             with open(TRACKING_DATA_FILE, 'w', encoding='utf-8') as f:
                 json.dump(_tracking_data, f, indent=4)
             logger.info(f"Saved {len(_tracking_data)} entries to {TRACKING_DATA_FILE}")
@@ -2478,6 +2522,7 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
     Returns (success, actual_output_filepath).
     """
     try:
+        os.makedirs(output_dir, exist_ok=True)
         # Use yt-dlp for robust video downloading
         # -o: output template. %(id)s.%(ext)s ensures a unique filename with correct extension.
         # -f: format selection. 'bestvideo+bestaudio/best' to get the highest quality available.
@@ -2565,6 +2610,7 @@ async def download_video_async(url: str, output_dir: str, progress_message_obj=N
 
         process = await asyncio.create_subprocess_exec(
             *command,
+            cwd=BASE_DIR,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             **_start_new_session_kwargs()
@@ -2629,10 +2675,12 @@ async def run_tracking_script_and_stream_output(
     confidence_threshold is the minimum confidence score.
     """
     try:
+        output_dir = os.path.dirname(os.path.abspath(output_path)) or OUTPUT_SUBDIRECTORY
+        os.makedirs(output_dir, exist_ok=True)
         command = [
-            "python3",
+            sys.executable,
             "-u",
-            "ot.py",
+            os.path.join(BASE_DIR, "ot.py"),
             "--model", "yolov8m.pt",
             "--preset", "ultrafast",
             "--crf", "24",
@@ -2671,6 +2719,7 @@ async def run_tracking_script_and_stream_output(
 
         process = await asyncio.create_subprocess_exec(
             *command,
+            cwd=BASE_DIR,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             **_start_new_session_kwargs()
@@ -2747,11 +2796,15 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
         geolocation_info = {**default_geolocation_data, **geolocation_info}
 
 
+    # Ensure runtime directories exist even if cleaned up while server is running
+    ensure_runtime_directories()
+
     # Reset status immediately when a new processing task starts
     set_processing_status("Initializing video processing...")
 
     input_filename = "" # Initialize input_filename
     local_input_path = "" # Initialize local_input_path
+    source_already_in_input_dir = False
 
     if not is_file_upload:
         # For URL, yt-dlp will determine the filename
@@ -2759,26 +2812,32 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
         input_filename = "downloaded_video" # Placeholder, will be updated
         local_input_path = os.path.join(INPUT_SUBDIRECTORY, input_filename)
     else:
-        # Check if video_source is a cached file path (string) or a FieldStorage object
+        # Check if video_source is an already-saved path (cached preview or persisted web upload)
         if isinstance(video_source, str) and os.path.exists(video_source):
-            # It's a cached file path from preview session
-            # Use the original_filename parameter if provided (from preview session)
-            if original_filename:
-                input_filename = original_filename
-                logger.info(f"Using original filename from preview session: {input_filename}")
+            in_input_dir = os.path.abspath(os.path.dirname(video_source)) == os.path.abspath(INPUT_SUBDIRECTORY)
+            if in_input_dir:
+                source_already_in_input_dir = True
+                local_input_path = video_source
+                input_filename = sanitize_filename_value(original_filename or os.path.basename(video_source))
+                logger.info(f"Using pre-staged upload directly: {local_input_path} (display: {input_filename})")
             else:
-                # Fallback: extract from path (legacy behavior)
-                cached_basename = os.path.basename(video_source)
-                parts = cached_basename.split('_', 1)
-                if len(parts) > 1 and len(parts[0]) == 36:  # UUID is 36 chars
-                    input_filename = parts[1]
+                if original_filename:
+                    input_filename = sanitize_filename_value(original_filename)
+                    logger.info(f"Using original filename from preview session: {input_filename}")
                 else:
-                    input_filename = cached_basename
-                logger.info(f"Using filename extracted from path: {input_filename}")
+                    cached_basename = os.path.basename(video_source)
+                    parts = cached_basename.split('_', 1)
+                    if len(parts) > 1 and len(parts[0]) == 36:  # UUID is 36 chars
+                        input_filename = parts[1]
+                    else:
+                        input_filename = cached_basename
+                    input_filename = sanitize_filename_value(input_filename)
+                    logger.info(f"Using filename extracted from path: {input_filename}")
+                local_input_path = build_unique_input_path(input_filename)
         else:
             input_filename = resolve_uploaded_filename(video_source)
-        local_input_path = os.path.join(INPUT_SUBDIRECTORY, input_filename)
-        
+            local_input_path = build_unique_input_path(input_filename)
+
     output_filename = f"{os.path.splitext(input_filename)[0]}.mp4" # Keep original filename base for output
     local_output_path = os.path.join(OUTPUT_SUBDIRECTORY, output_filename)
 
@@ -2800,27 +2859,31 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
             output_filename = f"{os.path.splitext(input_filename)[0]}.mp4"
             local_output_path = os.path.join(OUTPUT_SUBDIRECTORY, output_filename)
     else:
-        # Check if video_source is a string path (cached preview file) or a FieldStorage object
+        # Check if video_source is a string path (cached preview or pre-staged upload) or a FieldStorage object
         if isinstance(video_source, str) and os.path.exists(video_source):
-            # It's a cached file path from preview session - move it to input directory
-            try:
-                # Move the file from preview directory to input directory
-                shutil.move(video_source, local_input_path)
-                logger.info(f"Moved cached preview file to: {local_input_path}")
-            except Exception as e:
-                logger.error(f"Error moving cached preview file: {e}")
-                if progress_message_obj:
-                    await progress_message_obj.edit_text(f"Failed to process cached file: {e}")
-                set_processing_status(f"Failed to process cached file: {e}")
-                reset_status_after_delay()
-                return False
+            if source_already_in_input_dir:
+                logger.info(f"Upload already staged in input dir: {local_input_path}")
+            else:
+                # Cached file from preview session - move safely into INPUT_SUBDIRECTORY
+                try:
+                    os.makedirs(INPUT_SUBDIRECTORY, exist_ok=True)
+                    shutil.move(video_source, local_input_path)
+                    logger.info(f"Moved cached preview file to: {local_input_path}")
+                except Exception as e:
+                    logger.error(f"Error moving cached preview file: {e}")
+                    if progress_message_obj:
+                        await progress_message_obj.edit_text(f"Failed to process cached file: {e}")
+                    set_processing_status(f"Failed to process cached file: {e}")
+                    reset_status_after_delay()
+                    return False
         else:
             # It's a FieldStorage object from direct upload
             try:
+                os.makedirs(INPUT_SUBDIRECTORY, exist_ok=True)
                 if hasattr(video_source.file, "seek"):
                     video_source.file.seek(0)
                 with open(local_input_path, 'wb') as f:
-                    f.write(video_source.file.read())
+                    shutil.copyfileobj(video_source.file, f)
                 logger.info(f"Uploaded file saved to: {local_input_path}")
             except Exception as e:
                 logger.error(f"Error saving uploaded file: {e}")
@@ -3040,7 +3103,7 @@ async def process_video_unified(video_source: Union[str, cgi.FieldStorage], is_f
                         mota_value = benchmark_result.get("MOTA_Score", benchmark_result.get("mota_score", "")) if isinstance(benchmark_result, dict) else ""
                         try:
                             update_recon_index_scores(
-                                project_root=os.getcwd(),
+                                project_root=BASE_DIR,
                                 video_filename=os.path.basename(local_input_path),
                                 vmaf_score=vmaf_value,
                                 mota_score=mota_value,
@@ -5696,21 +5759,10 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
 
         if self.path == '/upload_chunk':
             try:
-                ctype, pdict = cgi.parse_header(self.headers.get('content-type', ''))
-                if ctype != 'multipart/form-data' or 'boundary' not in pdict:
-                    self.send_api_response(400, {"success": False, "message": "Expected multipart/form-data payload."})
+                form, form_error = parse_multipart_form(self)
+                if form_error:
+                    self.send_api_response(400, {"success": False, "message": form_error})
                     return
-
-                pdict['boundary'] = bytes(pdict['boundary'], "utf-8")
-                form = cgi.FieldStorage(
-                    fp=self.rfile,
-                    headers=self.headers,
-                    environ={
-                        'REQUEST_METHOD': 'POST',
-                        'CONTENT_TYPE': self.headers['Content-Type'],
-                        'CONTENT_LENGTH': str(self.headers['Content-Length'])
-                    }
-                )
 
                 upload_id = sanitize_chunk_upload_id(form['upload_id'].value if 'upload_id' in form else '')
                 if not upload_id:
@@ -5963,17 +6015,10 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
 
                 logger.info(f"Request from IP: {client_ip}, Geo: {geolocation_info}")
 
-                ctype, pdict = cgi.parse_header(self.headers.get('content-type'))
-                pdict['boundary'] = bytes(pdict['boundary'], "utf-8")
-                
-                form = cgi.FieldStorage(
-                    fp=self.rfile,
-                    headers=self.headers,
-                    environ={'REQUEST_METHOD': 'POST',
-                             'CONTENT_TYPE': self.headers['Content-Type'],
-                             'CONTENT_LENGTH': str(self.headers['Content-Length'])
-                            }
-                )
+                form, form_error = parse_multipart_form(self)
+                if form_error:
+                    self.send_api_response(400, {"message": form_error})
+                    return
                 
                 video_url = None
                 video_file = None
@@ -6009,7 +6054,10 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
                             logger.info(f"Received video URL from web: {video_url}")
 
                     if video_file is None and not video_url:
-                        self.send_api_response(400, {"message": "No video URL or file provided."})
+                        if preview_session_id:
+                            self.send_api_response(400, {"message": "Preview session expired. Please re-attach the video or refresh ROI preview."})
+                        else:
+                            self.send_api_response(400, {"message": "No video URL or file provided."})
                         return
                 else:
                     # For cached videos, check if fallback URL/file is provided (optional)
@@ -6109,6 +6157,11 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
                 )
 
                 if schedule_error:
+                    if not cached_video_path and isinstance(video_source, str) and os.path.exists(video_source):
+                        try:
+                            os.remove(video_source)
+                        except OSError:
+                            pass
                     self.send_api_response(500, {
                         "message": schedule_error,
                     })
@@ -6143,17 +6196,11 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
             # Endpoint to get a preview frame for ROI selection
             # Works with both uploaded files and URLs
             try:
-                ctype, pdict = cgi.parse_header(self.headers.get('content-type'))
-                pdict['boundary'] = bytes(pdict['boundary'], "utf-8")
-                
-                form = cgi.FieldStorage(
-                    fp=self.rfile,
-                    headers=self.headers,
-                    environ={'REQUEST_METHOD': 'POST',
-                             'CONTENT_TYPE': self.headers['Content-Type'],
-                             'CONTENT_LENGTH': str(self.headers['Content-Length'])
-                            }
-                )
+                os.makedirs(PREVIEW_SUBDIRECTORY, exist_ok=True)
+                form, form_error = parse_multipart_form(self)
+                if form_error:
+                    self.send_api_response(400, {"success": False, "message": form_error})
+                    return
                 
                 video_url = None
                 video_file = None
@@ -6200,7 +6247,7 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
                     if video_url:
                         logger.info(f"Preview request for URL: {video_url}")
 
-                if not video_file and not video_url:
+                if video_file is None and not video_url:
                     self.send_api_response(400, {"success": False, "message": "No video URL or file provided."})
                     return
                 
@@ -6216,10 +6263,11 @@ class LocalAPIHandler(http.server.BaseHTTPRequestHandler):
                     local_video_path = os.path.join(PREVIEW_SUBDIRECTORY, safe_filename)
                     
                     try:
+                        os.makedirs(PREVIEW_SUBDIRECTORY, exist_ok=True)
                         if hasattr(video_file.file, "seek"):
                             video_file.file.seek(0)
                         with open(local_video_path, 'wb') as f:
-                            f.write(video_file.file.read())
+                            shutil.copyfileobj(video_file.file, f)
                         logger.info(f"Preview file saved to: {local_video_path}")
                     except Exception as e:
                         logger.error(f"Error saving preview file: {e}")
@@ -7453,7 +7501,11 @@ def main():
         logger.info("Starting Vault server on port 5100...")
         vault_env = os.environ.copy()
         vault_env["JWT_SECRET_KEY"] = JWT_SECRET_KEY  # Share the same signing key
-        vault_server_process = subprocess.Popen([sys.executable, "vault_server.py"], env=vault_env)
+        vault_server_process = subprocess.Popen(
+            [sys.executable, os.path.join(BASE_DIR, "vault_server.py")],
+            env=vault_env,
+            cwd=BASE_DIR,
+        )
         logger.info(f"Vault server started with PID {vault_server_process.pid}")
     except Exception as e:
         logger.error(f"Failed to start Vault server: {e}")
