@@ -26,11 +26,238 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 
     <style>
+        :root {
+            --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-hover: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-press: cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        html,
         body {
             background-color: #030303;
             color: #e4e4e7;
             -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
+            overflow-x: clip;
+        }
+
+        .ui-icon {
+            width: 1rem;
+            height: 1rem;
+            flex-shrink: 0;
+            transition: transform 0.36s var(--ease-hover), opacity 0.26s ease;
+        }
+
+        /* Apple Liquid Glass Hero & Nav Rail */
+        .hero-header {
+            position: relative;
+            isolation: isolate;
+            padding: 0.4rem 0 0.65rem;
+            margin-bottom: 3.5rem;
+        }
+
+        .hero-header::before {
+            content: "";
+            position: absolute;
+            top: -1.6rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(860px, 96vw);
+            height: 11.5rem;
+            background:
+                radial-gradient(ellipse 62% 58% at 50% 42%, rgba(245, 158, 11, 0.18) 0%, rgba(253, 161, 54, 0.05) 50%, transparent 76%),
+                radial-gradient(ellipse 38% 34% at 50% 35%, rgba(254, 240, 138, 0.08) 0%, transparent 72%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .hero-title {
+            display: inline-block;
+            background-image:
+                radial-gradient(220px circle at var(--mx, 50%) var(--my, 35%), rgba(255, 255, 255, 0.65), transparent 62%),
+                linear-gradient(180deg, #fef9c3 0%, #fcd34d 40%, #f59e0b 84%, #d97706 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: #f59e0b;
+            filter: drop-shadow(0 0 28px rgba(245, 158, 11, 0.38)) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.85));
+            cursor: default;
+        }
+
+        .hero-horizon-rule {
+            position: relative;
+            width: min(440px, 72vw);
+            height: 1px;
+            margin: 0.25rem auto 0.85rem;
+            background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.12) 22%, rgba(253, 161, 54, 0.48) 50%, rgba(255, 255, 255, 0.12) 78%, transparent 100%);
+        }
+
+        .hero-horizon-rule::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 6px;
+            border-radius: 9999px;
+            filter: blur(3px);
+            background: radial-gradient(ellipse at center, rgba(253, 186, 116, 0.5) 0%, transparent 74%);
+            pointer-events: none;
+        }
+
+        .hero-subtitle-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin: 0 auto 1.25rem;
+            max-width: min(92vw, 48rem);
+            padding: 0.42rem 0.65rem 0.42rem 0.95rem;
+            border-radius: 9999px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.085), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 24px -12px rgba(0, 0, 0, 0.75);
+            color: #cbd5e1;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.86rem;
+            line-height: 1.4;
+        }
+
+        .hero-subtitle-accent {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.14rem 0.62rem;
+            border-radius: 9999px;
+            background: rgba(245, 158, 11, 0.16);
+            box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.36);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #fcd34d;
+            letter-spacing: 0.03em;
+        }
+
+        .desktop-nav-rail {
+            position: relative;
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.24rem;
+            padding: 0.34rem;
+            border-radius: 9999px;
+            background: linear-gradient(180deg, rgba(28, 28, 36, 0.66), rgba(14, 14, 20, 0.68));
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            box-shadow: 0 14px 36px -14px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+            overflow: clip;
+            isolation: isolate;
+        }
+
+        @media (min-width: 768px) {
+            .desktop-nav-rail {
+                flex-wrap: nowrap;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .desktop-nav-rail {
+                border-radius: 1.15rem;
+            }
+        }
+
+        .desktop-nav-rail::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(140deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.08) 32%, rgba(255, 255, 255, 0.02) 68%, rgba(255, 255, 255, 0.11) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .desktop-nav-rail::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.09), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.35s var(--ease-hover);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .desktop-nav-rail:hover::after {
+            opacity: 1;
+        }
+
+        .nav-sliding-pill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 0;
+            width: 0;
+            border-radius: 9999px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.42s var(--ease-hover), width 0.42s var(--ease-hover), height 0.42s var(--ease-hover), opacity 0.26s ease;
+            z-index: 0;
+        }
+
+        .nav-pill {
+            position: relative;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.46rem;
+            padding: 0.44rem 0.96rem;
+            border-radius: 9999px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            line-height: 1.25;
+            white-space: nowrap;
+            font-family: 'Inter', sans-serif;
+            color: #cbd5e1;
+            text-decoration: none;
+            transition: color 0.26s ease, transform 0.24s var(--ease-press), background 0.3s var(--ease-hover);
+        }
+
+        .nav-pill:hover {
+            color: #ffffff;
+        }
+
+        .nav-pill:hover .ui-icon {
+            transform: scale(1.08);
+        }
+
+        .nav-pill-active {
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.26), rgba(217, 119, 6, 0.16));
+            color: #fef3c7;
+            box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 2px 6px rgba(245, 158, 11, 0.18);
+        }
+
+        .chapter-date-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.32rem;
+            padding: 0.22rem 0.62rem;
+            border-radius: 0.375rem;
+            border: 1px solid rgba(255, 255, 255, 0.11);
+            background: rgba(255, 255, 255, 0.04);
+            color: #d4d4d8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
         }
 
         /* Scroll Progress Bar */
@@ -145,17 +372,19 @@
 
         /* Glass Cards */
         .about-card {
-            background: linear-gradient(180deg, rgba(16, 16, 20, 0.85) 0%, rgba(10, 10, 12, 0.98) 100%);
+            background:
+                radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.052), transparent 68%),
+                linear-gradient(180deg, rgba(22, 22, 30, 0.76) 0%, rgba(10, 10, 14, 0.94) 100%);
             backdrop-filter: none;
             -webkit-backdrop-filter: none;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.9);
-            border-radius: 1.25rem;
+            border: 0;
+            box-shadow: 0 20px 48px -18px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            border-radius: 1.35rem;
             position: relative;
-            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            transition: transform 0.38s var(--ease-hover), box-shadow 0.38s var(--ease-hover);
             z-index: 10;
             overflow: hidden;
+            min-width: 0;
         }
 
         .about-card::before {
@@ -165,16 +394,16 @@
             left: 0;
             right: 0;
             height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.5), transparent);
+            background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.55), transparent);
             pointer-events: none;
         }
 
         .about-card:hover {
-            transform: translateY(-4px);
-            background: linear-gradient(180deg, rgba(20, 20, 26, 0.9) 0%, rgba(12, 12, 15, 1) 100%);
-            border-color: rgba(245, 158, 11, 0.4);
-            border-top-color: rgba(245, 158, 11, 0.7);
-            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.8), 0 0 25px -5px rgba(245, 158, 11, 0.15);
+            transform: translateY(-3px);
+            background:
+                radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(245, 158, 11, 0.06), transparent 68%),
+                linear-gradient(180deg, rgba(26, 26, 35, 0.84) 0%, rgba(12, 12, 16, 0.98) 100%);
+            box-shadow: 0 24px 54px -18px rgba(0, 0, 0, 0.92), 0 0 30px -12px rgba(245, 158, 11, 0.22), inset 0 0 0 1px rgba(245, 158, 11, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
 
         /* Architect avatar */
@@ -2345,9 +2574,9 @@
         .glass-card,
         .gs-card,
         section {
-            content-visibility: auto;
-            contain-intrinsic-size: auto 480px;
+            content-visibility: visible;
         }
+        .grid > * { min-width: 0; }
     </style>
 </head>
 
@@ -2363,15 +2592,71 @@
     <main class="relative z-10 max-w-[100rem] mx-auto px-4 md:px-8 pt-12 md:pt-20 pb-12">
 
         <!-- Header -->
-        <header class="flex flex-col items-center justify-center text-center mb-16 relative z-10 gs-reveal">
+        <header class="hero-header flex flex-col items-center justify-center text-center relative z-10 gs-reveal">
             <h2
-                class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-4 flex items-center gap-3">
+                class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-3 flex items-center gap-3">
                 <span class="w-8 h-px bg-zinc-700"></span> About <span class="w-8 h-px bg-zinc-700"></span>
             </h2>
             <h1
-                class="font-retro text-3xl sm:text-4xl md:text-5xl lg:text-[46px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)]">
+                class="hero-title font-retro text-3xl sm:text-4xl md:text-5xl lg:text-[46px] md:leading-[1.6] mb-2">
                 Project<br class="md:hidden" /><span class="md:ml-6">GlyphMotion</span>
             </h1>
+            <div class="hero-horizon-rule" aria-hidden="true"></div>
+            <p class="hero-subtitle-pill">
+                <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="0.14"/>
+                    <path d="M12 16v-4.2"/>
+                    <circle cx="12" cy="8.2" r="0.85" fill="currentColor" stroke="none"/>
+                </svg>
+                <span>Two Builders &amp; the Open-Source Engine</span>
+                <span class="hero-subtitle-accent">v4.5 Epoch</span>
+            </p>
+
+            <!-- APPLE LIQUID GLASS NAV RAIL -->
+            <nav class="flex justify-center" aria-label="Primary Navigation">
+                <div class="desktop-nav-rail" id="desktopNavRail">
+                    <span class="nav-sliding-pill" id="navSlidingPill" aria-hidden="true"></span>
+                    <a href="index.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 10.5 12 3l9 7.5"/>
+                            <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" fill="currentColor" fill-opacity="0.16"/>
+                            <path d="M9.5 21v-6h5v6"/>
+                        </svg>
+                        <span>Home</span>
+                    </a>
+                    <a href="playground.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M9.5 3.5h5"/>
+                            <path d="M10.25 3.5v5.1a2 2 0 0 1-.38 1.18l-4.6 6.45A2.2 2.2 0 0 0 7.06 19.8h9.88a2.2 2.2 0 0 0 1.79-3.57l-4.6-6.45a2 2 0 0 1-.38-1.18V3.5"/>
+                            <path d="M7.2 14.5h9.6l1.7 2.4a1.5 1.5 0 0 1-1.22 2.4H6.72a1.5 1.5 0 0 1-1.22-2.4l1.7-2.4Z" fill="currentColor" fill-opacity="0.24" stroke="none"/>
+                        </svg>
+                        <span>AI Playground</span>
+                    </a>
+                    <a href="documentation.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M4.5 19.2v-14A2.4 2.4 0 0 1 6.9 2.8H19.5v18.4H6.9a2.4 2.4 0 0 1 0-4.8h12.6" fill="currentColor" fill-opacity="0.16"/>
+                        </svg>
+                        <span>Docs</span>
+                    </a>
+                    <a href="changelogs.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity="0.14" stroke="none"/>
+                            <path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3L3.5 8"/>
+                            <path d="M3.5 3.5V8H8"/>
+                            <path d="M12 7.5V12l3 1.8"/>
+                        </svg>
+                        <span>Changelogs</span>
+                    </a>
+                    <a href="about.html" class="nav-pill nav-pill-active" aria-current="page">
+                        <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="0.18"/>
+                            <path d="M12 16v-4.2"/>
+                            <circle cx="12" cy="8.2" r="0.85" fill="currentColor" stroke="none"/>
+                        </svg>
+                        <span>About</span>
+                    </a>
+                </div>
+            </nav>
         </header>
 
         <!-- =========================================================== -->
@@ -2591,16 +2876,16 @@
             <div class="about-card p-5 md:p-6 gs-card">
                 <div class="flex items-center gap-2 mb-2">
                     <i data-lucide="workflow" class="w-4 h-4 text-cyan-400"></i>
-                    <h3 class="text-white font-outfit text-base md:text-lg font-semibold">Pipeline Anatomy (6 steps)
+                    <h3 class="text-white font-outfit text-base md:text-lg font-semibold">v4.5 Bounded-Queue Pipeline Anatomy (6 Stages)
                     </h3>
                 </div>
                 <div class="pipeline-anatomy">
-                    <div class="anatomy-step"><span class="num">01</span>Input</div>
-                    <div class="anatomy-step"><span class="num">02</span>Decode</div>
-                    <div class="anatomy-step"><span class="num">03</span>Detect</div>
-                    <div class="anatomy-step"><span class="num">04</span>Annotate</div>
-                    <div class="anatomy-step"><span class="num">05</span>Encode</div>
-                    <div class="anatomy-step"><span class="num">06</span>Mux</div>
+                    <div class="anatomy-step"><span class="num">01</span>NVDEC Decode</div>
+                    <div class="anatomy-step"><span class="num">02</span>Batch-8 FP16</div>
+                    <div class="anatomy-step"><span class="num">03</span>TrackTrack-Fast</div>
+                    <div class="anatomy-step"><span class="num">04</span>Adaptive HFDR</div>
+                    <div class="anatomy-step"><span class="num">05</span>NVENC p4 Pipe</div>
+                    <div class="anatomy-step"><span class="num">06</span>Audio Mux</div>
                 </div>
             </div>
         </section>
@@ -2631,7 +2916,7 @@
                 <div class="origin-kpi-grid">
                     <div class="origin-kpi hover-target">
                         <div class="origin-kpi-label">Timeline Chapters</div>
-                        <div class="origin-kpi-value">8+ major phases</div>
+                        <div class="origin-kpi-value">10+ major phases</div>
                     </div>
                     <div class="origin-kpi hover-target">
                         <div class="origin-kpi-label">Core Builds</div>
@@ -2651,9 +2936,11 @@
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-rose-500/30 bg-rose-500/10 text-rose-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="play-circle" class="w-3.5 h-3.5"></i> Chapter 01 — The Spark
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-rose-500/30 bg-rose-500/10 text-rose-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="play-circle" class="w-3.5 h-3.5"></i> Chapter 01 — The Spark
+                                </div>
+                                <span class="chapter-date-pill">Apr &ndash; May 2025 &middot; Pre-Release</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">The Reel That Started
                                 It All</h3>
@@ -2692,9 +2979,11 @@
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i> Chapter 02 — The Setup
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i> Chapter 02 — The Setup
+                                </div>
+                                <span class="chapter-date-pill">Apr &ndash; May 2025 &middot; Post-Boards</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">Post-Boards,
                                 Pre-Purpose</h3>
@@ -2727,9 +3016,11 @@
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="terminal" class="w-3.5 h-3.5"></i> Chapter 03 — First Blood
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="terminal" class="w-3.5 h-3.5"></i> Chapter 03 — First Blood
+                                </div>
+                                <span class="chapter-date-pill">May 2025 &middot; CLI Prototype</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">Sayan Writes the First
                                 Script</h3>
@@ -2784,9 +3075,11 @@
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-purple-500/30 bg-purple-500/10 text-purple-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="music" class="w-3.5 h-3.5"></i> Chapter 04 — Audio
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-purple-500/30 bg-purple-500/10 text-purple-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="music" class="w-3.5 h-3.5"></i> Chapter 04 — Audio
+                                </div>
+                                <span class="chapter-date-pill">May &ndash; Early Jun 2025</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">FFmpeg Enters the Chat
                             </h3>
@@ -2814,9 +3107,11 @@
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="globe" class="w-3.5 h-3.5"></i> Chapter 05 — Going Remote
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="globe" class="w-3.5 h-3.5"></i> Chapter 05 — Going Remote
+                                </div>
+                                <span class="chapter-date-pill">Jun 15 &ndash; Jul 1, 2025 &middot; v1.0 &amp; Public Backend</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">Shitij Builds the Web
                                 Platform</h3>
@@ -2847,9 +3142,11 @@
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="wallet" class="w-3.5 h-3.5"></i> Chapter 06 — Zero Budget
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="wallet" class="w-3.5 h-3.5"></i> Chapter 06 — Zero Budget
+                                </div>
+                                <span class="chapter-date-pill">Jun &ndash; Jul 2025 &middot; $0 Tunnel Stack</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">$0 Infrastructure. 100%
                                 Uptime.</h3>
@@ -2918,9 +3215,11 @@
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-red-500/30 bg-red-500/10 text-red-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="heart-crack" class="w-3.5 h-3.5"></i> Chapter 06.5 — The Crash
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-red-500/30 bg-red-500/10 text-red-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="heart-crack" class="w-3.5 h-3.5"></i> Chapter 06.5 — The Crash
+                                </div>
+                                <span class="chapter-date-pill">Post-Release 2025 &middot; Cloudflare Outage Window</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">The Night Everything
                                 Felt Broken</h3>
@@ -2955,9 +3254,11 @@
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="monitor" class="w-3.5 h-3.5"></i> Chapter 07 — The Split
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="monitor" class="w-3.5 h-3.5"></i> Chapter 07 — The Split
+                                </div>
+                                <span class="chapter-date-pill">Jul 2025 &ndash; Jan 2026 &middot; Web &middot; CLI &middot; GUI</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">Three Forks, One
                                 Pipeline</h3>
@@ -3007,9 +3308,11 @@
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-orange-500/30 bg-orange-500/10 text-orange-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="smartphone" class="w-3.5 h-3.5"></i> Chapter 08 — The Backstory
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-orange-500/30 bg-orange-500/10 text-orange-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="smartphone" class="w-3.5 h-3.5"></i> Chapter 08 — The Backstory
+                                </div>
+                                <span class="chapter-date-pill">Pre-2025 &middot; Android Custom ROM Years</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">Before GlyphMotion: The
                                 Android Years</h3>
@@ -3047,9 +3350,11 @@
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="zap" class="w-3.5 h-3.5"></i> Chapter 09 — The Breakthrough
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="zap" class="w-3.5 h-3.5"></i> Chapter 09 — The Breakthrough
+                                </div>
+                                <span class="chapter-date-pill">Feb &ndash; Mar 2026 &middot; HFDR Hybrid</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">HFDR Hybrid: VMAF 94.9
                                 at 21.5 FPS</h3>
@@ -3105,9 +3410,11 @@
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-purple-500/30 bg-purple-500/10 text-purple-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="brain" class="w-3.5 h-3.5"></i> Adaptive Pipeline Era
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-purple-500/30 bg-purple-500/10 text-purple-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="brain" class="w-3.5 h-3.5"></i> Adaptive Pipeline Era
+                                </div>
+                                <span class="chapter-date-pill">Mar 21, 2026 &middot; v4.0 Launch</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">VMAF 80 → 95: The
                                 Adaptive Intelligence Leap</h3>
@@ -3157,12 +3464,70 @@
                         </div>
                     </div>
 
+                    <div class="audio-wave-divider" aria-hidden="true"></div>
+
+                    <!-- Chapter 10: Engine v4.5 High-Throughput & Liquid Glass -->
                     <div class="relative gs-card timeline-entry">
                         <div class="timeline-dot"></div>
                         <div>
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-                                <i data-lucide="flag" class="w-3.5 h-3.5"></i> Present Day
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="cpu" class="w-3.5 h-3.5"></i> Chapter 10 — Engine v4.5
+                                </div>
+                                <span class="chapter-date-pill">Nov 19 &ndash; 22, 2026 &middot; v4.5 Launch</span>
+                            </div>
+                            <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">v4.5: Removing Every
+                                Serial Bottleneck + Liquid Glass UI</h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                v4.0 proved adaptive scene intelligence worked, but serial CPU frame handling, single-frame
+                                inference, and heavyweight software encoding kept real-world throughput pinned around ~20 FPS.
+                                <strong class="text-cyan-400">Engine v4.5</strong> keeps those perceptual algorithms intact
+                                while rebuilding execution around <strong class="text-white">Batch-8 Tensor Core FP16</strong>
+                                inference, <code class="bg-zinc-800 px-1.5 py-0.5 rounded text-[12px] text-amber-400">TrackTrack-Fast</code>
+                                (<span class="text-emerald-400">-57.5%</span> ID switches), <code class="bg-zinc-800 px-1.5 py-0.5 rounded text-[12px] text-cyan-400">hevc_nvenc p4</code>
+                                piping with <code class="bg-zinc-800 px-1.5 py-0.5 rounded text-[12px] text-zinc-200">memoryview(bgr24)</code>,
+                                and bounded producer/consumer queues (<code class="bg-zinc-800 px-1.5 py-0.5 rounded text-[12px]">16 / 16 / 12</code>).
+                            </p>
+
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                <div class="p-3 rounded-lg bg-[#070709] border border-amber-500/20 text-center">
+                                    <div class="text-amber-400 font-mono font-bold text-xl">90.92</div>
+                                    <div class="text-zinc-500 text-[10px] font-mono uppercase mt-1">1080p FPS (3.97&times;)</div>
+                                </div>
+                                <div class="p-3 rounded-lg bg-[#070709] border border-emerald-500/20 text-center">
+                                    <div class="text-emerald-400 font-mono font-bold text-xl">51.55</div>
+                                    <div class="text-zinc-500 text-[10px] font-mono uppercase mt-1">3440&times;1440 (2.77&times;)</div>
+                                </div>
+                                <div class="p-3 rounded-lg bg-[#070709] border border-cyan-500/20 text-center">
+                                    <div class="text-cyan-400 font-mono font-bold text-xl">10.7 ms</div>
+                                    <div class="text-zinc-500 text-[10px] font-mono uppercase mt-1">Batch-8 FP16 / f</div>
+                                </div>
+                                <div class="p-3 rounded-lg bg-[#070709] border border-purple-500/20 text-center">
+                                    <div class="text-purple-400 font-mono font-bold text-xl">99.95</div>
+                                    <div class="text-zinc-500 text-[10px] font-mono uppercase mt-1">Peak VMAF (~12&times; Eval)</div>
+                                </div>
+                            </div>
+
+                            <p class="text-zinc-400 text-sm leading-relaxed mb-3 font-outfit">
+                                Alongside engine acceleration, <code class="bg-zinc-800 px-1.5 py-0.5 rounded text-[12px] text-amber-400">tg.py</code>
+                                gained parallel startup probing + TrueColor boot diagnostics, <code class="bg-zinc-800 px-1.5 py-0.5 rounded text-[12px] text-cyan-400">production_benchmark.py</code>
+                                adopted adaptive multi-threaded <code class="bg-zinc-800 px-1.5 py-0.5 rounded text-[12px]">libvmaf</code> subsampling,
+                                and every frontend page moved to a unified, low-RAM Apple Liquid Glass interface.
+                            </p>
+                            <div class="phase-shift"><strong>Then (v4.0):</strong> 22.90 FPS serial loop at 37.4 ms/frame.
+                                <strong class="phase-now">Now (v4.5):</strong> 90.92 FPS async Batch-8 pipeline + VMAF up to 99.95.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="relative gs-card timeline-entry">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+                                    <i data-lucide="flag" class="w-3.5 h-3.5"></i> Present Day
+                                </div>
+                                <span class="chapter-date-pill">Nov 22, 2026 &middot; 17 Months Since v1.0</span>
                             </div>
                             <h3 class="font-outfit text-lg md:text-xl font-bold text-white mb-3">From a 30-Line Script
                                 Reel to a Full Pipeline</h3>
@@ -3272,7 +3637,7 @@
                     </div>
                     <div class="cost-chip">
                         <div class="k">Processing Model</div>
-                        <div class="v">Asynchronous pipeline with queue-based stages</div>
+                        <div class="v">v4.5 5-stage async pipeline (Batch-8 FP16 + queues 16/16/12)</div>
                     </div>
                     <div class="cost-chip">
                         <div class="k">Deployment Reach</div>
@@ -3288,28 +3653,29 @@
                         <div class="decision-item"><strong>Decision 01:</strong> Web platform stays the canonical
                             source of pipeline evolution. <strong>Why:</strong> one main branch prevents feature
                             drift and keeps downstream ports consistent.</div>
-                        <div class="decision-item"><strong>Decision 02:</strong> Separate stages for decode,
-                            inference, and encode with FFmpeg muxing. <strong>Why:</strong> better throughput,
-                            cleaner recovery points, and preserved audio integrity.</div>
-                        <div class="decision-item"><strong>Decision 03:</strong> Hybrid static+on-demand backend
-                            infrastructure. <strong>Why:</strong> near-zero operating cost while still enabling full
-                            pipeline execution when needed.</div>
+                        <div class="decision-item"><strong>Decision 02:</strong> Bounded queues decouple NVDEC decode,
+                            Batch-8 YOLO/TrackTrack-Fast, ROI HFDR, and NVENC p4 muxing. <strong>Why:</strong> zero
+                            GPU starvation, clean recovery on stall timeout (120s), and preserved audio integrity.</div>
+                        <div class="decision-item"><strong>Decision 03:</strong> Static Liquid Glass frontend (zero heavy
+                            runtime blur bloat) + Cloudflare Tunnel on-demand Flask backend. <strong>Why:</strong>
+                            near-$0 hosting cost, fast low-RAM page loads, and full SSE job execution.</div>
                     </div>
                 </article>
 
                 <article class="about-card p-6 md:p-7 gs-card">
                     <h3 class="text-white font-outfit text-xl font-semibold mb-4">Open Questions (Still Solving)</h3>
                     <div class="question-list">
-                        <div class="question-item"><strong>Optimization frontier:</strong> HFDR Hybrid pushed FPS beyond
-                            baseline — can we maintain this at higher resolutions (8K) or longer videos without memory
-                            degradation?</div>
-                        <div class="question-item"><strong>Quality frontier:</strong> VMAF jumped from ~80 →
-                            <strong>94.9</strong> via HFDR. Can we break <strong>96+</strong> with next-gen sharpening
-                            or learned upscaling without FPS regression?
+                        <div class="question-item"><strong>Throughput frontier:</strong> v4.5 hit 90.92 FPS at 1080p and
+                            51.55 FPS on 3440&times;1440 ultrawide — can TensorRT INT8 + zero-copy GPU surface decode sustain
+                            60+ FPS on dense multi-stream 4K/8K feeds?</div>
+                        <div class="question-item"><strong>Quality frontier:</strong> VMAF climbed from ~80 &rarr;
+                            <strong>94.9</strong> in v4.0 and reached <strong>98.43&ndash;99.95</strong> under v4.5
+                            (<code class="bg-zinc-800 px-1 rounded text-[11px]">libvmaf</code> adaptive subsampling). Can
+                            learned SR models hold 99+ VMAF at lower bitrates?
                         </div>
-                        <div class="question-item"><strong>Deployment frontier:</strong> the hybrid pipeline is
-                            benchmarked locally — how does it behave on varied GPU tiers, cloud instances, and edge
-                            devices?</div>
+                        <div class="question-item"><strong>Deployment frontier:</strong> validated cleanly on RTX 3050
+                            6 GB + i5-13450HX &mdash; how cleanly do those queue/batch defaults autotune across AMD ROCm,
+                            Apple Silicon MPS, and CPU-only edge nodes?</div>
                     </div>
                 </article>
             </div>
@@ -3433,12 +3799,13 @@
                     <h3 class="text-white font-outfit text-base md:text-lg font-semibold">Build Stack Snapshot</h3>
                 </div>
                 <div class="snapshot-row">
-                    <span class="stack-chip">YOLOv8</span>
-                    <span class="stack-chip">FFmpeg</span>
-                    <span class="stack-chip">Flask</span>
-                    <span class="stack-chip">SSE</span>
-                    <span class="stack-chip">GDrive</span>
-                    <span class="stack-chip">Cloudflare Tunnel</span>
+                    <span class="stack-chip">YOLOv8 Batch-8 FP16</span>
+                    <span class="stack-chip">TrackTrack-Fast</span>
+                    <span class="stack-chip">NVDEC &amp; NVENC HEVC</span>
+                    <span class="stack-chip">libvmaf Adaptive Eval</span>
+                    <span class="stack-chip">Flask + SSE</span>
+                    <span class="stack-chip">GDrive + Cloudflare</span>
+                    <span class="stack-chip">Liquid Glass UI</span>
                 </div>
 
                 <div class="flex items-center gap-2 mt-5 mb-2">
@@ -3511,7 +3878,7 @@
     <!-- Footer -->
     <footer class="relative z-10 pb-8 pt-4 px-4">
         <div
-            class="max-w-max mx-auto px-4 sm:px-6 py-3 rounded-xl sm:rounded-full bg-surface/80 backdrop-blur-md border border-zinc-800/60 shadow-[0_0_20px_rgba(0,0,0,0.5)] flex flex-col sm:flex-row items-center justify-center gap-3 transition-all hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)] hover-target">
+            class="max-w-max mx-auto px-4 sm:px-6 py-3 rounded-xl sm:rounded-full bg-surface/80 border border-zinc-800/60 shadow-[0_0_20px_rgba(0,0,0,0.5)] flex flex-col sm:flex-row items-center justify-center gap-3 transition-all hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)] hover-target">
             <div class="flex items-center gap-2">
                 <i data-lucide="terminal-square" class="w-4 h-4 text-amber-500"></i>
                 <p class="text-zinc-400 text-[11px] sm:text-sm font-mono tracking-wide">
@@ -3806,6 +4173,76 @@
                 debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
             }
         });
+
+        // Apple Liquid Glass Sheen & Zoom-Safe Sliding Nav Rail
+        (function initLiquidGlassUI() {
+            const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const isFinePointer = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+
+            if (isFinePointer && !prefersReducedMotion) {
+                const trackPointer = (el, clientX, clientY) => {
+                    const rect = el.getBoundingClientRect();
+                    const z = getAppliedZoom();
+                    el.style.setProperty('--mx', `${(clientX - rect.left) / z}px`);
+                    el.style.setProperty('--my', `${(clientY - rect.top) / z}px`);
+                };
+
+                ['.hero-title', '#desktopNavRail'].forEach(sel => {
+                    const el = document.querySelector(sel);
+                    if (!el) return;
+                    let rafId = 0;
+                    el.addEventListener('pointermove', (e) => {
+                        const { clientX, clientY } = e;
+                        if (rafId) cancelAnimationFrame(rafId);
+                        rafId = requestAnimationFrame(() => trackPointer(el, clientX, clientY));
+                    }, { passive: true });
+                });
+
+                document.addEventListener('pointermove', (e) => {
+                    const card = e.target.closest('.about-card');
+                    if (card) trackPointer(card, e.clientX, e.clientY);
+                }, { passive: true });
+            }
+
+            const rail = document.getElementById('desktopNavRail');
+            const pill = document.getElementById('navSlidingPill');
+            if (rail && pill) {
+                let visible = false;
+                const movePill = (target) => {
+                    if (!target) {
+                        visible = false;
+                        pill.style.opacity = '0';
+                        return;
+                    }
+                    const x = target.offsetLeft;
+                    const y = target.offsetTop;
+                    const w = target.offsetWidth;
+                    const h = target.offsetHeight;
+                    if (!visible) {
+                        pill.style.transition = 'none';
+                        pill.style.width = `${w}px`;
+                        pill.style.height = `${h}px`;
+                        pill.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+                        void pill.offsetWidth;
+                        pill.style.transition = '';
+                        visible = true;
+                    } else {
+                        pill.style.width = `${w}px`;
+                        pill.style.height = `${h}px`;
+                        pill.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+                    }
+                    pill.style.opacity = target.classList.contains('nav-pill-active') ? '0' : '1';
+                };
+                rail.querySelectorAll('.nav-pill').forEach(btn => {
+                    btn.addEventListener('pointerenter', () => movePill(btn));
+                    btn.addEventListener('focus', () => movePill(btn));
+                });
+                rail.addEventListener('pointerleave', () => movePill(null));
+                rail.addEventListener('focusout', (e) => {
+                    if (!rail.contains(e.relatedTarget)) movePill(null);
+                });
+            }
+        })();
     </script>
 </body>
 

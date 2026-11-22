@@ -103,12 +103,14 @@
 
         .desktop-nav-rail, .mode-tab-rail {
             position: relative; display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center;
-            gap: 0.24rem; padding: 0.28rem; border-radius: 9999px;
+            gap: 0.24rem; padding: 0.34rem; border-radius: 9999px;
             background: linear-gradient(180deg, rgba(28,28,36,0.62), rgba(14,14,20,0.62));
             backdrop-filter: none; -webkit-backdrop-filter: none;
             box-shadow: 0 14px 36px -14px rgba(0,0,0,0.78), inset 0 1px 0 rgba(255,255,255,0.16);
-            overflow: hidden;
+            overflow: clip; isolation: isolate;
         }
+        @media (min-width: 768px) { .desktop-nav-rail, .mode-tab-rail { flex-wrap: nowrap; } }
+        @media (max-width: 767px) { .desktop-nav-rail, .mode-tab-rail { border-radius: 1.15rem; } }
         .desktop-nav-rail::before, .mode-tab-rail::before {
             content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
             background: linear-gradient(140deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.08) 32%, rgba(255,255,255,0.02) 68%, rgba(255,255,255,0.11) 100%);
@@ -132,7 +134,7 @@
         .nav-pill, .mode-tab-btn {
             position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 0.42rem;
             padding: 0.42rem 0.9rem; border-radius: 9999px; border: 0; background: transparent;
-            font-size: 0.78rem; font-weight: 500; font-family: 'Inter', sans-serif; color: #cbd5e1;
+            font-size: 0.78rem; font-weight: 500; line-height: 1.25; white-space: nowrap; font-family: 'Inter', sans-serif; color: #cbd5e1;
             text-decoration: none; cursor: pointer;
             transition: color 0.24s ease, transform 0.2s var(--ease-press), background 0.28s var(--ease-hover);
         }
@@ -140,7 +142,7 @@
         .nav-pill-active, .mode-tab-btn.is-active {
             background: linear-gradient(180deg, rgba(245,158,11,0.26), rgba(217,119,6,0.16));
             color: #fef3c7;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 4px 14px -4px rgba(245,158,11,0.4);
+            box-shadow: inset 0 0 0 1px rgba(245,158,11,0.38), inset 0 1px 0 rgba(255,255,255,0.24), 0 2px 6px rgba(245,158,11,0.18);
         }
 
         /* ==================== GLASS CARDS & PILLS ==================== */
@@ -2732,7 +2734,7 @@
             const rm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             const fp = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
             if (fp && !rm) {
-                const track = (el, x, y) => { const r = el.getBoundingClientRect(); el.style.setProperty('--mx', `${x - r.left}px`); el.style.setProperty('--my', `${y - r.top}px`); };
+                const track = (el, x, y) => { const r = el.getBoundingClientRect(); const z = parseFloat(document.documentElement.style.zoom) || 1; el.style.setProperty('--mx', `${(x - r.left) / z}px`); el.style.setProperty('--my', `${(y - r.top) / z}px`); };
                 ['.hero-title', '#desktopNavRail'].forEach(sel => {
                     const el = document.querySelector(sel); if (!el) return; let raf = 0;
                     el.addEventListener('pointermove', (e) => { const { clientX, clientY } = e; if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(() => track(el, clientX, clientY)); }, { passive: true });
@@ -2744,10 +2746,10 @@
                 let vis = false;
                 const move = (target) => {
                     if (!target) { vis = false; pill.style.opacity = '0'; return; }
-                    const rr = rail.getBoundingClientRect(), ir = target.getBoundingClientRect(), x = ir.left - rr.left, y = ir.top - rr.top;
-                    if (!vis) { pill.style.transition = 'none'; pill.style.width = `${ir.width}px`; pill.style.height = `${ir.height}px`; pill.style.transform = `translate3d(${x}px, ${y}px, 0)`; void pill.offsetWidth; pill.style.transition = ''; vis = true; }
-                    else { pill.style.width = `${ir.width}px`; pill.style.height = `${ir.height}px`; pill.style.transform = `translate3d(${x}px, ${y}px, 0)`; }
-                    pill.style.opacity = '1';
+                    const x = target.offsetLeft, y = target.offsetTop, w = target.offsetWidth, h = target.offsetHeight;
+                    if (!vis) { pill.style.transition = 'none'; pill.style.width = `${w}px`; pill.style.height = `${h}px`; pill.style.transform = `translate3d(${x}px, ${y}px, 0)`; void pill.offsetWidth; pill.style.transition = ''; vis = true; }
+                    else { pill.style.width = `${w}px`; pill.style.height = `${h}px`; pill.style.transform = `translate3d(${x}px, ${y}px, 0)`; }
+                    pill.style.opacity = target.classList.contains('nav-pill-active') ? '0' : '1';
                 };
                 rail.querySelectorAll('.nav-pill').forEach(b => { b.addEventListener('pointerenter', () => move(b)); b.addEventListener('focus', () => move(b)); });
                 rail.addEventListener('pointerleave', () => move(null));

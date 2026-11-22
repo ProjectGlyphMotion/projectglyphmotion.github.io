@@ -23,11 +23,240 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 
     <style>
+        :root {
+            --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-hover: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-press: cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html,
         body {
             background-color: #030303;
             color: #e4e4e7;
             -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
+            overflow-x: clip;
+        }
+
+        .ui-icon {
+            width: 1rem;
+            height: 1rem;
+            flex-shrink: 0;
+            transition: transform 0.36s var(--ease-hover), opacity 0.26s ease;
+        }
+
+        /* Apple Liquid Glass Hero Header & Nav Rail */
+        .hero-header {
+            position: relative;
+            isolation: isolate;
+            padding: 0.4rem 0 0.65rem;
+            margin-bottom: 3.5rem;
+        }
+
+        .hero-header::before {
+            content: "";
+            position: absolute;
+            top: -1.6rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(860px, 96vw);
+            height: 11.5rem;
+            background:
+                radial-gradient(ellipse 62% 58% at 50% 42%, rgba(245, 158, 11, 0.18) 0%, rgba(253, 161, 54, 0.05) 50%, transparent 76%),
+                radial-gradient(ellipse 38% 34% at 50% 35%, rgba(254, 240, 138, 0.08) 0%, transparent 72%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .hero-title {
+            display: inline-block;
+            background-image:
+                radial-gradient(220px circle at var(--mx, 50%) var(--my, 35%), rgba(255, 255, 255, 0.65), transparent 62%),
+                linear-gradient(180deg, #fef9c3 0%, #fcd34d 40%, #f59e0b 84%, #d97706 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: #f59e0b;
+            filter: drop-shadow(0 0 28px rgba(245, 158, 11, 0.38)) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.85));
+            cursor: default;
+        }
+
+        .hero-horizon-rule {
+            position: relative;
+            width: min(440px, 72vw);
+            height: 1px;
+            margin: 0.25rem auto 0.85rem;
+            background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.12) 22%, rgba(253, 161, 54, 0.48) 50%, rgba(255, 255, 255, 0.12) 78%, transparent 100%);
+        }
+
+        .hero-horizon-rule::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 6px;
+            border-radius: 9999px;
+            filter: blur(3px);
+            background: radial-gradient(ellipse at center, rgba(253, 186, 116, 0.5) 0%, transparent 74%);
+            pointer-events: none;
+        }
+
+        .hero-subtitle-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin: 0 auto 1.25rem;
+            max-width: min(92vw, 48rem);
+            padding: 0.42rem 0.65rem 0.42rem 0.95rem;
+            border-radius: 9999px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.085), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 24px -12px rgba(0, 0, 0, 0.75);
+            color: #cbd5e1;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.86rem;
+            line-height: 1.4;
+        }
+
+        .hero-subtitle-accent {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.14rem 0.62rem;
+            border-radius: 9999px;
+            background: rgba(245, 158, 11, 0.16);
+            box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.36);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #fcd34d;
+            letter-spacing: 0.03em;
+        }
+
+        .desktop-nav-rail {
+            position: relative;
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.24rem;
+            padding: 0.34rem;
+            border-radius: 9999px;
+            background: linear-gradient(180deg, rgba(28, 28, 36, 0.66), rgba(14, 14, 20, 0.68));
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            box-shadow: 0 14px 36px -14px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+            overflow: clip;
+            isolation: isolate;
+        }
+
+        @media (min-width: 768px) {
+            .desktop-nav-rail {
+                flex-wrap: nowrap;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .desktop-nav-rail {
+                border-radius: 1.15rem;
+            }
+        }
+
+        .desktop-nav-rail::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(140deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.08) 32%, rgba(255, 255, 255, 0.02) 68%, rgba(255, 255, 255, 0.11) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .desktop-nav-rail::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.09), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.35s var(--ease-hover);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .desktop-nav-rail:hover::after {
+            opacity: 1;
+        }
+
+        .nav-sliding-pill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 0;
+            width: 0;
+            border-radius: 9999px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.42s var(--ease-hover), width 0.42s var(--ease-hover), height 0.42s var(--ease-hover), opacity 0.26s ease;
+            z-index: 0;
+        }
+
+        .nav-pill {
+            position: relative;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.46rem;
+            padding: 0.44rem 0.96rem;
+            border-radius: 9999px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            line-height: 1.25;
+            white-space: nowrap;
+            font-family: 'Inter', sans-serif;
+            color: #cbd5e1;
+            text-decoration: none;
+            transition: color 0.26s ease, transform 0.24s var(--ease-press), background 0.3s var(--ease-hover);
+        }
+
+        .nav-pill:hover {
+            color: #ffffff;
+        }
+
+        .nav-pill:hover .ui-icon {
+            transform: scale(1.08);
+        }
+
+        .nav-pill-active {
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.26), rgba(217, 119, 6, 0.16));
+            color: #fef3c7;
+            box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 2px 6px rgba(245, 158, 11, 0.18);
+        }
+
+        .hero-stats {
+            position: relative;
+            background:
+                radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.065), transparent 68%),
+                linear-gradient(180deg, rgba(24, 24, 32, 0.72) 0%, rgba(10, 10, 15, 0.9) 100%) !important;
+            border: 0 !important;
+            box-shadow:
+                0 20px 48px -18px rgba(0, 0, 0, 0.88),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.085),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
         }
 
         /* Optimized Hardware-Accelerated Background Glows (No Lag) */
@@ -61,18 +290,21 @@
 
         /* Advanced Glass Cards */
         .commit-card {
-            background: linear-gradient(180deg, rgba(16, 16, 20, 0.85) 0%, rgba(10, 10, 12, 0.98) 100%);
+            background:
+                radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.048), transparent 68%),
+                linear-gradient(180deg, rgba(22, 22, 30, 0.76) 0%, rgba(10, 10, 14, 0.94) 100%);
             backdrop-filter: none; -webkit-backdrop-filter: none;
-            border: 1px solid rgba(255, 255, 255, 0.05); border-top: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.9);
-            border-radius: 1.25rem; position: relative;
-            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); z-index: 10;
+            border: 0;
+            box-shadow: 0 20px 48px -18px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            border-radius: 1.35rem; position: relative;
+            transition: transform 0.38s var(--ease-hover), box-shadow 0.38s var(--ease-hover); z-index: 10;
         }
         .commit-card:hover {
-            transform: translateY(-4px);
-            background: linear-gradient(180deg, rgba(20, 20, 26, 0.9) 0%, rgba(12, 12, 15, 1) 100%);
-            border-color: rgba(245, 158, 11, 0.4); border-top-color: rgba(245, 158, 11, 0.7);
-            box-shadow: 0 15px 35px -10px rgba(0,0,0,0.8), 0 0 25px -5px rgba(245, 158, 11, 0.15);
+            transform: translateY(-3px);
+            background:
+                radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(245, 158, 11, 0.06), transparent 68%),
+                linear-gradient(180deg, rgba(26, 26, 35, 0.84) 0%, rgba(12, 12, 16, 0.98) 100%);
+            box-shadow: 0 24px 54px -18px rgba(0,0,0,0.92), 0 0 30px -12px rgba(245, 158, 11, 0.22), inset 0 0 0 1px rgba(245, 158, 11, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
 
         .tech-details-pane {
@@ -293,7 +525,7 @@
         
         @keyframes magicSpin {
             0% { transform: rotate(0deg) scale(1.0); }
-            50% { transform: rotate(180deg) scale(1.1); filter: drop-shadow(0 0 12px rgba(192, 132, 252, 0.9)); }
+            50% { transform: rotate(180deg) scale(1.1); }
             100% { transform: rotate(360deg) scale(1.0); }
         }
 
@@ -1245,13 +1477,28 @@
         .bg-mesh, .bg-grid { position: absolute !important; inset: 0 0 auto 0 !important; height: 900px !important; will-change: auto !important; }
         .scanlines { display: none !important; }
         .blur-3xl, .blur-2xl, .blur-xl { filter: none !important; opacity: 0.35; mix-blend-mode: normal !important; }
-        .gemini-star-icon { animation: none !important; filter: none !important; }
+        .gemini-star-icon { animation: magicSpin 8s linear infinite !important; }
         .drop-shadow-\[0_0_35px_rgba\(245\2c 158\2c 11\2c 0\.5\)\] { filter: none !important; text-shadow: 0 0 28px rgba(245,158,11,0.45); }
         .backdrop-blur, .backdrop-blur-sm, .backdrop-blur-md, .backdrop-blur-lg, .backdrop-blur-xl {
             backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
         }
         .release-card, .changelog-card, .doc-card, .glass-card, article, section {
-            content-visibility: auto; contain-intrinsic-size: auto 500px;
+            content-visibility: visible;
+        }
+        .grid > *, .lg\:col-span-4, .lg\:col-span-8, .commit-entry, .commit-card {
+            min-width: 0;
+        }
+        .flagship-ribbon-clip {
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 30;
+        }
+        .flagship-ribbon-clip .flagship-ribbon {
+            top: 22px;
+            right: -42px;
         }
         * { will-change: auto !important; }
     </style>
@@ -1264,15 +1511,80 @@
 
     <main class="relative z-10 max-w-[100rem] mx-auto px-2 md:px-4 pt-12 md:pt-20 pb-32">
         
-        <header class="flex flex-col items-center justify-center text-center mb-20 relative z-10 gs-reveal">
-            <h2 class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-4 flex items-center gap-3">
+        <header class="hero-header flex flex-col items-center justify-center text-center relative z-10 gs-reveal">
+            <h2 class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-3 flex items-center gap-3">
                 <span class="w-8 h-px bg-zinc-700"></span> Changelogs <span class="w-8 h-px bg-zinc-700"></span>
             </h2>
-            <h1 class="font-retro text-3xl sm:text-4xl md:text-5xl lg:text-[46px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-8">
+            <h1 class="hero-title font-retro text-3xl sm:text-4xl md:text-5xl lg:text-[46px] md:leading-[1.6] mb-2">
                 Project<br class="md:hidden" /><span class="md:ml-6">GlyphMotion</span>
             </h1>
+            <div class="hero-horizon-rule" aria-hidden="true"></div>
+            <p class="hero-subtitle-pill">
+                <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity="0.14" stroke="none"/>
+                    <path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3L3.5 8"/>
+                    <path d="M3.5 3.5V8H8"/>
+                    <path d="M12 7.5V12l3 1.8"/>
+                </svg>
+                <span>Commit Chronology &amp; Release Engineering</span>
+                <span class="hero-subtitle-accent">v1.0 &rarr; v4.5</span>
+            </p>
+
+            <!-- APPLE LIQUID GLASS NAV RAIL -->
+            <nav class="flex justify-center mb-6" aria-label="Primary Navigation">
+                <div class="desktop-nav-rail" id="desktopNavRail">
+                    <span class="nav-sliding-pill" id="navSlidingPill" aria-hidden="true"></span>
+                    <a href="index.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 10.5 12 3l9 7.5"/>
+                            <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" fill="currentColor" fill-opacity="0.16"/>
+                            <path d="M9.5 21v-6h5v6"/>
+                        </svg>
+                        <span>Home</span>
+                    </a>
+                    <a href="playground.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M9.5 3.5h5"/>
+                            <path d="M10.25 3.5v5.1a2 2 0 0 1-.38 1.18l-4.6 6.45A2.2 2.2 0 0 0 7.06 19.8h9.88a2.2 2.2 0 0 0 1.79-3.57l-4.6-6.45a2 2 0 0 1-.38-1.18V3.5"/>
+                            <path d="M7.2 14.5h9.6l1.7 2.4a1.5 1.5 0 0 1-1.22 2.4H6.72a1.5 1.5 0 0 1-1.22-2.4l1.7-2.4Z" fill="currentColor" fill-opacity="0.24" stroke="none"/>
+                        </svg>
+                        <span>AI Playground</span>
+                    </a>
+                    <a href="documentation.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M4.5 19.2v-14A2.4 2.4 0 0 1 6.9 2.8H19.5v18.4H6.9a2.4 2.4 0 0 1 0-4.8h12.6" fill="currentColor" fill-opacity="0.16"/>
+                        </svg>
+                        <span>Docs</span>
+                    </a>
+                    <a href="changelogs.html" class="nav-pill nav-pill-active" aria-current="page">
+                        <svg class="ui-icon text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity="0.18" stroke="none"/>
+                            <path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3L3.5 8"/>
+                            <path d="M3.5 3.5V8H8"/>
+                            <path d="M12 7.5V12l3 1.8"/>
+                        </svg>
+                        <span>Changelogs</span>
+                    </a>
+                    <a href="benchmark.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="4" y="13" width="3.5" height="7" rx="1" fill="currentColor" fill-opacity="0.24"/>
+                            <rect x="10.25" y="9" width="3.5" height="11" rx="1" fill="currentColor" fill-opacity="0.24"/>
+                            <rect x="16.5" y="4" width="3.5" height="16" rx="1" fill="currentColor" fill-opacity="0.24"/>
+                        </svg>
+                        <span>Benchmark</span>
+                    </a>
+                    <a href="about.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="0.14"/>
+                            <path d="M12 16v-4.2"/>
+                            <circle cx="12" cy="8.2" r="0.85" fill="currentColor" stroke="none"/>
+                        </svg>
+                        <span>About</span>
+                    </a>
+                </div>
+            </nav>
             
-            <div class="hero-stats flex flex-wrap items-center justify-evenly gap-4 md:gap-8 px-8 py-4 w-full md:w-[700px] mx-auto rounded-2xl border border-zinc-800/80 bg-surface/40 backdrop-blur-xl shadow-2xl">
+            <div class="hero-stats flex flex-wrap items-center justify-evenly gap-4 md:gap-8 px-8 py-4 w-full md:w-[700px] mx-auto rounded-2xl">
                 <div class="flex flex-col items-center">
                     <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i data-lucide="activity" class="w-3 h-3 text-amber-500"></i> Project Age</span>
                     <span id="stat-age" class="text-sm md:text-base font-outfit font-semibold text-zinc-200">Calculating...</span>
@@ -1304,7 +1616,7 @@
                             <path d="M12 0C12 6.627 17.373 12 24 12C17.373 12 12 17.373 12 24C12 17.373 6.627 12 0 12C6.627 12 12 6.627 12 0Z"/>
                         </svg>
 
-                        <div class="flagship-ribbon" style="background: linear-gradient(90deg, #f59e0b, #ea580c, #06b6d4); box-shadow: 0 10px 24px -10px rgba(245,158,11,0.85); z-index: 100;">Flagship v4.5</div>
+                        <div class="flagship-ribbon-clip"><div class="flagship-ribbon" style="background: linear-gradient(90deg, #f59e0b, #ea580c, #06b6d4); box-shadow: 0 10px 24px -10px rgba(245,158,11,0.85); z-index: 100;">Flagship v4.5</div></div>
                         <div class="bg-black/60 rounded-t-[1.25rem] border-b border-white/5 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-20 overflow-hidden">
                             <div class="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl mix-blend-screen pointer-events-none"></div>
                             <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl mix-blend-screen pointer-events-none"></div>
@@ -3829,7 +4141,7 @@
                             <path d="M12 0C12 6.627 17.373 12 24 12C17.373 12 12 17.373 12 24C12 17.373 6.627 12 0 12C6.627 12 12 6.627 12 0Z"/>
                         </svg>
 
-                        <div class="flagship-ribbon" style="background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899); box-shadow: 0 10px 24px -10px rgba(139,92,246,0.85); z-index: 100;">Flagship v4.0</div>
+                        <div class="flagship-ribbon-clip"><div class="flagship-ribbon" style="background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899); box-shadow: 0 10px 24px -10px rgba(139,92,246,0.85); z-index: 100;">Flagship v4.0</div></div>
                         <div class="bg-black/60 rounded-t-[1.25rem] border-b border-white/5 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-20 overflow-hidden">
                             <!-- Premium Magic Background Elements -->
                             <div class="absolute -top-10 -right-10 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl mix-blend-screen pointer-events-none"></div>
@@ -5095,128 +5407,6 @@
                                 </a>
                             </div>
 
-                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
-                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-500 to-emerald-900/20"></div>
-                                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800/50">
-                                    <div class="p-1.5 rounded-md bg-zinc-800/50 border border-zinc-700"><i data-lucide="circuit-board" class="w-4 h-4 text-emerald-400"></i></div>
-                                    <h3 class="font-outfit text-white text-lg font-semibold tracking-wide">Architecture Changes</h3>
-                                </div>
-                                
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="diagnostic-block">
-                                        <h4 class="font-outfit text-emerald-400 text-sm font-bold uppercase tracking-widest flex items-center gap-2 mb-3"><i data-lucide="webcam" class="w-4 h-4"></i> Neural Cam</h4>
-                                        <p class="font-outfit text-zinc-400 text-sm leading-relaxed mb-4">Real-time browser-based object detection using TensorFlow.js + COCO-SSD.</p>
-                                        <ul class="font-outfit text-zinc-300 text-[13px] space-y-2">
-                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Live bounding box overlays</li>
-                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Active readouts for FPS, inference time, & GPU</li>
-                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Video recording (WebM export)</li>
-                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Mirrored video with un-mirrored text labels</li>
-                                        </ul>
-                                    </div>
-                                    <div class="diagnostic-block">
-                                        <h4 class="font-outfit text-emerald-400 text-sm font-bold uppercase tracking-widest flex items-center gap-2 mb-3"><i data-lucide="server-cog" class="w-4 h-4"></i> Tracker Studio</h4>
-                                        <p class="font-outfit text-zinc-400 text-sm leading-relaxed mb-4">Advanced UI for server-side YOLOv8 processing configs connecting to <code class="bg-black text-amber-200 px-1 py-0.5 rounded text-[10px] font-mono border border-zinc-800">tg.py</code>.</p>
-                                        <ul class="font-outfit text-zinc-300 text-[13px] space-y-2">
-                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Filter from 80 distinct COCO classes</li>
-                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Confidence threshold slider adjustments</li>
-                                            <li class="flex items-start gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500/50 mt-1.5 shrink-0"></div> Backend accepts <code class="text-xs text-amber-200">allowed_classes</code> natively</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div class="mt-4 diagnostic-block flex items-start gap-4">
-                                    <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-emerald-400"></i></div>
-                                    <div>
-                                        <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (3 files, +1291 / -6)</h4>
-                                        <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
-                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +3 / -0</li>
-                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">playground.html</code> — +1243 / -0</li>
-                                            <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> — +45 / -6</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </article>
-
-                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-01-15T19:16:33+05:30">
-                    <div class="timeline-dot"></div>
-                    <div class="commit-card">
-                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div class="flex items-center gap-3 flex-wrap">
-                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
-                                    <img loading="lazy" decoding="async" src="https://avatars.githubusercontent.com/u/89300443?v=4&s=64" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
-                                    <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
-                                </a>
-                                <span class="text-zinc-500 text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Author</span>
-                            </div>
-                            <div class="flex items-center gap-4 text-xs font-mono text-zinc-400">
-                                <span class="flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-3.5 h-3.5 text-zinc-500"></i> Thu Jan 15, 2026</span>
-                                <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-blue-500"></i> <span class="relative-time-display font-semibold text-blue-400"></span></span>
-                            </div>
-                        </div>
-
-                        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-                            <div class="lg:col-span-4 flex flex-col">
-                                <div class="inline-flex items-center gap-2 w-max px-3 py-1 mb-4 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-mono font-bold uppercase tracking-widest">
-                                    <i data-lucide="boxes" class="w-3.5 h-3.5"></i> System Architecture
-                                </div>
-                                <h2 class="font-outfit text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug mb-4">Comprehensive ROI Selection Engine</h2>
-                                <p class="font-outfit text-zinc-400 text-base leading-relaxed mb-8">A monumental feature allowing users to draw a "Region of Interest" directly on the video frame before processing. We implemented a secure server-side preview system that generates snapshots via FFmpeg for both uploaded files and YouTube URLs, storing them temporarily in memory.</p>
-                                
-                                <a href="https://github.com/ProjectGlyphMotion/projectglyphmotion.github.io/commit/39279d25795a39fa31cef77c1c4854591e2eb80c" target="_blank" class="mt-auto flex items-center justify-between gap-2 text-sm font-mono text-zinc-300 bg-white/5 hover:bg-white/10 px-5 py-3 rounded-lg border border-white/10 hover:border-blue-500/40 transition-all w-full md:w-max group/btn">
-                                    <span class="flex items-center gap-2"><i data-lucide="git-commit" class="w-4 h-4 text-zinc-500 group-hover/btn:text-blue-500"></i> View Commit</span>
-                                    <span class="copy-hash-btn bg-black px-2 py-1 rounded text-xs border border-zinc-700 flex items-center gap-1.5" onclick="event.preventDefault(); copyHash('39279d25795a39fa31cef77c1c4854591e2eb80c', '39279d2', this)">
-                                        39279d2 <i data-lucide="copy" class="w-3 h-3 hash-icon"></i>
-                                    </span>
-                                </a>
-                            </div>
-
-                            <div class="lg:col-span-8 tech-details-pane lg:ml-6 p-6 md:p-8">
-                                <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-500 to-blue-900/20"></div>
-                                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800/50">
-                                    <div class="p-1.5 rounded-md bg-zinc-800/50 border border-zinc-700"><i data-lucide="database" class="w-4 h-4 text-blue-400"></i></div>
-                                    <h3 class="font-outfit text-white text-lg font-semibold tracking-wide">Developer Diagnostics</h3>
-                                </div>
-                                
-                                <div class="space-y-4">
-                                    <div class="diagnostic-block flex items-start gap-4">
-                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="clock" class="w-4 h-4 text-blue-400"></i></div>
-                                        <div>
-                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Session Cache Management</h4>
-                                            <p class="text-zinc-400 text-sm leading-relaxed">Added <code class="text-xs bg-black px-1 border border-zinc-800 rounded">/get_video_preview</code> endpoint. The backend maintains active preview sessions that automatically clean up abandoned <code>preview_temp</code> files after 5 minutes using a 60-second polling scheduler thread.</p>
-                                        </div>
-                                    </div>
-                                    <div class="diagnostic-block flex items-start gap-4">
-                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="frame" class="w-4 h-4 text-blue-400"></i></div>
-                                        <div>
-                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Canvas Mapping</h4>
-                                            <p class="text-zinc-400 text-sm leading-relaxed">The UI handles mapping the user's drawn 2D-context rectangle directly to the original video dimensions, bypassing CSS distortion issues across portrait/landscape resolutions.</p>
-                                        </div>
-                                    </div>
-                                    <div class="diagnostic-block flex items-start gap-4">
-                                        <div class="bg-black p-2 rounded border border-zinc-800"><i data-lucide="files" class="w-4 h-4 text-blue-400"></i></div>
-                                        <div>
-                                            <h4 class="text-zinc-200 font-outfit font-medium mb-1">Files touched (3 files, +1693 / -94)</h4>
-                                            <ul class="text-zinc-400 text-sm leading-relaxed space-y-1 list-disc pl-4 marker:text-zinc-600">
-                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">index.html</code> — +1005 / -61</li>
-                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">ot.py</code> — +159 / -0</li>
-                                                <li><code class="text-xs bg-black px-1 border border-zinc-800 rounded">tg.py</code> — +529 / -33</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </article>
-
-                <article class="relative pl-10 md:pl-16 w-full group commit-entry gs-card" data-date="2026-01-15T17:02:27+05:30">
-                    <div class="timeline-dot"></div>
-                    <div class="commit-card">
-                        <div class="bg-black/40 border-b border-zinc-800/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div class="flex items-center gap-3 flex-wrap">
-                                <a href="https://github.com/ShitijHalder" target="_blank" class="flex items-center gap-2 group/author">
                                     <img loading="lazy" decoding="async" src="https://avatars.githubusercontent.com/u/89300443?v=4&s=64" alt="Shitij Halder" class="w-7 h-7 rounded-full border border-zinc-700 shadow-lg">
                                     <span class="text-sm font-mono text-zinc-300 font-semibold">Shitij Halder</span>
                                 </a>
@@ -6140,6 +6330,76 @@
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         });
+
+        // Apple Liquid Glass Sheen & Zoom-Safe Sliding Nav Rail
+        (function initLiquidGlassUI() {
+            const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const isFinePointer = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+
+            if (isFinePointer && !prefersReducedMotion) {
+                const trackPointer = (el, clientX, clientY) => {
+                    const rect = el.getBoundingClientRect();
+                    const z = parseFloat(document.documentElement.style.zoom) || 1;
+                    el.style.setProperty('--mx', `${(clientX - rect.left) / z}px`);
+                    el.style.setProperty('--my', `${(clientY - rect.top) / z}px`);
+                };
+
+                ['.hero-title', '#desktopNavRail', '.hero-stats'].forEach(sel => {
+                    const el = document.querySelector(sel);
+                    if (!el) return;
+                    let rafId = 0;
+                    el.addEventListener('pointermove', (e) => {
+                        const { clientX, clientY } = e;
+                        if (rafId) cancelAnimationFrame(rafId);
+                        rafId = requestAnimationFrame(() => trackPointer(el, clientX, clientY));
+                    }, { passive: true });
+                });
+
+                document.addEventListener('pointermove', (e) => {
+                    const card = e.target.closest('.commit-card');
+                    if (card) trackPointer(card, e.clientX, e.clientY);
+                }, { passive: true });
+            }
+
+            const rail = document.getElementById('desktopNavRail');
+            const pill = document.getElementById('navSlidingPill');
+            if (rail && pill) {
+                let visible = false;
+                const movePill = (target) => {
+                    if (!target) {
+                        visible = false;
+                        pill.style.opacity = '0';
+                        return;
+                    }
+                    const x = target.offsetLeft;
+                    const y = target.offsetTop;
+                    const w = target.offsetWidth;
+                    const h = target.offsetHeight;
+                    if (!visible) {
+                        pill.style.transition = 'none';
+                        pill.style.width = `${w}px`;
+                        pill.style.height = `${h}px`;
+                        pill.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+                        void pill.offsetWidth;
+                        pill.style.transition = '';
+                        visible = true;
+                    } else {
+                        pill.style.width = `${w}px`;
+                        pill.style.height = `${h}px`;
+                        pill.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+                    }
+                    pill.style.opacity = target.classList.contains('nav-pill-active') ? '0' : '1';
+                };
+                rail.querySelectorAll('.nav-pill').forEach(btn => {
+                    btn.addEventListener('pointerenter', () => movePill(btn));
+                    btn.addEventListener('focus', () => movePill(btn));
+                });
+                rail.addEventListener('pointerleave', () => movePill(null));
+                rail.addEventListener('focusout', (e) => {
+                    if (!rail.contains(e.relatedTarget)) movePill(null);
+                });
+            }
+        })();
 
     </script>
 </body>

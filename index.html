@@ -3748,7 +3748,7 @@
         }
 
         .bottom-input-bar-inner {
-            background: rgba(22, 22, 28, 0.45);
+            background: linear-gradient(180deg, #1b1b24 0%, #0d0d13 100%);
             backdrop-filter: none;
             -webkit-backdrop-filter: none;
             border: 1px solid rgba(253, 161, 54, 0.4);
@@ -3769,7 +3769,7 @@
             border-color: rgba(253, 161, 54, 0.3);
             box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6),
                 inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            background: rgba(22, 22, 28, 0.55);
+            background: linear-gradient(180deg, #1d1d27 0%, #0e0e14 100%);
         }
 
         .bar-input-row {
@@ -4996,17 +4996,25 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.28);
         }
 
-        .bottom-input-bar-inner {
+        .bottom-input-bar-inner,
+        .bottom-input-bar-inner:focus-within,
+        .bottom-input-bar.is-scrolled .bottom-input-bar-inner,
+        .bottom-input-bar.has-input .bottom-input-bar-inner,
+        .bottom-input-bar.is-processing .bottom-input-bar-inner,
+        .bottom-input-bar.drag-over .bottom-input-bar-inner {
             border-radius: 1.85rem;
-            background: linear-gradient(180deg, #1b1b24 0%, #0d0d13 100%);
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
+            background: linear-gradient(180deg, #1b1b24 0%, #0d0d13 100%) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
             border: 0 !important;
+        }
+        .bottom-input-bar-inner {
             box-shadow:
                 0 24px 60px -12px rgba(0, 0, 0, 0.9),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.12),
                 inset 0 1px 0 rgba(255, 255, 255, 0.2),
                 inset 0 -1px 0 rgba(0, 0, 0, 0.48);
-            transition: background 0.35s var(--ease-hover), box-shadow 0.4s var(--ease-hover);
+            transition: box-shadow 0.4s var(--ease-hover);
         }
 
         .bottom-input-bar-inner::before {
@@ -5483,8 +5491,8 @@
         /* --- Video Cards: Liquid Glass Surface + Specular Spotlight + Stagger --- */
         .video-card.glass-effect {
             position: relative;
-            content-visibility: auto;
-            contain-intrinsic-size: auto 360px;
+            content-visibility: visible;
+            contain: layout style;
             background:
                 radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.06), transparent 65%),
                 linear-gradient(180deg, rgba(24, 24, 32, 0.92) 0%, rgba(12, 12, 17, 0.96) 100%);
@@ -7208,6 +7216,7 @@
             display: none !important;
         }
         .desktop-nav-rail { box-shadow: 0 12px 32px -12px rgba(0,0,0,0.72), inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.18) !important; }
+        .bottom-input-bar-inner { background: linear-gradient(180deg, #1b1b24 0%, #0d0d13 100%) !important; box-shadow: 0 24px 60px -12px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -1px 0 rgba(0,0,0,0.48); }
         .video-card.glass-effect { box-shadow: 0 14px 34px -16px rgba(0,0,0,0.78), inset 0 0 0 1px rgba(255,255,255,0.09), inset 0 1px 0 rgba(255,255,255,0.15) !important; }
         .doc-card, .glass-effect { will-change: auto !important; }
     </style>
@@ -12418,8 +12427,9 @@
             if (isFinePointer && !prefersReducedMotion) {
                 const trackPointer = (el, clientX, clientY) => {
                     const rect = el.getBoundingClientRect();
-                    el.style.setProperty('--mx', `${clientX - rect.left}px`);
-                    el.style.setProperty('--my', `${clientY - rect.top}px`);
+                    const z = parseFloat(document.documentElement.style.zoom) || 1;
+                    el.style.setProperty('--mx', `${(clientX - rect.left) / z}px`);
+                    el.style.setProperty('--my', `${(clientY - rect.top) / z}px`);
                 };
 
                 ['.hero-title', '#desktopNavRail', '.mobile-nav-shell', '.bottom-input-bar-inner'].forEach(sel => {
@@ -12457,24 +12467,24 @@
                         slidingPill.style.opacity = '0';
                         return;
                     }
-                    const railRect = navRail.getBoundingClientRect();
-                    const itemRect = target.getBoundingClientRect();
-                    const x = itemRect.left - railRect.left;
-                    const y = itemRect.top - railRect.top;
+                    const x = target.offsetLeft;
+                    const y = target.offsetTop;
+                    const w = target.offsetWidth;
+                    const h = target.offsetHeight;
                     if (!pillVisible) {
                         slidingPill.style.transition = 'none';
-                        slidingPill.style.width = `${itemRect.width}px`;
-                        slidingPill.style.height = `${itemRect.height}px`;
+                        slidingPill.style.width = `${w}px`;
+                        slidingPill.style.height = `${h}px`;
                         slidingPill.style.transform = `translate3d(${x}px, ${y}px, 0)`;
                         void slidingPill.offsetWidth;
                         slidingPill.style.transition = '';
                         pillVisible = true;
                     } else {
-                        slidingPill.style.width = `${itemRect.width}px`;
-                        slidingPill.style.height = `${itemRect.height}px`;
+                        slidingPill.style.width = `${w}px`;
+                        slidingPill.style.height = `${h}px`;
                         slidingPill.style.transform = `translate3d(${x}px, ${y}px, 0)`;
                     }
-                    slidingPill.style.opacity = '1';
+                    slidingPill.style.opacity = target.classList.contains('nav-pill-primary') ? '0' : '1';
                 };
                 navRail.querySelectorAll('.nav-pill').forEach(pill => {
                     pill.addEventListener('pointerenter', () => movePillTo(pill));
