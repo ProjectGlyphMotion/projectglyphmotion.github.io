@@ -27,11 +27,29 @@
         }
     </script>
     <style>
+        :root {
+            --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-hover: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-press: cubic-bezier(0.2, 0, 0, 1);
+            --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
         body {
             background-color: #030303;
             color: #e4e4e7;
             -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
+        }
+
+        .ui-icon {
+            width: 1rem;
+            height: 1rem;
+            flex-shrink: 0;
+            transition: transform 0.36s var(--ease-hover), opacity 0.26s ease;
         }
 
         .section-marker {
@@ -45,7 +63,7 @@
             transform: translateX(-50%);
             width: 150vw;
             height: 100vh;
-            background: radial-gradient(ellipse at 50% 30%, rgba(245, 158, 11, 0.15)0%, transparent 60%);
+            background: radial-gradient(ellipse at 50% 30%, rgba(245, 158, 11, 0.16) 0%, rgba(14, 165, 233, 0.04) 45%, transparent 66%);
             pointer-events: none;
             z-index: 0;
             will-change: transform;
@@ -56,7 +74,7 @@
             inset: 0;
             background-size: 35px 35px;
             background-position: center top;
-            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03)1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.03)1px, transparent 1px);
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.024) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.024) 1px, transparent 1px);
             mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
             -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
             z-index: 1;
@@ -68,38 +86,72 @@
             inset: 0;
             pointer-events: none;
             z-index: 2;
-            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0)50%, rgba(0, 0, 0, 0.2)50%, rgba(0, 0, 0, 0.2));
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.18) 50%, rgba(0, 0, 0, 0.18));
             background-size: 100% 4px;
-            opacity: 0.3;
+            opacity: 0.24;
         }
 
         .doc-card {
-            background: linear-gradient(180deg, rgba(16, 16, 20, 0.85)0%, rgba(10, 10, 12, 0.98)100%);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.9);
-            border-radius: 1.25rem;
+            background:
+                radial-gradient(360px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.06), transparent 68%),
+                linear-gradient(180deg, rgba(24, 24, 32, 0.66) 0%, rgba(11, 11, 16, 0.84) 100%);
+            backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+            -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+            border: 0;
+            box-shadow:
+                0 20px 48px -18px rgba(0, 0, 0, 0.88),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+            border-radius: 1.35rem;
             position: relative;
-            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            transition: transform 0.4s var(--ease-hover), box-shadow 0.4s var(--ease-hover);
             z-index: 10;
         }
 
+        .doc-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg,
+                    rgba(255, 255, 255, 0.22) 0%,
+                    rgba(253, 161, 54, 0.16) 28%,
+                    rgba(255, 255, 255, 0.03) 68%,
+                    rgba(255, 255, 255, 0.1) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            z-index: 2;
+        }
+
         .doc-card:hover {
-            transform: translateY(-4px);
-            border-color: rgba(245, 158, 11, 0.4);
-            border-top-color: rgba(245, 158, 11, 0.7);
-            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.8), 0 0 25px -5px rgba(245, 158, 11, 0.15);
+            transform: translateY(-2px);
+            box-shadow:
+                0 24px 54px -18px rgba(0, 0, 0, 0.9),
+                0 0 30px -12px rgba(245, 158, 11, 0.22),
+                inset 0 0 0 1px rgba(253, 161, 54, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
 
         .stat-card {
-            background: rgba(10, 10, 12, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 1rem;
-            padding: 1.5rem;
+            position: relative;
+            overflow: visible;
+            background:
+                radial-gradient(200px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.085), transparent 68%),
+                linear-gradient(180deg, rgba(28, 28, 36, 0.58) 0%, rgba(13, 13, 19, 0.72) 100%);
+            backdrop-filter: blur(18px) saturate(175%);
+            -webkit-backdrop-filter: blur(18px) saturate(175%);
+            border: 0;
+            box-shadow:
+                0 14px 32px -16px rgba(0, 0, 0, 0.8),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.085),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+            border-radius: 1.15rem;
+            padding: 1.35rem 1rem;
             text-align: center;
-            transition: all 0.3s;
+            transition: transform 0.36s var(--ease-hover), box-shadow 0.36s var(--ease-hover);
         }
 
         .stat-card.stat-card-skeleton {
@@ -197,22 +249,44 @@
             display: inline-flex;
             align-items: center;
             gap: .45rem;
-            padding: .45rem .75rem;
-            border-radius: .65rem;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(255, 255, 255, 0.03);
-            color: #d4d4d8;
+            height: 2.15rem;
+            padding: 0 .88rem;
+            border-radius: 9999px;
+            border: 0;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px) saturate(165%);
+            -webkit-backdrop-filter: blur(16px) saturate(165%);
+            box-shadow:
+                0 6px 18px -10px rgba(0, 0, 0, 0.65),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+            color: #e4e4e7;
             font-size: 11px;
+            font-weight: 500;
             font-family: 'JetBrains Mono', monospace;
-            transition: all .2s ease;
+            transition: transform 0.34s var(--ease-hover), background 0.3s var(--ease-hover), box-shadow 0.34s var(--ease-hover), color 0.24s ease;
             cursor: pointer;
             text-decoration: none;
         }
 
         .control-pill:hover {
-            border-color: rgba(245, 158, 11, 0.45);
-            background: rgba(245, 158, 11, 0.08);
-            color: #fbbf24;
+            transform: translateY(-1px);
+            background: rgba(253, 161, 54, 0.12);
+            color: #fde68a;
+            box-shadow:
+                0 10px 24px -10px rgba(245, 158, 11, 0.28),
+                inset 0 0 0 1px rgba(253, 161, 54, 0.32),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22);
+        }
+
+        .control-pill:hover .ui-icon {
+            transform: scale(1.08);
+        }
+
+        .control-pill:active:not([disabled]) {
+            transform: scale(0.96);
+            transition-duration: 0.12s;
+            transition-timing-function: var(--ease-press);
         }
 
         .control-pill[disabled] {
@@ -222,37 +296,57 @@
         }
 
         .control-pill.control-pill-danger {
-            border-color: rgba(248, 113, 113, 0.34);
             background: rgba(127, 29, 29, 0.35);
             color: #fca5a5;
+            box-shadow:
+                0 6px 18px -10px rgba(239, 68, 68, 0.35),
+                inset 0 0 0 1px rgba(248, 113, 113, 0.28),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14);
         }
 
         .control-pill.control-pill-danger:hover:not([disabled]) {
-            border-color: rgba(248, 113, 113, 0.6);
-            background: rgba(185, 28, 28, 0.35);
+            background: rgba(185, 28, 28, 0.42);
             color: #fecaca;
+            box-shadow:
+                0 10px 22px -10px rgba(239, 68, 68, 0.45),
+                inset 0 0 0 1px rgba(248, 113, 113, 0.48),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
 
         .control-pill.control-pill-armed {
-            border-color: rgba(245, 158, 11, 0.62);
-            background: rgba(245, 158, 11, 0.18);
+            background: rgba(245, 158, 11, 0.2);
             color: #fde68a;
-            box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2), 0 0 16px -10px rgba(245, 158, 11, 0.7);
+            box-shadow:
+                0 8px 22px -8px rgba(245, 158, 11, 0.48),
+                inset 0 0 0 1px rgba(245, 158, 11, 0.56),
+                inset 0 1px 0 rgba(255, 255, 255, 0.24);
         }
 
         .status-widget {
             display: inline-flex;
             align-items: center;
             gap: .45rem;
-            padding: .45rem .72rem;
+            height: 2.15rem;
+            padding: 0 .85rem;
             width: fit-content;
             max-width: 100%;
-            border-radius: .65rem;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(0, 0, 0, 0.35);
+            border-radius: 9999px;
+            border: 0;
+            background: rgba(255, 255, 255, 0.045);
+            backdrop-filter: blur(16px) saturate(165%);
+            -webkit-backdrop-filter: blur(16px) saturate(165%);
+            box-shadow:
+                0 6px 18px -10px rgba(0, 0, 0, 0.65),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15);
             font-size: 11px;
             font-family: 'JetBrains Mono', monospace;
             white-space: nowrap;
+            transition: transform 0.34s var(--ease-hover), box-shadow 0.34s var(--ease-hover);
+        }
+
+        .status-widget:hover {
+            transform: translateY(-1px);
         }
 
         .runtime-status-shell {
@@ -472,28 +566,32 @@
 
         .rich-table-card {
             position: relative;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 0;
             background:
-                radial-gradient(120% 100% at 0% 0%, rgba(245, 158, 11, 0.09) 0%, rgba(245, 158, 11, 0) 42%),
-                linear-gradient(180deg, rgba(16, 16, 20, 0.93) 0%, rgba(9, 9, 12, 0.98) 100%);
+                radial-gradient(120% 100% at 0% 0%, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0) 46%),
+                radial-gradient(340px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.055), transparent 68%),
+                linear-gradient(180deg, rgba(24, 24, 34, 0.68) 0%, rgba(10, 10, 16, 0.84) 100%);
+            backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+            -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
             overflow: hidden;
             box-shadow:
-                0 20px 38px -26px rgba(0, 0, 0, 0.92),
-                0 0 0 1px rgba(245, 158, 11, 0.06),
-                inset 0 1px 0 rgba(255, 255, 255, 0.06);
+                0 22px 48px -20px rgba(0, 0, 0, 0.92),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
         }
 
         .rich-table-card::before {
             content: '';
             position: absolute;
-            inset: -1px;
-            border-radius: 1.25rem;
-            border: 1px solid transparent;
-            background:
-                radial-gradient(120% 80% at 5% 0%, rgba(245, 158, 11, 0.2), transparent 48%),
-                radial-gradient(120% 80% at 95% 0%, rgba(234, 88, 12, 0.16), transparent 52%);
+            inset: 0;
+            border-radius: 1.35rem;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(245, 158, 11, 0.22) 30%, rgba(255, 255, 255, 0.03) 70%, rgba(255, 255, 255, 0.1) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
             pointer-events: none;
-            opacity: 0.9;
+            z-index: 2;
         }
 
         .rich-table-card::after {
@@ -502,8 +600,8 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 30%;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
+            height: 28%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0));
             pointer-events: none;
         }
 
@@ -527,15 +625,15 @@
         }
 
         .table-header-icon {
-            width: 2.2rem;
-            height: 2.2rem;
-            border-radius: 0.8rem;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 0.85rem;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid rgba(245, 158, 11, 0.3);
-            background: rgba(245, 158, 11, 0.1);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 8px 18px -12px rgba(245, 158, 11, 0.75);
+            border: 0;
+            background: rgba(245, 158, 11, 0.14);
+            box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 8px 18px -12px rgba(245, 158, 11, 0.75);
             flex-shrink: 0;
         }
 
@@ -548,16 +646,18 @@
         }
 
         .table-filter-input {
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            background: rgba(6, 6, 12, 0.56);
+            border: 0;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.42), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: background 0.24s ease, box-shadow 0.24s ease;
         }
 
         .table-filter-input:focus {
             outline: none;
-            border-color: rgba(245, 158, 11, 0.5);
-            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+            background: rgba(6, 6, 12, 0.72);
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.42), inset 0 0 0 1px rgba(245, 158, 11, 0.52), 0 0 0 3px rgba(245, 158, 11, 0.14);
         }
 
         .table-kpis {
@@ -572,16 +672,18 @@
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
-            padding: 0.35rem 0.62rem;
-            border-radius: 0.6rem;
-            border: 1px solid #3a3a41;
-            background: #121218;
+            padding: 0.34rem 0.72rem;
+            border-radius: 9999px;
+            border: 0;
+            background: rgba(255, 255, 255, 0.045);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             color: #d4d4d8;
             font-size: 10px;
             letter-spacing: 0.03em;
             text-transform: uppercase;
             font-family: 'JetBrains Mono', monospace;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.12);
         }
 
         .table-kpi .val {
@@ -967,6 +1069,42 @@
             }
         }
 
+        @media (max-width: 640px) {
+            main { padding-top: 1.15rem !important; }
+            .hero-header { padding: 0.15rem 0 0.35rem; margin-bottom: 1rem !important; }
+            .hero-header h2 { font-size: 0.65rem; letter-spacing: 0.28em; margin-bottom: 0.45rem; }
+            .hero-title, .font-retro { font-size: 1.15rem !important; line-height: 1.35 !important; }
+            .hero-horizon-rule { margin: 0.2rem auto 0.55rem; }
+            .hero-subtitle-pill { font-size: 0.72rem; padding: 0.3rem 0.65rem; gap: 0.32rem; margin-bottom: 0.75rem; }
+            .hero-subtitle-pill .ui-icon { width: 0.82rem; height: 0.82rem; }
+            .hero-subtitle-accent { font-size: 0.62rem; padding: 0.1rem 0.48rem; }
+            nav { width: 100%; margin-bottom: 0.75rem !important; }
+            #desktopNavRail {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                width: min(100%, 350px);
+                border-radius: 1rem;
+                padding: 0.24rem;
+                gap: 0.2rem;
+            }
+            #desktopNavRail .nav-sliding-pill { display: none; }
+            #desktopNavRail .nav-pill {
+                justify-content: center;
+                height: 1.88rem;
+                padding: 0 0.35rem;
+                font-size: 0.67rem;
+                gap: 0.28rem;
+                border-radius: 0.72rem;
+                white-space: nowrap;
+            }
+            #desktopNavRail .nav-pill .ui-icon { width: 0.78rem; height: 0.78rem; }
+            .control-pill, .status-widget { height: 1.86rem; padding: 0 0.68rem; font-size: 10px; gap: 0.32rem; }
+            .control-pill .ui-icon, .status-widget .ui-icon { width: 0.82rem; height: 0.82rem; }
+            .version-dock-card { padding: 0.72rem 0.75rem; border-radius: 1rem; }
+            .version-tab-rail { border-radius: 0.95rem; padding: 0.22rem; gap: 0.18rem; }
+            .version-tab-btn { padding: 0.34rem 0.62rem; font-size: 0.65rem; gap: 0.3rem; }
+        }
+
         .verdict-badge {
             display: inline-flex;
             align-items: center;
@@ -1190,20 +1328,24 @@
             min-width: 0;
             width: fit-content;
             max-width: min(86vw, 860px);
-            padding: 0.75rem 0.9rem;
-            border-radius: 0.75rem;
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            background: rgba(24, 24, 27, 0.92);
+            padding: 0.75rem 1rem;
+            border-radius: 9999px;
+            border: 0;
+            background: rgba(20, 20, 28, 0.84);
             color: #e4e4e7;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.72rem;
             line-height: 1.45;
             letter-spacing: 0.02em;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-            backdrop-filter: blur(8px);
+            box-shadow:
+                0 14px 34px rgba(0, 0, 0, 0.55),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+                inset 0 1px 0 rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(22px) saturate(180%);
+            -webkit-backdrop-filter: blur(22px) saturate(180%);
             opacity: 0;
-            transform: translateY(-8px);
-            transition: opacity 0.22s ease, transform 0.22s ease;
+            transform: translateY(-8px) scale(0.98);
+            transition: opacity 0.22s var(--ease-hover), transform 0.28s var(--ease-hover);
             white-space: normal;
             word-break: break-word;
         }
@@ -1212,28 +1354,508 @@
             .custom-toast {
                 width: calc(100vw - 1rem);
                 max-width: calc(100vw - 1rem);
+                border-radius: 0.9rem;
             }
         }
 
         .custom-toast.show {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
         }
 
         .custom-toast.success {
-            border-color: rgba(16, 185, 129, 0.55);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(16, 185, 129, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.16);
             color: #6ee7b7;
         }
 
         .custom-toast.error {
-            border-color: rgba(248, 113, 113, 0.55);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(248, 113, 113, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.14);
             color: #fda4af;
         }
 
         .custom-toast.warning {
-            border-color: rgba(251, 191, 36, 0.55);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(251, 191, 36, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.16);
             color: #fde68a;
-            background: rgba(34, 24, 7, 0.92);
+            background: rgba(34, 24, 7, 0.88);
+        }
+
+        /* ==================== APPLE LIQUID GLASS SYSTEM ==================== */
+        .hero-header {
+            position: relative;
+            isolation: isolate;
+            padding: 0.5rem 0 0.75rem;
+        }
+
+        .hero-header::before {
+            content: "";
+            position: absolute;
+            top: -1.8rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(860px, 96vw);
+            height: 12rem;
+            background:
+                radial-gradient(ellipse 62% 58% at 50% 42%, rgba(245, 158, 11, 0.18) 0%, rgba(253, 161, 54, 0.05) 50%, transparent 76%),
+                radial-gradient(ellipse 38% 34% at 50% 35%, rgba(254, 240, 138, 0.08) 0%, transparent 72%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .hero-title {
+            display: inline-block;
+            background-image:
+                radial-gradient(220px circle at var(--mx, 50%) var(--my, 35%), rgba(255, 255, 255, 0.65), transparent 62%),
+                linear-gradient(180deg, #fef9c3 0%, #fcd34d 40%, #f59e0b 84%, #d97706 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: #f59e0b;
+            filter: drop-shadow(0 0 32px rgba(245, 158, 11, 0.44)) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.88));
+            cursor: default;
+        }
+
+        .hero-horizon-rule {
+            position: relative;
+            width: min(460px, 72vw);
+            height: 1px;
+            margin: 0.25rem auto 0.85rem;
+            background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.12) 22%, rgba(253, 161, 54, 0.45) 50%, rgba(255, 255, 255, 0.12) 78%, transparent 100%);
+        }
+
+        .hero-horizon-rule::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 82px;
+            height: 6px;
+            border-radius: 9999px;
+            filter: blur(3px);
+            background: radial-gradient(ellipse at center, rgba(253, 186, 116, 0.5) 0%, transparent 74%);
+            pointer-events: none;
+        }
+
+        .hero-subtitle-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin: 0 auto 1.2rem;
+            max-width: min(92vw, 44rem);
+            padding: 0.42rem 0.55rem 0.42rem 0.95rem;
+            border-radius: 9999px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.042), rgba(255, 255, 255, 0.018));
+            backdrop-filter: blur(18px) saturate(165%);
+            -webkit-backdrop-filter: blur(18px) saturate(165%);
+            box-shadow:
+                inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12),
+                0 10px 24px -12px rgba(0, 0, 0, 0.75);
+            color: #cbd5e1;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.86rem;
+            line-height: 1.4;
+        }
+
+        .hero-subtitle-accent {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.14rem 0.62rem;
+            border-radius: 9999px;
+            background: rgba(253, 161, 54, 0.11);
+            box-shadow: inset 0 0 0 1px rgba(253, 161, 54, 0.24);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #fde68a;
+            letter-spacing: 0.03em;
+        }
+
+        /* Segmented Apple Liquid Glass Nav Rail & Version Rail */
+        .desktop-nav-rail,
+        .version-tab-rail {
+            position: relative;
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.24rem;
+            padding: 0.3rem;
+            border-radius: 9999px;
+            background: linear-gradient(180deg, rgba(28, 28, 36, 0.62), rgba(14, 14, 20, 0.62));
+            backdrop-filter: blur(26px) saturate(190%) brightness(1.06);
+            -webkit-backdrop-filter: blur(26px) saturate(190%) brightness(1.06);
+            box-shadow:
+                0 14px 36px -14px rgba(0, 0, 0, 0.78),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+            overflow: hidden;
+        }
+
+        .desktop-nav-rail::before,
+        .version-tab-rail::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(140deg,
+                    rgba(255, 255, 255, 0.24) 0%,
+                    rgba(255, 255, 255, 0.08) 32%,
+                    rgba(255, 255, 255, 0.02) 68%,
+                    rgba(255, 255, 255, 0.11) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .desktop-nav-rail::after,
+        .version-tab-rail::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.09), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.35s var(--ease-hover);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .desktop-nav-rail:hover::after,
+        .version-tab-rail:hover::after {
+            opacity: 1;
+        }
+
+        .nav-sliding-pill,
+        .version-sliding-pill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 0;
+            width: 0;
+            border-radius: 9999px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+            box-shadow:
+                0 4px 14px rgba(0, 0, 0, 0.28),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22);
+            opacity: 0;
+            pointer-events: none;
+            will-change: transform, width, height, opacity;
+            transition: transform 0.42s var(--ease-hover), width 0.42s var(--ease-hover), height 0.42s var(--ease-hover), opacity 0.26s ease;
+            z-index: 0;
+        }
+
+        .nav-pill {
+            position: relative;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.46rem;
+            padding: 0.44rem 0.96rem;
+            border-radius: 9999px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            color: #cbd5e1;
+            text-decoration: none;
+            transition: color 0.26s ease, transform 0.24s var(--ease-press), background 0.3s var(--ease-hover);
+        }
+
+        .nav-pill:hover {
+            color: #ffffff;
+        }
+
+        .nav-pill:hover .ui-icon,
+        .version-tab-btn:hover .ui-icon {
+            transform: scale(1.08);
+        }
+
+        .nav-pill-active {
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.26), rgba(217, 119, 6, 0.16));
+            color: #fef3c7;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 14px -4px rgba(245, 158, 11, 0.4);
+        }
+
+        /* Version Control Dock & Tabs */
+        .version-dock-card {
+            position: relative;
+            border-radius: 1.5rem;
+            padding: 1rem 1.25rem;
+            background:
+                radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), rgba(245, 158, 11, 0.08), transparent 70%),
+                linear-gradient(180deg, rgba(26, 26, 36, 0.68) 0%, rgba(12, 12, 18, 0.8) 100%);
+            backdrop-filter: blur(24px) saturate(185%);
+            -webkit-backdrop-filter: blur(24px) saturate(185%);
+            box-shadow:
+                0 18px 42px -18px rgba(0, 0, 0, 0.85),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        }
+
+        .version-tab-btn {
+            position: relative;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.48rem;
+            padding: 0.48rem 1.02rem;
+            border-radius: 9999px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.73rem;
+            font-weight: 600;
+            color: #a1a1aa;
+            cursor: pointer;
+            border: 0;
+            background: transparent;
+            transition: color 0.24s ease, background 0.3s var(--ease-hover), box-shadow 0.3s var(--ease-hover), transform 0.16s var(--ease-press);
+        }
+
+        .version-tab-btn:hover {
+            color: #f4f4f5;
+        }
+
+        .version-tab-btn:active {
+            transform: scale(0.96);
+        }
+
+        .version-tab-btn.is-active[data-version-tab="all"] {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.06));
+            color: #ffffff;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 6px 16px -6px rgba(0, 0, 0, 0.6);
+        }
+
+        .version-tab-btn.is-active[data-version-tab="v45"] {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(6, 182, 212, 0.22));
+            color: #fef3c7;
+            box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 8px 20px -8px rgba(245, 158, 11, 0.5);
+        }
+
+        .version-tab-btn.is-active[data-version-tab="v40"] {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.28), rgba(59, 130, 246, 0.2));
+            color: #e0e7ff;
+            box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 8px 20px -8px rgba(139, 92, 246, 0.45);
+        }
+
+        .version-tab-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.45rem;
+            height: 1.25rem;
+            padding: 0 0.42rem;
+            border-radius: 9999px;
+            font-size: 0.64rem;
+            background: rgba(0, 0, 0, 0.42);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+            color: inherit;
+        }
+
+        /* Version Tags on Records & Video Cards */
+        .ver-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.28rem;
+            padding: 0.16rem 0.52rem;
+            border-radius: 9999px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .ver-badge-v45 {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(6, 182, 212, 0.18));
+            color: #fde68a;
+            box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.45);
+        }
+
+        .ver-badge-v40 {
+            background: rgba(139, 92, 246, 0.14);
+            color: #c4b5fd;
+            box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.32);
+        }
+
+        /* Clear Version Intersection Gap in Records Table & Video Gallery */
+        .records-table tr.version-intersection-row td,
+        .records-table tr.version-intersection-row:hover td {
+            padding: 0 !important;
+            background: transparent !important;
+            border-bottom: 0 !important;
+        }
+
+        .records-table tr.version-intersection-row td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        .table-intersection-gap {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin: 14px 8px;
+            padding: 0.72rem 1rem;
+            border-radius: 1rem;
+            background:
+                linear-gradient(90deg, rgba(245, 158, 11, 0.14) 0%, rgba(16, 185, 129, 0.08) 38%, rgba(139, 92, 246, 0.14) 100%),
+                rgba(14, 14, 22, 0.92);
+            box-shadow:
+                0 10px 28px -12px rgba(0, 0, 0, 0.85),
+                inset 0 0 0 1px rgba(251, 191, 36, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+            white-space: nowrap;
+        }
+
+        .version-intersection-banner {
+            grid-column: 1 / -1;
+            position: relative;
+            margin: 1.45rem 0;
+            padding: 1.1rem 1.35rem;
+            border-radius: 1.25rem;
+            background:
+                radial-gradient(360px circle at 20% 50%, rgba(245, 158, 11, 0.13), transparent 70%),
+                radial-gradient(360px circle at 80% 50%, rgba(139, 92, 246, 0.13), transparent 70%),
+                linear-gradient(180deg, rgba(24, 24, 34, 0.78) 0%, rgba(11, 11, 16, 0.9) 100%);
+            backdrop-filter: blur(22px) saturate(185%);
+            -webkit-backdrop-filter: blur(22px) saturate(185%);
+            box-shadow:
+                0 18px 42px -18px rgba(0, 0, 0, 0.88),
+                inset 0 0 0 1px rgba(251, 191, 36, 0.32),
+                inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+
+        .records-table tr.row-v45 td:first-child {
+            border-left: 3px solid #f59e0b;
+        }
+
+        .records-table tr.row-v40 td:first-child {
+            border-left: 3px solid rgba(139, 92, 246, 0.5);
+        }
+
+        /* Video Cards Liquid Glass Upgrade (matches index.html) */
+        .video-card.glass-effect {
+            position: relative;
+            background:
+                radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.08), transparent 65%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.018) 100%);
+            backdrop-filter: blur(20px) saturate(175%);
+            -webkit-backdrop-filter: blur(20px) saturate(175%);
+            border: 0 !important;
+            border-radius: 1.2rem;
+            box-shadow:
+                0 16px 36px -16px rgba(0, 0, 0, 0.78),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+            transition: transform 0.4s var(--ease-hover), box-shadow 0.4s var(--ease-hover);
+            animation: cardGlassEnter 0.5s var(--ease-hover) calc(var(--card-i, 0) * 35ms) both;
+        }
+
+        .video-card.glass-effect:hover {
+            transform: translateY(-3px);
+            box-shadow:
+                0 24px 48px -18px rgba(0, 0, 0, 0.88),
+                0 0 28px -12px rgba(253, 161, 54, 0.32),
+                inset 0 1px 0 rgba(255, 255, 255, 0.24);
+        }
+
+        @keyframes cardGlassEnter {
+            from {
+                opacity: 0;
+                transform: translateY(12px) scale(0.985);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .play-glass-capsule {
+            width: 3.65rem;
+            height: 3.65rem;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.24), rgba(20, 20, 28, 0.56));
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            box-shadow:
+                0 12px 28px rgba(0, 0, 0, 0.58),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.26),
+                inset 0 1px 0 rgba(255, 255, 255, 0.42),
+                0 0 24px rgba(253, 161, 54, 0.28);
+            transition: transform 0.36s var(--ease-hover), box-shadow 0.36s var(--ease-hover);
+        }
+
+        .video-thumbnail-placeholder:hover .play-glass-capsule {
+            transform: scale(1.09);
+            box-shadow:
+                0 16px 34px rgba(0, 0, 0, 0.68),
+                inset 0 0 0 1px rgba(253, 161, 54, 0.58),
+                inset 0 1px 0 rgba(255, 255, 255, 0.48),
+                0 0 32px rgba(253, 161, 54, 0.45);
+        }
+
+        .video-thumbnail-placeholder img {
+            transition: transform 0.55s var(--ease-hover);
+        }
+
+        .video-thumbnail-placeholder:hover img {
+            transform: scale(1.03);
+        }
+
+        .chart-box {
+            background:
+                radial-gradient(300px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.065), transparent 68%),
+                linear-gradient(180deg, rgba(22, 22, 34, 0.62), rgba(9, 9, 15, 0.78));
+            backdrop-filter: blur(18px) saturate(175%);
+            -webkit-backdrop-filter: blur(18px) saturate(175%);
+            border: 0;
+            box-shadow:
+                inset 0 0 0 1px rgba(255, 255, 255, 0.085),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14),
+                0 14px 32px -18px rgba(0, 0, 0, 0.8);
+            border-radius: 1.15rem;
+            padding: 1rem 1.05rem;
+            height: 335px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.36s var(--ease-hover), box-shadow 0.36s var(--ease-hover);
+        }
+
+        .chart-box::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(253, 161, 54, 0.14) 32%, rgba(255, 255, 255, 0.02) 70%, rgba(255, 255, 255, 0.08) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .chart-box:hover {
+            transform: translateY(-2px);
+            box-shadow:
+                inset 0 0 0 1px rgba(253, 161, 54, 0.24),
+                inset 0 1px 0 rgba(255, 255, 255, 0.18),
+                0 20px 42px -18px rgba(0, 0, 0, 0.88),
+                0 0 24px -14px rgba(245, 158, 11, 0.25);
+        }
+
+        .chart-box.xl\:col-span-2 {
+            height: 360px;
         }
     </style>
 </head>
@@ -1245,38 +1867,130 @@
     <div class="bg-mesh"></div>
     <div class="scanlines"></div>
 
-    <main class="relative z-10 w-full max-w-full px-4 md:px-8 lg:px-12 xl:px-16 pt-12 md:pt-20 pb-32">
+    <main class="relative z-10 w-full max-w-full px-4 md:px-8 lg:px-12 xl:px-16 pt-8 md:pt-12 pb-32">
         <!-- HEADER -->
-        <header class="flex flex-col items-center justify-center text-center mb-0 relative z-10">
+        <header class="hero-header flex flex-col items-center justify-center text-center mb-6 relative z-10">
             <h2
-                class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-4 flex items-center gap-3">
+                class="text-zinc-500 font-mono font-bold uppercase tracking-[0.38em] text-xs sm:text-sm mb-3 flex items-center gap-3">
                 <span class="w-8 h-px bg-zinc-700"></span> Production Benchmark <span
                     class="w-8 h-px bg-zinc-700"></span>
             </h2>
             <h1
-                class="font-retro text-2xl sm:text-3xl md:text-4xl lg:text-[40px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-6">
+                class="hero-title font-retro text-2xl sm:text-3xl md:text-4xl lg:text-[40px] leading-loose md:leading-[1.5] mb-2">
                 PROJECT GLYPHMOTION
             </h1>
-            <p class="font-outfit text-zinc-400 max-w-3xl mx-auto text-base md:text-lg leading-relaxed mb-8">
-                Adaptive HFDR production pipeline benchmarks — real-time quality metrics, pipeline performance, and
-                detection analytics across all processed videos.
+            <div class="hero-horizon-rule"></div>
+            <p class="hero-subtitle-pill">
+                <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 12h3.5l2.2-6 4.6 12 2.4-6H21" />
+                </svg>
+                <span>Adaptive HFDR quality, Batch-8 FP16 throughput &amp; MOT analytics</span>
+                <span class="hero-subtitle-accent">v4.5 vs v4.0</span>
             </p>
-            <div class="flex flex-wrap items-center justify-center gap-3 text-xs font-mono text-zinc-500">
-                <a href="index.html"
-                    class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all"><i
-                        data-lucide="home" class="w-3 h-3 text-amber-500"></i> Home</a>
-                <button id="refreshDashboardBtn"
-                    class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all cursor-pointer"><i
-                        data-lucide="refresh-cw" class="w-3 h-3 text-amber-500"></i> Refresh</button>
-                <button id="exportBackendCsvBtn"
-                    class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all cursor-pointer"><i
-                        data-lucide="download" class="w-3 h-3 text-amber-500"></i> Export CSV</button>
-                <button id="exportSnapshotJsonBtn"
-                    class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all cursor-pointer"><i
-                        data-lucide="database-backup" class="w-3 h-3 text-amber-500"></i> Export Snapshot JSON</button>
-                <button id="benchmarkToggleBtn"
-                    class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all cursor-pointer"><i
-                        data-lucide="toggle-right" class="w-3 h-3 text-amber-500"></i> Benchmark: <span id="benchmarkToggleText">LOADING...</span></button>
+
+            <!-- APPLE LIQUID GLASS NAV RAIL -->
+            <nav class="flex justify-center mb-5">
+                <div class="desktop-nav-rail" id="desktopNavRail">
+                    <span class="nav-sliding-pill" id="navSlidingPill" aria-hidden="true"></span>
+                    <a href="index.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 10.5 12 3l9 7.5" />
+                            <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" fill="currentColor"
+                                fill-opacity="0.16" />
+                            <path d="M9.5 21v-6h5v6" />
+                        </svg>
+                        <span>Home</span>
+                    </a>
+                    <a href="playground.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M9.5 3.5h5" />
+                            <path
+                                d="M10.25 3.5v5.1a2 2 0 0 1-.38 1.18l-4.6 6.45A2.2 2.2 0 0 0 7.06 19.8h9.88a2.2 2.2 0 0 0 1.79-3.57l-4.6-6.45a2 2 0 0 1-.38-1.18V3.5" />
+                            <path d="M7.2 14.5h9.6l1.7 2.4a1.5 1.5 0 0 1-1.22 2.4H6.72a1.5 1.5 0 0 1-1.22-2.4l1.7-2.4Z"
+                                fill="currentColor" fill-opacity="0.24" stroke="none" />
+                        </svg>
+                        <span>Playground</span>
+                    </a>
+                    <a href="admin_tracker.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 3v18h18" />
+                            <path d="m7 14 4-4 3 3 6-6" />
+                        </svg>
+                        <span>Tracker</span>
+                    </a>
+                    <a href="documentation.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M4.5 19.2v-14A2.4 2.4 0 0 1 6.9 2.8H19.5v18.4H6.9a2.4 2.4 0 0 1 0-4.8h12.6"
+                                fill="currentColor" fill-opacity="0.16" />
+                        </svg>
+                        <span>Docs</span>
+                    </a>
+                    <a href="changelogs.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity="0.14" stroke="none" />
+                            <path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3L3.5 8" />
+                            <path d="M3.5 3.5V8H8" />
+                            <path d="M12 7.5V12l3 1.8" />
+                        </svg>
+                        <span>Changelogs</span>
+                    </a>
+                    <a href="benchmark.html" class="nav-pill nav-pill-active" aria-current="page">
+                        <svg class="ui-icon text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="4" y="13" width="3.5" height="7" rx="1" fill="currentColor" fill-opacity="0.28" />
+                            <rect x="10.25" y="9" width="3.5" height="11" rx="1" fill="currentColor"
+                                fill-opacity="0.28" />
+                            <rect x="16.5" y="4" width="3.5" height="16" rx="1" fill="currentColor"
+                                fill-opacity="0.28" />
+                        </svg>
+                        <span>Benchmark</span>
+                    </a>
+                </div>
+            </nav>
+
+            <div class="flex flex-wrap items-center justify-center gap-2.5 text-xs font-mono text-zinc-400">
+                <button id="refreshDashboardBtn" class="control-pill cursor-pointer">
+                    <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                        <path d="M16 16h5v5" />
+                    </svg>
+                    <span>Refresh</span>
+                </button>
+                <button id="exportBackendCsvBtn" class="control-pill cursor-pointer">
+                    <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="currentColor" fill-opacity="0.14" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    <span>Export CSV</span>
+                </button>
+                <button id="exportSnapshotJsonBtn" class="control-pill cursor-pointer">
+                    <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <ellipse cx="12" cy="5" rx="8.5" ry="3" fill="currentColor" fill-opacity="0.2" />
+                        <path d="M3.5 5v14c0 1.66 3.8 3 8.5 3s8.5-1.34 8.5-3V5" />
+                        <path d="M3.5 12c0 1.66 3.8 3 8.5 3s8.5-1.34 8.5-3" />
+                    </svg>
+                    <span>Export Snapshot JSON</span>
+                </button>
+                <button id="benchmarkToggleBtn" class="control-pill cursor-pointer">
+                    <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="2" y="6" width="20" height="12" rx="6" fill="currentColor" fill-opacity="0.18" />
+                        <circle cx="16" cy="12" r="3" fill="currentColor" />
+                    </svg>
+                    <span>Benchmark: <span id="benchmarkToggleText">LOADING...</span></span>
+                </button>
                 <div id="serverStatusWidget" class="status-widget">
                     <div class="relative flex h-2.5 w-2.5">
                         <span id="serverStatusPing"
@@ -1287,19 +2001,29 @@
                     <span id="serverStatusText" class="text-zinc-300">LOADING...</span>
                 </div>
                 <div id="snapshotStatusWidget" class="status-widget border-zinc-500/35 bg-zinc-500/10">
-                    <i data-lucide="database" class="w-3 h-3 text-zinc-400"></i>
+                    <svg class="ui-icon text-zinc-400" style="width:0.82rem;height:0.82rem;" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="1.85" aria-hidden="true">
+                        <ellipse cx="12" cy="5.5" rx="7.5" ry="2.5" fill="currentColor" fill-opacity="0.18" />
+                        <path d="M4.5 5.5v13c0 1.38 3.36 2.5 7.5 2.5s7.5-1.12 7.5-2.5v-13" />
+                    </svg>
                     <span id="snapshotStatusText" class="text-zinc-400">SNAPSHOT: --</span>
                 </div>
                 <div id="freshnessStatusWidget" class="status-widget border-zinc-500/35 bg-zinc-500/10">
-                    <i data-lucide="clock-3" class="w-3 h-3 text-zinc-400"></i>
+                    <svg class="ui-icon text-zinc-400" style="width:0.82rem;height:0.82rem;" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="0.14" />
+                        <path d="M12 7v5l3 2" />
+                    </svg>
                     <span id="freshnessStatusText" class="text-zinc-400">FRESHNESS: --</span>
                 </div>
             </div>
             <div class="runtime-status-shell">
-                <div id="benchmarkRuntimeStatusWidget" class="status-widget runtime-status-widget border-zinc-500/35 bg-zinc-500/10">
+                <div id="benchmarkRuntimeStatusWidget"
+                    class="status-widget runtime-status-widget border-zinc-500/35 bg-zinc-500/10">
                     <div class="runtime-status-content">
                         <div class="runtime-status-inline">
-                            <span id="benchmarkRuntimeStatusText" class="runtime-status-main text-zinc-400">BENCHMARK: IDLE</span>
+                            <span id="benchmarkRuntimeStatusText" class="runtime-status-main text-zinc-400">BENCHMARK:
+                                IDLE</span>
                             <span id="benchmarkRuntimeLiveBadge" class="runtime-live-badge">
                                 <span class="runtime-live-dot"></span>
                                 <span id="benchmarkRuntimeProgressValue">0%</span>
@@ -1313,13 +2037,72 @@
             </div>
         </header>
 
+        <!-- VERSION EPOCH TABS + v4.5 / v4.0 INTERSECTION BAR -->
+        <section id="versionControlsSection" class="mb-10 section-marker">
+            <div class="version-dock-card flex flex-col xl:flex-row items-center justify-between gap-4">
+                <div class="flex flex-wrap items-center justify-center gap-3">
+                    <div class="version-tab-rail" id="versionTabRail" role="tablist"
+                        aria-label="Benchmark Version Filter">
+                        <span class="version-sliding-pill" id="versionSlidingPill" aria-hidden="true"></span>
+                        <button type="button" class="version-tab-btn is-active" data-version-tab="all" role="tab"
+                            aria-selected="true">
+                            <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polygon points="12 2 2 7 12 12 22 7 12 2" fill="currentColor" fill-opacity="0.22" />
+                                <polyline points="2 12 12 17 22 12" />
+                                <polyline points="2 17 12 22 22 17" />
+                            </svg>
+                            <span>All Results</span>
+                            <span class="version-tab-count" id="versionCountAll">0</span>
+                        </button>
+                        <button type="button" class="version-tab-btn" data-version-tab="v45" role="tab"
+                            aria-selected="false">
+                            <svg class="ui-icon text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="currentColor"
+                                    fill-opacity="0.26" />
+                            </svg>
+                            <span>v4.5 Results</span>
+                            <span class="version-tab-count" id="versionCountV45">0</span>
+                        </button>
+                        <button type="button" class="version-tab-btn" data-version-tab="v40" role="tab"
+                            aria-selected="false">
+                            <svg class="ui-icon text-violet-300" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"
+                                    fill-opacity="0.16" />
+                                <rect x="9" y="9" width="6" height="6" />
+                            </svg>
+                            <span>v4.0 Results</span>
+                            <span class="version-tab-count" id="versionCountV40">0</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="versionDeltaSummary"
+                    class="flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-zinc-400">
+                    <span class="ver-badge ver-badge-v45">Loading v4.5 vs v4.0 delta...</span>
+                </div>
+            </div>
+        </section>
+
         <section id="noBenchmarkDataBanner" class="hidden mb-10 section-marker">
-            <div class="doc-card p-6 md:p-8 border border-amber-500/30 bg-amber-500/5">
+            <div class="doc-card p-6 md:p-8">
                 <div class="flex items-start gap-3">
-                    <i data-lucide="flask-conical" class="w-6 h-6 text-amber-400 mt-0.5"></i>
+                    <svg class="ui-icon text-amber-400 w-6 h-6 mt-0.5" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"
+                        aria-hidden="true">
+                        <path d="M9.5 3.5h5" />
+                        <path
+                            d="M10.25 3.5v5.1a2 2 0 0 1-.38 1.18l-4.6 6.45A2.2 2.2 0 0 0 7.06 19.8h9.88a2.2 2.2 0 0 0 1.79-3.57l-4.6-6.45a2 2 0 0 1-.38-1.18V3.5" />
+                        <path d="M7.2 14.5h9.6l1.7 2.4a1.5 1.5 0 0 1-1.22 2.4H6.72a1.5 1.5 0 0 1-1.22-2.4l1.7-2.4Z"
+                            fill="currentColor" fill-opacity="0.24" stroke="none" />
+                    </svg>
                     <div>
-                        <h3 class="font-outfit text-xl text-amber-300 font-semibold mb-1">No benchmarks yet. The lab is suspiciously calm.</h3>
-                        <p class="text-zinc-300 font-outfit text-sm md:text-base">Run a benchmark and wake the metrics goblins 👾 — right now the dashboard is waiting dramatically for data.</p>
+                        <h3 class="font-outfit text-xl text-amber-300 font-semibold mb-1">No benchmarks yet. The lab is
+                            suspiciously calm.</h3>
+                        <p class="text-zinc-300 font-outfit text-sm md:text-base">Run a benchmark and wake the metrics
+                            goblins — right now the dashboard is waiting dramatically for data.</p>
                     </div>
                 </div>
             </div>
@@ -1333,13 +2116,21 @@
             <div class="doc-card p-8 md:p-12">
                 <header class="flex flex-col items-center text-center mb-10">
                     <div
-                        class="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 mb-6 inline-flex shadow-[0_0_30px_rgba(59,130,246,0.2)]">
-                        <i data-lucide="bar-chart-3" class="w-8 h-8 text-blue-400"></i>
+                        class="p-4 rounded-2xl bg-blue-500/10 border border-blue-400/25 mb-6 inline-flex shadow-[0_0_32px_rgba(59,130,246,0.22)] backdrop-blur-md">
+                        <svg class="ui-icon w-8 h-8 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="4" y="13" width="3.5" height="7" rx="1" fill="currentColor" fill-opacity="0.26" />
+                            <rect x="10.25" y="9" width="3.5" height="11" rx="1" fill="currentColor"
+                                fill-opacity="0.26" />
+                            <rect x="16.5" y="4" width="3.5" height="16" rx="1" fill="currentColor"
+                                fill-opacity="0.26" />
+                        </svg>
                     </div>
                     <h2 class="font-outfit text-3xl md:text-4xl font-bold text-white mb-4">Quality + Pipeline Trends
                     </h2>
                     <p class="text-zinc-400 max-w-2xl mx-auto font-outfit">VMAF, SSIM, PSNR quality scores, pipeline
-                        FPS, MOTA tracking quality, adaptive mode distribution, and file size comparisons across all benchmark runs.</p>
+                        FPS, MOTA tracking quality, adaptive mode distribution, and file size comparisons across the
+                        selected epoch.</p>
                 </header>
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     <div class="chart-box"><canvas id="qualityChart"></canvas></div>
@@ -1368,13 +2159,20 @@
                         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div>
                                 <h2 class="font-outfit text-2xl font-bold text-white table-headline">
-                                    <span class="table-header-icon"><i data-lucide="activity" class="w-5 h-5 text-amber-300"></i></span>
+                                    <span class="table-header-icon">
+                                        <svg class="ui-icon w-5 h-5 text-amber-300" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="1.85" stroke-linecap="round"
+                                            stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M3 12h4l2.5-6.5 5 13 2.5-6.5H21" />
+                                        </svg>
+                                    </span>
                                     <span>All Aggregated Metrics</span>
                                 </h2>
-                                <p class="table-subtitle">Unified metrics view with key benchmark statistics prioritized at the top.</p>
+                                <p class="table-subtitle">Unified metrics view dynamically scoped to your active version
+                                    tab.</p>
                             </div>
                             <input id="aggregateFilter" type="text"
-                                class="table-filter-input rounded-lg px-3 py-2 text-xs text-zinc-200 w-full md:w-72 max-w-full font-mono"
+                                class="table-filter-input rounded-full px-4 py-2 text-xs text-zinc-200 w-full md:w-72 max-w-full font-mono"
                                 placeholder="Filter metric name..." />
                         </div>
                         <div class="table-kpis">
@@ -1409,28 +2207,44 @@
                         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div>
                                 <h2 class="font-outfit text-2xl font-bold text-white table-headline">
-                                    <span class="table-header-icon"><i data-lucide="database" class="w-5 h-5 text-amber-300"></i></span>
+                                    <span class="table-header-icon">
+                                        <svg class="ui-icon w-5 h-5 text-amber-300" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="1.85" stroke-linecap="round"
+                                            stroke-linejoin="round" aria-hidden="true">
+                                            <ellipse cx="12" cy="5" rx="8.5" ry="3" fill="currentColor"
+                                                fill-opacity="0.22" />
+                                            <path d="M3.5 5v14c0 1.66 3.8 3 8.5 3s8.5-1.34 8.5-3V5" />
+                                            <path d="M3.5 12c0 1.66 3.8 3 8.5 3s8.5-1.34 8.5-3" />
+                                        </svg>
+                                    </span>
                                     <span>Benchmark Records</span>
                                 </h2>
-                                <p class="table-subtitle">Raw run-by-run telemetry across video, quality, speed, and pipeline dimensions.</p>
+                                <p class="table-subtitle">Run-by-run telemetry with clear v4.5 vs v4.0 architectural
+                                    intersection separation.</p>
                             </div>
                             <div class="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
                                 <input id="recordsFilter" type="text"
-                                    class="table-filter-input rounded-lg px-3 py-2 text-xs text-zinc-200 w-full md:w-72 max-w-full font-mono"
+                                    class="table-filter-input rounded-full px-4 py-2 text-xs text-zinc-200 w-full md:w-72 max-w-full font-mono"
                                     placeholder="Filter by title/commit..." />
                                 <div class="flex items-center gap-2">
-                                    <button id="toggleRecordSelectionModeBtn" class="control-pill">Enable Precision Delete Mode</button>
+                                    <button id="toggleRecordSelectionModeBtn" class="control-pill">Enable Precision
+                                        Delete Mode</button>
                                 </div>
                                 <div id="recordSelectionActions" class="hidden flex items-center gap-2">
-                                    <button id="clearSelectedRecordsBtn" class="control-pill" disabled>Clear Selection</button>
-                                    <button id="deleteSelectedRecordsBtn" class="control-pill control-pill-danger" disabled>Delete Selected</button>
+                                    <button id="clearSelectedRecordsBtn" class="control-pill" disabled>Clear
+                                        Selection</button>
+                                    <button id="deleteSelectedRecordsBtn" class="control-pill control-pill-danger"
+                                        disabled>Delete Selected</button>
                                 </div>
                             </div>
                         </div>
                         <div class="table-kpis">
-                            <span class="table-kpi">Total Records <span id="recordsTotalRows" class="val">0</span></span>
-                            <span class="table-kpi">Visible Rows <span id="recordsVisibleRows" class="val">0</span></span>
-                            <span class="table-kpi">Visible Columns <span id="recordsVisibleCols" class="val">0</span></span>
+                            <span class="table-kpi">Total Records <span id="recordsTotalRows"
+                                    class="val">0</span></span>
+                            <span class="table-kpi">Visible Rows <span id="recordsVisibleRows"
+                                    class="val">0</span></span>
+                            <span class="table-kpi">Visible Columns <span id="recordsVisibleCols"
+                                    class="val">0</span></span>
                             <span class="table-kpi">Selected <span id="recordsSelectedRows" class="val">0</span></span>
                         </div>
                     </div>
@@ -1446,45 +2260,68 @@
             <div class="doc-card p-8 md:p-12">
                 <header class="flex flex-col items-center text-center mb-10">
                     <div
-                        class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 mb-6 inline-flex shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-                        <i data-lucide="video" class="w-8 h-8 text-emerald-400"></i>
+                        class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-400/25 mb-6 inline-flex shadow-[0_0_32px_rgba(16,185,129,0.22)] backdrop-blur-md">
+                        <svg class="ui-icon w-8 h-8 text-emerald-400" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                            aria-hidden="true">
+                            <rect x="2.5" y="5.5" width="14" height="13" rx="2.5" fill="currentColor"
+                                fill-opacity="0.22" />
+                            <path d="m16.5 10 5-3v10l-5-3z" fill="currentColor" fill-opacity="0.22" />
+                        </svg>
                     </div>
                     <h2 class="font-outfit text-3xl md:text-4xl font-bold text-white mb-4">Benchmark-backed Videos</h2>
-                    <p class="text-zinc-400 max-w-2xl mx-auto font-outfit">Processed videos with full benchmark
-                        telemetry — click to preview, inspect per-video quality metrics.</p>
+                    <p class="text-zinc-400 max-w-2xl mx-auto font-outfit">Processed videos paired with full telemetry —
+                        click any capsule to preview and compare v4.5 vs v4.0 quality metrics.</p>
                 </header>
                 <div id="videoGallery" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
                 <div id="noVideos" class="hidden text-zinc-400 text-sm mono text-center py-8">No benchmark-backed videos
-                    found.</div>
+                    found for this version filter.</div>
             </div>
         </section>
     </main>
 
     <!-- DETAILS MODAL (cinematic open) -->
     <div id="detailsModal" class="modal-backdrop">
-        <div class="modal-panel doc-card rounded-xl p-6" style="max-width: 60rem;">
+        <div class="modal-panel doc-card rounded-2xl p-6" style="max-width: 60rem;">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-white font-outfit flex items-center gap-2"><i
-                        data-lucide="file-json" class="w-5 h-5 text-amber-400"></i> Benchmark Details</h3>
-                <button id="closeModal" class="text-zinc-400 hover:text-white transition-colors p-1"><i data-lucide="x"
-                        class="w-5 h-5"></i></button>
+                <h3 class="text-lg font-semibold text-white font-outfit flex items-center gap-2">
+                    <svg class="ui-icon w-5 h-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="currentColor"
+                            fill-opacity="0.18" />
+                        <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    <span>Benchmark Details</span>
+                </h3>
+                <button id="closeModal" class="control-pill !h-8 !w-8 !p-0 justify-center" aria-label="Close modal">
+                    <svg class="ui-icon w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" aria-hidden="true">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
             </div>
             <pre id="detailsContent"
-                class="text-xs whitespace-pre-wrap text-zinc-200 mono bg-black/40 rounded-lg p-4 border border-white/5 max-h-[70vh] overflow-auto"></pre>
+                class="text-xs whitespace-pre-wrap text-zinc-200 mono bg-black/45 rounded-xl p-4 border border-white/10 max-h-[70vh] overflow-auto"></pre>
         </div>
     </div>
 
-    <!-- FOOTER (matches research.html) -->
+    <!-- FOOTER (Apple Liquid Glass Capsule) -->
     <footer class="relative z-10 pb-24 lg:pb-8 pt-4 px-4">
         <div
-            class="max-w-max mx-auto px-4 sm:px-6 py-3 rounded-xl sm:rounded-full bg-surface/80 backdrop-blur-md border border-zinc-800/60 shadow-[0_0_20px_rgba(0,0,0,0.5)] flex flex-col sm:flex-row items-center justify-center gap-3 transition-all hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)] hover-target">
+            class="desktop-nav-rail max-w-max mx-auto px-5 py-2.5 flex flex-col sm:flex-row items-center justify-center gap-3">
             <div class="flex items-center gap-2">
-                <i data-lucide="terminal-square" class="w-4 h-4 text-amber-500"></i>
+                <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="3" fill="currentColor" fill-opacity="0.16" />
+                    <path d="m8 9 3 3-3 3" />
+                    <line x1="13" y1="15" x2="16" y2="15" />
+                </svg>
                 <p class="text-zinc-400 text-[11px] sm:text-sm font-mono tracking-wide">
                     Maintained by <span class="text-zinc-200 font-semibold">Project GlyphMotion</span>
                 </p>
             </div>
-            <span class="hidden sm:block w-px h-4 bg-zinc-700"></span>
+            <span class="hidden sm:block w-px h-4 bg-white/10"></span>
             <div class="flex items-center text-center gap-1.5">
                 <p class="text-zinc-500 text-[9px] sm:text-xs font-mono tracking-wide leading-tight">
                     MIT License &copy; 2026<br class="sm:hidden" /> Shitij Halder &amp; Sayan Sarkar
@@ -1565,6 +2402,131 @@
         let statusPollTimer = null;
         let statusPollInFlight = false;
         let liveBenchmarkRuntimeActive = false;
+
+        // ==================== VERSION EPOCHS & INTERSECTION LOGIC ====================
+        const V45_EPOCH_START_MS = Date.parse('2026-11-20T13:30:00+05:30'); // Unified v4.5 boundary (all v4.5 engine runs merged)
+        let activeVersionTab = 'all';         // 'all' | 'v45' | 'v40'
+
+        function getRecordTimestampMs(item) {
+            const raw = item?.timestamp_iso || item?.timestamp || item?.benchmark?.timestamp_iso || item?.benchmark?.timestamp;
+            return normalizeTimestampValue(raw) || 0;
+        }
+
+        function isV45Record(item) {
+            return getRecordTimestampMs(item) >= V45_EPOCH_START_MS;
+        }
+
+        function classifyBenchmarkVersion(item) {
+            return isV45Record(item) ? 'v4.5' : 'v4.0';
+        }
+
+        function isRowInActiveVersion(item) {
+            if (activeVersionTab === 'v45') return isV45Record(item);
+            if (activeVersionTab === 'v40') return !isV45Record(item);
+            return true;
+        }
+
+        function getVersionBadgeHtml(item) {
+            return isV45Record(item)
+                ? '<span class="ver-badge ver-badge-v45">v4.5</span>'
+                : '<span class="ver-badge ver-badge-v40">v4.0</span>';
+        }
+
+        function computeAggregatesFromRecords(records = []) {
+            const buckets = new Map();
+            (records || []).forEach(row => {
+                if (!row || typeof row !== 'object') return;
+                Object.entries(row).forEach(([key, val]) => {
+                    if (val === null || val === undefined || typeof val === 'boolean' || typeof val === 'object') return;
+                    if (key === 'timestamp') return;
+                    const n = Number(val);
+                    if (!Number.isFinite(n)) return;
+                    if (!buckets.has(key)) buckets.set(key, []);
+                    buckets.get(key).push(n);
+                });
+            });
+            const agg = {};
+            buckets.forEach((vals, key) => {
+                const count = vals.length;
+                if (!count) return;
+                let min = Infinity, max = -Infinity, sum = 0;
+                for (let i = 0; i < count; i++) {
+                    const x = vals[i];
+                    if (x < min) min = x;
+                    if (x > max) max = x;
+                    sum += x;
+                }
+                const mean = sum / count;
+                let sq = 0;
+                for (let i = 0; i < count; i++) {
+                    const d = vals[i] - mean;
+                    sq += d * d;
+                }
+                agg[key] = { min, avg: mean, max, stddev: Math.sqrt(sq / count), count };
+            });
+            return agg;
+        }
+
+        function updateVersionTabStats(allRecords = []) {
+            const sorted = (allRecords || []).slice();
+            const v45List = sorted.filter(isV45Record);
+            const v40List = sorted.filter(r => !isV45Record(r));
+
+            const cAll = document.getElementById('versionCountAll');
+            const c45 = document.getElementById('versionCountV45');
+            const c40 = document.getElementById('versionCountV40');
+            if (cAll) cAll.textContent = String(sorted.length);
+            if (c45) c45.textContent = String(v45List.length);
+            if (c40) c40.textContent = String(v40List.length);
+
+            const s45 = summarizeBenchmarkRecords(v45List);
+            const s40 = summarizeBenchmarkRecords(v40List);
+            const fps45 = s45.fps.count ? s45.fps.sum / s45.fps.count : 0;
+            const fps40 = s40.fps.count ? s40.fps.sum / s40.fps.count : 0;
+            const lat45 = s45.latency.count ? s45.latency.sum / s45.latency.count : 0;
+            const lat40 = s40.latency.count ? s40.latency.sum / s40.latency.count : 0;
+            const vmaf45 = s45.vmaf.count ? s45.vmaf.sum / s45.vmaf.count : 0;
+            const speedup = (fps40 > 0 && fps45 > 0) ? (fps45 / fps40) : 0;
+
+            const deltaEl = document.getElementById('versionDeltaSummary');
+            if (deltaEl) {
+                deltaEl.innerHTML = `
+                    <span class="ver-badge ver-badge-v45">v4.5: ${num(fps45, 1)} FPS · ${num(lat45, 1)}ms · VMAF ${num(vmaf45, 2)}</span>
+                    <span class="text-zinc-500">vs</span>
+                    <span class="ver-badge ver-badge-v40">v4.0: ${num(fps40, 1)} FPS · ${num(lat40, 1)}ms</span>
+                    ${speedup > 1.05 ? `<span class="ver-badge ver-badge-v45">${num(speedup, 2)}× Avg FPS Gain</span>` : ''}
+                `;
+            }
+
+            document.querySelectorAll('.version-tab-btn').forEach(btn => {
+                const isAct = btn.dataset.versionTab === activeVersionTab;
+                btn.classList.toggle('is-active', isAct);
+                btn.setAttribute('aria-selected', isAct ? 'true' : 'false');
+            });
+        }
+
+        function applyActiveVersionView() {
+            const allRecords = cachedPayload.records || [];
+            updateVersionTabStats(allRecords);
+
+            const scopedRecords = allRecords.filter(isRowInActiveVersion);
+            const scopedAggregates = (activeVersionTab === 'all' && cachedPayload.aggregates && Object.keys(cachedPayload.aggregates).length)
+                ? cachedPayload.aggregates
+                : computeAggregatesFromRecords(scopedRecords);
+            const scopedPayload = {
+                ...cachedPayload,
+                records: scopedRecords,
+                aggregates: scopedAggregates,
+                views: { summary: summarizeBenchmarkRecords(scopedRecords) }
+            };
+
+            renderSummary(scopedPayload);
+            renderAggregateTable(scopedPayload, document.getElementById('aggregateFilter')?.value || '');
+            // Pass full allRecords so original indices in cachedPayload.records stay intact for Precision Delete Mode
+            renderRecordsTable(allRecords, document.getElementById('recordsFilter')?.value || '');
+            renderCharts(scopedPayload);
+            renderVideoGallery(latestMergedVideos);
+        }
 
         // ==================== UTILITIES ====================
         function normalizeText(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '').trim(); }
@@ -2512,7 +3474,7 @@
             if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 300); }
             const tp = document.createElement('div'); tp.className = 'video-thumbnail-placeholder absolute top-0 left-0 w-full h-full';
             const rid = resolveDriveFileId(fid, embedUrl); tp.setAttribute('data-embed-url', embedUrl); tp.setAttribute('data-file-id', rid);
-            tp.innerHTML = `<img alt="thumb" loading="lazy" decoding="async" class="w-full h-full object-cover rounded-xl" /><div class="play-overlay"><svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>`;
+            tp.innerHTML = `<img alt="thumb" loading="lazy" decoding="async" class="w-full h-full object-cover rounded-xl" /><div class="play-overlay"><div class="play-glass-capsule"><svg class="play-icon !w-6 !h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>`;
             attachRobustThumbnailFallback(tp.querySelector('img'), rid);
             tp.style.opacity = '0'; tp.style.transition = 'opacity 0.3s ease-out';
             vc.appendChild(tp);
@@ -2602,37 +3564,65 @@
 
         function renderRecordsTable(records, filter = '') {
             const table = document.getElementById('recordsTable'); const q = normalizeText(filter);
-            const indexedRows = (records || []).map((row, index) => ({ row, index }));
-            const filtered = indexedRows.filter(({ row }) => {
+            const indexedRows = (records || []).map((row, index) => ({ row, index, tsMs: getRecordTimestampMs(row) }));
+            indexedRows.sort((a, b) => b.tsMs - a.tsMs);
+
+            const versionScoped = indexedRows.filter(({ row }) => isRowInActiveVersion(row));
+            const filtered = versionScoped.filter(({ row }) => {
                 if (!q) return true;
-                return normalizeText(row.video_title).includes(q) || normalizeText(row.commit_sha).includes(q);
+                return normalizeText(row.video_title).includes(q) || normalizeText(row.commit_sha).includes(q) || normalizeText(classifyBenchmarkVersion(row)).includes(q);
             });
             visibleRecordIndexes = filtered.map(item => item.index);
             const unifiedColumns = buildUnifiedRecordColumns(filtered.map(item => item.row));
             if (!unifiedColumns.length) {
-                table.innerHTML = '<thead><tr><th>Records</th></tr></thead><tbody><tr><td class="text-center text-zinc-400 py-6 mono">No benchmark records found. Feed me benchmarks and I shall return glorious numbers.</td></tr></tbody>';
-                document.getElementById('recordsTotalRows').textContent = String((records || []).length);
+                table.innerHTML = '<thead><tr><th>Records</th></tr></thead><tbody><tr><td class="text-center text-zinc-400 py-6 mono">No benchmark records match this version tab or filter.</td></tr></tbody>';
+                document.getElementById('recordsTotalRows').textContent = String(versionScoped.length);
                 document.getElementById('recordsVisibleRows').textContent = String(filtered.length);
                 document.getElementById('recordsVisibleCols').textContent = '0';
                 syncRecordSelectionState((records || []).length);
                 return;
             }
+
+            const totalColSpan = unifiedColumns.length + (recordSelectionModeEnabled ? 1 : 0);
+            const v45InFiltered = filtered.filter(({ row }) => isV45Record(row)).length;
+            const v40InFiltered = filtered.length - v45InFiltered;
+
+            let rowsHtml = '';
+            let insertedMainBoundary = false;
+
+            filtered.forEach(({ row, index }, listPos) => {
+                const nowV45 = isV45Record(row);
+                const prevRow = listPos > 0 ? filtered[listPos - 1].row : null;
+                const prevV45 = prevRow ? isV45Record(prevRow) : false;
+
+                if (activeVersionTab === 'all' && !insertedMainBoundary && prevRow && prevV45 && !nowV45) {
+                    insertedMainBoundary = true;
+                    rowsHtml += `<tr class="version-intersection-row"><td colspan="${totalColSpan}"><div class="table-intersection-gap"><span class="ver-badge ver-badge-v45">▲ Above: v4.5 (${v45InFiltered})</span><span class="text-[11px] font-mono font-semibold text-amber-200 tracking-wide">⟐ VERSION INTERSECTION GAP • v4.5 vs v4.0</span><span class="ver-badge ver-badge-v40">▼ Below: v4.0 (${v40InFiltered})</span></div></td></tr>`;
+                }
+
+                const rowVerClass = nowV45 ? 'row-v45' : 'row-v40';
+                rowsHtml += `<tr class="${rowVerClass}">${unifiedColumns.map((col, colIdx) => {
+                    const v = formatRecordFieldValue(row, col);
+                    const cell = v && typeof v === 'object' ? JSON.stringify(v) : (v === null || v === undefined ? '' : String(v));
+                    const canonical = String(col.canonical || '').toLowerCase();
+                    const metricKey = col.preferredKey || col.aliases[0] || col.canonical;
+                    const metricDesc = METRIC_DESCRIPTIONS[metricKey] || '';
+                    const fullDetectionValue = getMetricValue(row, col.aliases);
+                    const titleAttr = metricDesc || (canonical.includes('detection') || canonical.includes('count') ? String(fullDetectionValue || '') : '');
+                    const finalTitle = titleAttr ? ` title="${String(titleAttr).replace(/"/g, '&quot;')}"` : '';
+                    if (colIdx === 0) {
+                        return `<td${finalTitle}><div class="flex items-center justify-between gap-2"><span class="truncate">${cell}</span>${getVersionBadgeHtml(row)}</div></td>`;
+                    }
+                    return `<td${finalTitle}>${cell}</td>`;
+                }).join('')}${recordSelectionModeEnabled ? `<td class="record-select-col"><input class="record-row-select" type="checkbox" data-record-index="${index}" ${selectedRecordIndexes.has(index) ? 'checked' : ''} aria-label="Select record ${index + 1}" /></td>` : ''}</tr>`;
+            });
+
             table.innerHTML = `<thead><tr>${unifiedColumns.map(col => {
                 const metricKey = col.preferredKey || col.aliases[0] || col.canonical;
                 const metricDesc = METRIC_DESCRIPTIONS[metricKey] || '';
                 const titleAttr = metricDesc ? ` title="${metricDesc.replace(/"/g, '&quot;')}"` : '';
                 return `<th${titleAttr} class="cursor-help">${col.label}</th>`;
-            }).join('')}${recordSelectionModeEnabled ? '<th class="record-select-col"><input id="recordsSelectAll" type="checkbox" aria-label="Select all visible benchmark records" /></th>' : ''}</tr></thead><tbody>${filtered.map(({ row, index }) => `<tr>${unifiedColumns.map(col => {
-                const v = formatRecordFieldValue(row, col);
-                const cell = v && typeof v === 'object' ? JSON.stringify(v) : (v === null || v === undefined ? '' : String(v));
-                const canonical = String(col.canonical || '').toLowerCase();
-                const metricKey = col.preferredKey || col.aliases[0] || col.canonical;
-                const metricDesc = METRIC_DESCRIPTIONS[metricKey] || '';
-                const fullDetectionValue = getMetricValue(row, col.aliases);
-                const titleAttr = metricDesc || (canonical.includes('detection') || canonical.includes('count') ? String(fullDetectionValue || '') : '');
-                const finalTitle = titleAttr ? ` title="${String(titleAttr).replace(/"/g, '&quot;')}"` : '';
-                return `<td${finalTitle}>${cell}</td>`;
-            }).join('')}${recordSelectionModeEnabled ? `<td class="record-select-col"><input class="record-row-select" type="checkbox" data-record-index="${index}" ${selectedRecordIndexes.has(index) ? 'checked' : ''} aria-label="Select record ${index + 1}" /></td>` : ''}</tr>`).join('')}</tbody>`;
+            }).join('')}${recordSelectionModeEnabled ? '<th class="record-select-col"><input id="recordsSelectAll" type="checkbox" aria-label="Select all visible benchmark records" /></th>' : ''}</tr></thead><tbody>${rowsHtml}</tbody>`;
 
             if (recordSelectionModeEnabled) {
                 const selectAll = document.getElementById('recordsSelectAll');
@@ -2660,7 +3650,7 @@
                 });
             }
 
-            document.getElementById('recordsTotalRows').textContent = String((records || []).length);
+            document.getElementById('recordsTotalRows').textContent = String(versionScoped.length);
             document.getElementById('recordsVisibleRows').textContent = String(filtered.length);
             document.getElementById('recordsVisibleCols').textContent = String(unifiedColumns.length);
             syncRecordSelectionState((records || []).length);
@@ -2693,8 +3683,157 @@
 
         function renderCharts(payload) {
             chartRefs.forEach(c => c.destroy()); chartRefs = [];
-            const records = (payload.records || []).slice().reverse(); const labels = records.map(r => (r.video_title || 'Video').slice(0, 24));
-            const chartOpts = (title) => ({ responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: title, color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } }, legend: { labels: { boxWidth: 10, padding: 12 } } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.04)' } }, x: { grid: { display: false }, ticks: { maxRotation: 45 } } } });
+            const records = (payload.records || []).slice().sort((a, b) => getRecordTimestampMs(a) - getRecordTimestampMs(b));
+            const labels = records.map(r => {
+                const raw = String(r.video_title || 'Video').trim();
+                return raw.length > 16 ? raw.slice(0, 15) + '…' : raw;
+            });
+            const boundaryIdx = records.findIndex(r => isV45Record(r));
+            const hasEpochBoundary = boundaryIdx > 0 && boundaryIdx < records.length;
+            const dense = records.length > 35;
+
+            const vGrad = (topColor, bottomColor) => (context) => {
+                const chart = context.chart;
+                const area = chart.chartArea;
+                if (!area) return topColor;
+                const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                g.addColorStop(0, topColor);
+                g.addColorStop(1, bottomColor);
+                return g;
+            };
+
+            const hGrad = (leftColor, rightColor) => (context) => {
+                const chart = context.chart;
+                const area = chart.chartArea;
+                if (!area) return rightColor;
+                const g = chart.ctx.createLinearGradient(area.left, 0, area.right, 0);
+                g.addColorStop(0, leftColor);
+                g.addColorStop(1, rightColor);
+                return g;
+            };
+
+            const versionEpochOverlayPlugin = {
+                id: 'versionEpochOverlay',
+                beforeDatasetsDraw(chart) {
+                    if (!hasEpochBoundary || chart.config.type === 'radar' || chart.config.type === 'doughnut') return;
+                    if (chart.options?.indexAxis === 'y') return;
+                    const xScale = chart.scales?.x;
+                    const area = chart.chartArea;
+                    if (!xScale || !area) return;
+                    const xPos = xScale.getPixelForValue(boundaryIdx - 0.5);
+                    if (!Number.isFinite(xPos) || xPos < area.left || xPos > area.right) return;
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    const bg = ctx.createLinearGradient(xPos, area.top, area.right, area.top);
+                    bg.addColorStop(0, 'rgba(245, 158, 11, 0.10)');
+                    bg.addColorStop(1, 'rgba(6, 182, 212, 0.05)');
+                    ctx.fillStyle = bg;
+                    ctx.fillRect(xPos, area.top, area.right - xPos, area.bottom - area.top);
+
+                    ctx.beginPath();
+                    ctx.setLineDash([4, 4]);
+                    ctx.lineWidth = 1.3;
+                    ctx.strokeStyle = 'rgba(251, 191, 36, 0.72)';
+                    ctx.moveTo(xPos, area.top);
+                    ctx.lineTo(xPos, area.bottom);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    const tag = 'v4.5 ▸';
+                    ctx.font = "600 9px 'JetBrains Mono', monospace";
+                    const tw = ctx.measureText(tag).width + 10;
+                    const bx = Math.min(xPos + 4, area.right - tw - 2);
+                    const by = area.top + 4;
+                    ctx.fillStyle = 'rgba(15, 15, 22, 0.85)';
+                    ctx.strokeStyle = 'rgba(251, 191, 36, 0.48)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.roundRect(bx, by, tw, 16, 8);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = '#fde68a';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(tag, bx + 5, by + 8.5);
+                    ctx.restore();
+                }
+            };
+
+            const sharedTooltip = {
+                backgroundColor: 'rgba(11, 11, 17, 0.94)',
+                titleColor: '#fef3c7',
+                bodyColor: '#e4e4e7',
+                borderColor: 'rgba(251, 191, 36, 0.36)',
+                borderWidth: 1,
+                padding: 11,
+                cornerRadius: 11,
+                boxPadding: 5,
+                usePointStyle: true,
+                titleFont: { family: 'Outfit', size: 12, weight: '600' },
+                bodyFont: { family: 'JetBrains Mono', size: 11 },
+                callbacks: {
+                    title(items) {
+                        const idx = items?.[0]?.dataIndex;
+                        const rec = Number.isInteger(idx) ? records[idx] : null;
+                        if (!rec) return items?.[0]?.label || '';
+                        const ver = isV45Record(rec) ? 'v4.5' : 'v4.0';
+                        const fullTitle = String(rec.video_title || items[0].label || 'Run').slice(0, 42);
+                        return `[${ver}] ${fullTitle}`;
+                    }
+                }
+            };
+
+            const sharedLegend = {
+                position: 'top',
+                align: 'end',
+                labels: {
+                    boxWidth: 8,
+                    boxHeight: 8,
+                    usePointStyle: true,
+                    pointStyle: 'circle',
+                    padding: 14,
+                    color: '#a1a1aa',
+                    font: { family: 'JetBrains Mono', size: 10 }
+                }
+            };
+
+            const commonXScale = {
+                grid: { color: 'rgba(255,255,255,0.025)', tickLength: 0 },
+                border: { color: 'rgba(255,255,255,0.08)' },
+                ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 9, color: '#71717a', font: { family: 'JetBrains Mono', size: 9 } }
+            };
+
+            const commonYScale = (extra = {}) => ({
+                grid: { color: 'rgba(255,255,255,0.045)', tickLength: 0 },
+                border: { display: false },
+                ticks: { color: '#71717a', font: { family: 'JetBrains Mono', size: 9 } },
+                ...extra
+            });
+
+            const chartOpts = (title, extraScales = {}, extraPlugins = {}) => ({
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                animation: { duration: 650, easing: 'easeOutQuart' },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: title,
+                        align: 'start',
+                        color: '#f4f4f5',
+                        padding: { top: 2, bottom: 10 },
+                        font: { family: 'Outfit', size: 14, weight: '600' }
+                    },
+                    legend: sharedLegend,
+                    tooltip: sharedTooltip,
+                    ...extraPlugins
+                },
+                scales: {
+                    x: commonXScale,
+                    y: commonYScale(),
+                    ...extraScales
+                }
+            });
+
             const metricNum = (row, aliases = [], fallback = 0) => {
                 for (const key of aliases) {
                     const n = Number(row?.[key]);
@@ -2715,69 +3854,124 @@
                 return valid.reduce((a, b) => a + b, 0) / valid.length;
             };
 
-            chartRefs.push(new Chart(document.getElementById('qualityChart'), { type: 'line', data: { labels, datasets: [{ label: 'VMAF', data: records.map(r => Number(r.vmaf || 0)), borderColor: '#f59e0b', tension: 0.3, pointRadius: 4 }, { label: 'SSIM', data: records.map(r => Number(r.ssim || 0)), borderColor: '#10b981', tension: 0.3, pointRadius: 4 }, { label: 'PSNR', data: records.map(r => Number(r.psnr || 0)), borderColor: '#60a5fa', tension: 0.3, pointRadius: 4 }] }, options: chartOpts('Quality Metrics') }));
-            chartRefs.push(new Chart(document.getElementById('speedChart'), { type: 'bar', data: { labels, datasets: [{ label: 'Pipeline FPS', data: records.map(r => Number(r.Avg_Pipeline_FPS || r.avg_fps || 0)), backgroundColor: '#a78bfa', borderRadius: 6 }, { label: 'Avg Latency (ms)', data: records.map(r => Number(r.Avg_Latency_ms || r.avg_latency_ms || 0)), backgroundColor: '#f97316', borderRadius: 6 }] }, options: chartOpts('Speed & Latency') }));
+            const hexRgba = (hex, alpha) => {
+                const h = hex.replace('#', '');
+                const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+                return `rgba(${r},${g},${b},${alpha})`;
+            };
+            const areaSeries = (label, data, hex, extra = {}) => ({
+                label,
+                data,
+                borderColor: hex,
+                backgroundColor: vGrad(hexRgba(hex, 0.28), hexRgba(hex, 0.0)),
+                fill: true,
+                borderWidth: 2.2,
+                tension: 0.36,
+                cubicInterpolationMode: 'monotone',
+                pointRadius: dense ? 0 : 3,
+                pointHoverRadius: 5.5,
+                pointHitRadius: 12,
+                pointBackgroundColor: hex,
+                pointBorderColor: '#0a0a0f',
+                pointBorderWidth: 1.5,
+                ...extra
+            });
 
+            // 1. Quality Metrics (Dual Axis: VMAF/PSNR left, SSIM right so SSIM is readable)
+            chartRefs.push(new Chart(document.getElementById('qualityChart'), {
+                type: 'line',
+                plugins: [versionEpochOverlayPlugin],
+                data: {
+                    labels,
+                    datasets: [
+                        areaSeries('VMAF', records.map(r => metricNumOrNull(r, ['vmaf', 'VMAF'])), '#f59e0b', { yAxisID: 'y' }),
+                        areaSeries('SSIM', records.map(r => metricNumOrNull(r, ['ssim', 'SSIM'])), '#10b981', { yAxisID: 'ySsim', fill: false }),
+                        areaSeries('PSNR (dB)', records.map(r => metricNumOrNull(r, ['psnr', 'PSNR'])), '#60a5fa', { yAxisID: 'y', fill: false, borderDash: [4, 3] })
+                    ]
+                },
+                options: chartOpts('Perceptual Quality Metrics (VMAF · SSIM · PSNR)', {
+                    y: commonYScale({ title: { display: true, text: 'VMAF / PSNR', color: '#71717a', font: { family: 'JetBrains Mono', size: 9 } } }),
+                    ySsim: commonYScale({ position: 'right', min: 0.7, max: 1.0, grid: { drawOnChartArea: false }, title: { display: true, text: 'SSIM', color: '#10b981', font: { family: 'JetBrains Mono', size: 9 } } })
+                })
+            }));
+
+            // 2. Speed & Latency (Dual-axis smooth area curve showcasing the v4.5 throughput leap)
+            chartRefs.push(new Chart(document.getElementById('speedChart'), {
+                type: 'line',
+                plugins: [versionEpochOverlayPlugin],
+                data: {
+                    labels,
+                    datasets: [
+                        areaSeries('Pipeline FPS', records.map(r => metricNumOrNull(r, ['Avg_Pipeline_FPS', 'avg_fps'])), '#22d3ee', { yAxisID: 'yFps' }),
+                        areaSeries('Avg Latency (ms)', records.map(r => metricNumOrNull(r, ['Avg_Latency_ms', 'avg_latency_ms'])), '#f97316', { yAxisID: 'yLat' })
+                    ]
+                },
+                options: chartOpts('Throughput Speed & Latency', {
+                    y: undefined,
+                    yFps: commonYScale({ position: 'left', min: 0, title: { display: true, text: 'FPS', color: '#22d3ee', font: { family: 'JetBrains Mono', size: 9 } } }),
+                    yLat: commonYScale({ position: 'right', min: 0, grid: { drawOnChartArea: false }, title: { display: true, text: 'Latency ms', color: '#f97316', font: { family: 'JetBrains Mono', size: 9 } } })
+                })
+            }));
+
+            // 3. VMAF vs MOTA Tracking Curve
             const motaSeries = records.map(r => metricNumOrNull(r, ['MOTA_Score', 'mota_score', 'MOTA', 'mota']));
             const idf1Series = records.map(r => metricNumOrNull(r, ['IDF1_Score', 'idf1_score', 'IDF1', 'idf1']));
             const vmafSeries = records.map(r => metricNumOrNull(r, ['vmaf', 'VMAF']));
             chartRefs.push(new Chart(document.getElementById('motaVmafChart'), {
                 type: 'line',
+                plugins: [versionEpochOverlayPlugin],
                 data: {
                     labels,
                     datasets: [
-                        { label: 'VMAF', data: vmafSeries, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.2)', yAxisID: 'yQuality', tension: 0.3, pointRadius: 3 },
-                        { label: 'MOTA', data: motaSeries, borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.2)', yAxisID: 'yTracking', tension: 0.3, pointRadius: 3 },
-                        { label: 'IDF1', data: idf1Series, borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.2)', yAxisID: 'yTracking', tension: 0.3, pointRadius: 2, borderDash: [6, 4] }
+                        areaSeries('VMAF', vmafSeries, '#f59e0b', { yAxisID: 'yQuality' }),
+                        areaSeries('MOTA', motaSeries, '#22d3ee', { yAxisID: 'yTracking', fill: false }),
+                        areaSeries('IDF1', idf1Series, '#a78bfa', { yAxisID: 'yTracking', fill: false, borderDash: [5, 4] })
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: true, text: 'VMAF vs MOTA Tracking Curve', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
-                        legend: { labels: { boxWidth: 10, padding: 12 } }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
-                        yQuality: { position: 'left', min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' } },
-                        yTracking: { position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false } }
-                    }
-                }
+                options: chartOpts('VMAF vs MOTA Tracking Curve', {
+                    y: undefined,
+                    yQuality: commonYScale({ position: 'left', min: 50, max: 100 }),
+                    yTracking: commonYScale({ position: 'right', min: 50, max: 100, grid: { drawOnChartArea: false } })
+                })
             }));
 
+            // 4. Quality Fingerprint Radar (Compares v4.5 vs v4.0 overlaid when All Results is active!)
             const ssimSeries = records.map(r => metricNumOrNull(r, ['ssim', 'SSIM'])).filter(Number.isFinite);
             const psnrSeries = records.map(r => metricNumOrNull(r, ['psnr', 'PSNR'])).filter(Number.isFinite);
-            const radarVmaf = avgList(vmafSeries.filter(Number.isFinite));
-            const radarMota = avgList(motaSeries.filter(Number.isFinite));
-            const radarIdf1 = avgList(idf1Series.filter(Number.isFinite));
-            const radarSsimScaled = avgList(ssimSeries) * 100;
-            const radarPsnrScaled = Math.min(100, avgList(psnrSeries) * 2.5);
+            const radarProfile = (subset) => {
+                const vm = avgList(subset.map(r => metricNumOrNull(r, ['vmaf', 'VMAF'])).filter(Number.isFinite));
+                const mt = avgList(subset.map(r => metricNumOrNull(r, ['MOTA_Score', 'mota_score', 'MOTA', 'mota'])).filter(Number.isFinite));
+                const idf = avgList(subset.map(r => metricNumOrNull(r, ['IDF1_Score', 'idf1_score', 'IDF1', 'idf1'])).filter(Number.isFinite));
+                const ss = avgList(subset.map(r => metricNumOrNull(r, ['ssim', 'SSIM'])).filter(Number.isFinite)) * 100;
+                const ps = Math.min(100, avgList(subset.map(r => metricNumOrNull(r, ['psnr', 'PSNR'])).filter(Number.isFinite)) * 2.5);
+                return [vm, mt, idf, ss, ps];
+            };
+            const v45Sub = records.filter(isV45Record);
+            const v40Sub = records.filter(r => !isV45Record(r));
+            const radarDatasets = (activeVersionTab === 'all' && v45Sub.length && v40Sub.length)
+                ? [
+                    { label: 'v4.5 Profile', data: radarProfile(v45Sub), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.22)', borderWidth: 2.2, pointBackgroundColor: '#fde68a', pointRadius: 3.5 },
+                    { label: 'v4.0 Profile', data: radarProfile(v40Sub), borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.16)', borderWidth: 2, borderDash: [4, 3], pointBackgroundColor: '#c4b5fd', pointRadius: 3 }
+                ]
+                : [{ label: 'Average Quality Profile', data: [avgList(vmafSeries.filter(Number.isFinite)), avgList(motaSeries.filter(Number.isFinite)), avgList(idf1Series.filter(Number.isFinite)), avgList(ssimSeries) * 100, Math.min(100, avgList(psnrSeries) * 2.5)], borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.22)', borderWidth: 2.2, pointBackgroundColor: '#fde68a', pointRadius: 3.5 }];
+
             chartRefs.push(new Chart(document.getElementById('qualityRadarChart'), {
                 type: 'radar',
-                data: {
-                    labels: ['VMAF', 'MOTA', 'IDF1', 'SSIM x100', 'PSNR x2.5'],
-                    datasets: [{
-                        label: 'Average Quality Profile',
-                        data: [radarVmaf, radarMota, radarIdf1, radarSsimScaled, radarPsnrScaled],
-                        borderColor: '#f43f5e',
-                        backgroundColor: 'rgba(244,63,94,0.2)',
-                        pointBackgroundColor: '#fb7185',
-                        pointRadius: 3
-                    }]
-                },
+                data: { labels: ['VMAF', 'MOTA', 'IDF1', 'SSIM ×100', 'PSNR ×2.5'], datasets: radarDatasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        title: { display: true, text: 'Quality Fingerprint Radar', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
-                        legend: { labels: { boxWidth: 10, padding: 12 } }
+                        title: { display: true, text: 'Quality Fingerprint Radar', align: 'start', color: '#f4f4f5', font: { family: 'Outfit', size: 14, weight: '600' } },
+                        legend: sharedLegend,
+                        tooltip: { ...sharedTooltip, callbacks: { title: items => items?.[0]?.label || '' } }
                     },
                     scales: {
                         r: {
                             min: 0,
                             max: 100,
-                            grid: { color: 'rgba(255,255,255,0.08)' },
+                            backgroundColor: 'rgba(255,255,255,0.015)',
+                            grid: { color: 'rgba(255,255,255,0.08)', circular: true },
                             angleLines: { color: 'rgba(255,255,255,0.08)' },
                             pointLabels: { color: '#d4d4d8', font: { family: 'JetBrains Mono', size: 10 } },
                             ticks: { display: false }
@@ -2786,179 +3980,234 @@
                 }
             }));
 
+            // 5. Tracking Health Panel
             chartRefs.push(new Chart(document.getElementById('trackingHealthChart'), {
                 type: 'line',
+                plugins: [versionEpochOverlayPlugin],
                 data: {
                     labels,
                     datasets: [
-                        { label: 'MOTA', data: records.map(r => metricNumOrNull(r, ['MOTA_Score', 'mota_score', 'MOTA', 'mota'])), borderColor: '#22d3ee', tension: 0.28, pointRadius: 2.5 },
-                        { label: 'IDF1', data: records.map(r => metricNumOrNull(r, ['IDF1_Score', 'idf1_score', 'IDF1', 'idf1'])), borderColor: '#a78bfa', tension: 0.28, pointRadius: 2.5 },
-                        { label: 'HOTA', data: records.map(r => metricNumOrNull(r, ['HOTA_Score', 'hota_score', 'HOTA', 'hota'])), borderColor: '#34d399', tension: 0.28, pointRadius: 2.5 },
-                        { label: 'ID Switches', data: records.map(r => metricNumOrNull(r, ['ID_Switches', 'id_switches'])), borderColor: '#f87171', tension: 0.2, pointRadius: 2, yAxisID: 'ySecondary', borderDash: [5, 4] }
+                        areaSeries('MOTA', records.map(r => metricNumOrNull(r, ['MOTA_Score', 'mota_score', 'MOTA', 'mota'])), '#22d3ee'),
+                        areaSeries('IDF1', records.map(r => metricNumOrNull(r, ['IDF1_Score', 'idf1_score', 'IDF1', 'idf1'])), '#a78bfa', { fill: false }),
+                        areaSeries('HOTA', records.map(r => metricNumOrNull(r, ['HOTA_Score', 'hota_score', 'HOTA', 'hota'])), '#34d399', { fill: false }),
+                        areaSeries('ID Switches', records.map(r => metricNumOrNull(r, ['ID_Switches', 'id_switches'])), '#f87171', { fill: false, yAxisID: 'ySecondary', borderDash: [5, 4] })
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: true, text: 'Tracking Health Panel (MOTA/IDF1/HOTA)', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
-                        legend: { labels: { boxWidth: 10, padding: 12 } }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
-                        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' } },
-                        ySecondary: { position: 'right', min: 0, grid: { drawOnChartArea: false } }
-                    }
-                }
+                options: chartOpts('Tracking Health Panel (MOTA · IDF1 · HOTA)', {
+                    y: commonYScale({ min: 0, max: 100 }),
+                    ySecondary: commonYScale({ position: 'right', min: 0, grid: { drawOnChartArea: false } })
+                })
             }));
 
+            // 6. Latency Envelope + Jitter
             chartRefs.push(new Chart(document.getElementById('latencySpreadChart'), {
                 type: 'line',
+                plugins: [versionEpochOverlayPlugin],
                 data: {
                     labels,
                     datasets: [
-                        { label: 'Min Latency (ms)', data: records.map(r => metricNumOrNull(r, ['Min_Latency_ms', 'min_latency_ms'])), borderColor: '#22c55e', tension: 0.3, pointRadius: 2 },
-                        { label: 'Avg Latency (ms)', data: records.map(r => metricNumOrNull(r, ['Avg_Latency_ms', 'avg_latency_ms'])), borderColor: '#f59e0b', tension: 0.3, pointRadius: 2 },
-                        { label: 'Max Latency (ms)', data: records.map(r => metricNumOrNull(r, ['Max_Latency_ms', 'max_latency_ms'])), borderColor: '#ef4444', tension: 0.3, pointRadius: 2 },
-                        { label: 'Latency Jitter (ms)', data: records.map(r => metricNumOrNull(r, ['Latency_Jitter_ms', 'latency_jitter_ms'])), borderColor: '#60a5fa', tension: 0.3, pointRadius: 2, borderDash: [6, 3] }
+                        areaSeries('Min Latency (ms)', records.map(r => metricNumOrNull(r, ['Min_Latency_ms', 'min_latency_ms'])), '#22c55e', { fill: false }),
+                        areaSeries('Avg Latency (ms)', records.map(r => metricNumOrNull(r, ['Avg_Latency_ms', 'avg_latency_ms'])), '#f59e0b'),
+                        areaSeries('Max Latency (ms)', records.map(r => metricNumOrNull(r, ['Max_Latency_ms', 'max_latency_ms'])), '#ef4444', { fill: false }),
+                        areaSeries('Jitter (ms)', records.map(r => metricNumOrNull(r, ['Latency_Jitter_ms', 'latency_jitter_ms'])), '#60a5fa', { fill: false, borderDash: [5, 3] })
                     ]
                 },
-                options: chartOpts('Latency Envelope + Jitter')
+                options: chartOpts('Latency Envelope & Frame Jitter')
             }));
 
-            const mA = records.reduce((a, r) => a + Number(r.mode_a_frames || 0), 0); const mB = records.reduce((a, r) => a + Number(r.mode_b_frames || 0), 0);
-            chartRefs.push(new Chart(document.getElementById('modeChart'), { type: 'doughnut', data: { labels: ['Mode A (Temporal)', 'Mode B (ROI+Temporal)'], datasets: [{ data: [mA, mB], backgroundColor: ['#f59e0b', '#60a5fa'], borderWidth: 2, borderColor: 'rgba(0,0,0,0.3)' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '72%', radius: '78%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } } } } }));
-            chartRefs.push(new Chart(document.getElementById('sizeChart'), { type: 'bar', data: { labels, datasets: [{ label: 'Original MB', data: records.map(r => Number(r.orig_file_size_mb || r.Original_Size_MB || 0)), backgroundColor: '#22d3ee', borderRadius: 6 }, { label: 'Processed MB', data: records.map(r => Number(r.proc_file_size_mb || r.Output_Size_MB || 0)), backgroundColor: '#f43f5e', borderRadius: 6 }] }, options: chartOpts('File Size Comparison') }));
+            // 7. Adaptive Mode Doughnut with Center Percentage Label
+            const mA = records.reduce((a, r) => a + Number(r.mode_a_frames || 0), 0);
+            const mB = records.reduce((a, r) => a + Number(r.mode_b_frames || 0), 0);
+            const doughnutCenterPlugin = {
+                id: 'doughnutCenter',
+                afterDraw(chart) {
+                    const meta = chart.getDatasetMeta(0);
+                    if (!meta?.data?.length) return;
+                    const { x, y } = meta.data[0];
+                    const total = mA + mB;
+                    const pctB = total > 0 ? ((mB / total) * 100).toFixed(1) : '0.0';
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#fde68a';
+                    ctx.font = "700 22px 'Outfit', sans-serif";
+                    ctx.fillText(`${pctB}%`, x, y - 7);
+                    ctx.fillStyle = '#a1a1aa';
+                    ctx.font = "500 10px 'JetBrains Mono', monospace";
+                    ctx.fillText('ROI+HFDR MODE B', x, y + 14);
+                    ctx.restore();
+                }
+            };
+            chartRefs.push(new Chart(document.getElementById('modeChart'), {
+                type: 'doughnut',
+                plugins: [doughnutCenterPlugin],
+                data: {
+                    labels: ['Mode A (Temporal)', 'Mode B (ROI + HFDR)'],
+                    datasets: [{
+                        data: [mA, mB],
+                        backgroundColor: ['rgba(245, 158, 11, 0.85)', 'rgba(34, 211, 238, 0.85)'],
+                        hoverBackgroundColor: ['#fbbf24', '#67e8f9'],
+                        borderWidth: 2,
+                        borderColor: 'rgba(10, 10, 16, 0.85)',
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '72%',
+                    radius: '82%',
+                    plugins: {
+                        title: { display: true, text: 'Adaptive Mode Balance', align: 'start', color: '#f4f4f5', font: { family: 'Outfit', size: 14, weight: '600' } },
+                        legend: { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, usePointStyle: true, padding: 14, color: '#a1a1aa', font: { family: 'JetBrains Mono', size: 10 } } },
+                        tooltip: { ...sharedTooltip, callbacks: { title: items => items?.[0]?.label || '' } }
+                    }
+                }
+            }));
 
+            // 8. File Size Comparison
+            chartRefs.push(new Chart(document.getElementById('sizeChart'), {
+                type: 'bar',
+                plugins: [versionEpochOverlayPlugin],
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Original MB', data: records.map(r => Number(r.orig_file_size_mb || r.Original_Size_MB || 0)), backgroundColor: vGrad('rgba(34,211,238,0.85)', 'rgba(34,211,238,0.2)'), borderColor: '#22d3ee', borderWidth: 1, borderRadius: 6 },
+                        { label: 'Processed MB', data: records.map(r => Number(r.proc_file_size_mb || r.Output_Size_MB || 0)), backgroundColor: vGrad('rgba(244,63,94,0.85)', 'rgba(244,63,94,0.2)'), borderColor: '#f43f5e', borderWidth: 1, borderRadius: 6 }
+                    ]
+                },
+                options: chartOpts('File Size Comparison (MB)')
+            }));
+
+            // 9. System Resource Stress
             chartRefs.push(new Chart(document.getElementById('resourceStressChart'), {
                 type: 'line',
+                plugins: [versionEpochOverlayPlugin],
                 data: {
                     labels,
                     datasets: [
-                        { label: 'Peak CPU %', data: records.map(r => metricNumOrNull(r, ['Peak_CPU_%', 'peak_cpu_percent'])), borderColor: '#f97316', tension: 0.28, pointRadius: 2.5, yAxisID: 'util' },
-                        { label: 'Peak GPU Util %', data: records.map(r => metricNumOrNull(r, ['Peak_GPU_Util_%', 'peak_gpu_util_percent'])), borderColor: '#8b5cf6', tension: 0.28, pointRadius: 2.5, yAxisID: 'util' },
-                        { label: 'Peak RAM MB', data: records.map(r => metricNumOrNull(r, ['Peak_RAM_MB', 'peak_ram_mb'])), borderColor: '#22d3ee', tension: 0.28, pointRadius: 2.5, yAxisID: 'mem' },
-                        { label: 'Peak VRAM MB', data: records.map(r => metricNumOrNull(r, ['Peak_VRAM_MB', 'peak_vram_mb'])), borderColor: '#10b981', tension: 0.28, pointRadius: 2.5, yAxisID: 'mem' }
+                        areaSeries('Peak CPU %', records.map(r => metricNumOrNull(r, ['Peak_CPU_%', 'peak_cpu_percent'])), '#f97316', { yAxisID: 'util' }),
+                        areaSeries('Peak GPU %', records.map(r => metricNumOrNull(r, ['Peak_GPU_Util_%', 'peak_gpu_util_percent'])), '#8b5cf6', { yAxisID: 'util' }),
+                        areaSeries('Peak RAM MB', records.map(r => metricNumOrNull(r, ['Peak_RAM_MB', 'peak_ram_mb'])), '#22d3ee', { yAxisID: 'mem', fill: false }),
+                        areaSeries('Peak VRAM MB', records.map(r => metricNumOrNull(r, ['Peak_VRAM_MB', 'peak_vram_mb'])), '#10b981', { yAxisID: 'mem', fill: false })
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: true, text: 'System Resource Stress (CPU/GPU/RAM/VRAM)', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
-                        legend: { labels: { boxWidth: 10, padding: 12 } }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
-                        util: { position: 'left', min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' } },
-                        mem: { position: 'right', min: 0, grid: { drawOnChartArea: false } }
-                    }
-                }
+                options: chartOpts('System Resource Stress (CPU · GPU · RAM · VRAM)', {
+                    y: undefined,
+                    util: commonYScale({ position: 'left', min: 0, max: 100 }),
+                    mem: commonYScale({ position: 'right', min: 0, grid: { drawOnChartArea: false } })
+                })
             }));
 
+            // 10. Compression Efficiency
             chartRefs.push(new Chart(document.getElementById('compressionEfficiencyChart'), {
                 type: 'bar',
+                plugins: [versionEpochOverlayPlugin],
                 data: {
                     labels,
                     datasets: [
-                        { label: 'Input Video Mbps', data: records.map(r => metricNumOrNull(r, ['orig_bitrate_mbps', 'Actual_Bitrate_Mbps'])), backgroundColor: 'rgba(34,211,238,0.6)', borderRadius: 5, yAxisID: 'bitrate' },
-                        { label: 'Output Video Mbps', data: records.map(r => metricNumOrNull(r, ['proc_bitrate_mbps', 'Output_Video_Mbps'])), backgroundColor: 'rgba(244,63,94,0.6)', borderRadius: 5, yAxisID: 'bitrate' },
-                        { label: 'Compression Ratio', data: records.map(r => metricNumOrNull(r, ['compression_ratio', 'Compression_Ratio'])), type: 'line', borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.2)', tension: 0.25, pointRadius: 2.5, yAxisID: 'ratio' }
+                        { label: 'Input Mbps', data: records.map(r => metricNumOrNull(r, ['orig_bitrate_mbps', 'Actual_Bitrate_Mbps'])), backgroundColor: vGrad('rgba(34,211,238,0.72)', 'rgba(34,211,238,0.16)'), borderRadius: 5, yAxisID: 'bitrate' },
+                        { label: 'Output Mbps', data: records.map(r => metricNumOrNull(r, ['proc_bitrate_mbps', 'Output_Video_Mbps'])), backgroundColor: vGrad('rgba(244,63,94,0.72)', 'rgba(244,63,94,0.16)'), borderRadius: 5, yAxisID: 'bitrate' },
+                        areaSeries('Compression Ratio', records.map(r => metricNumOrNull(r, ['compression_ratio', 'Compression_Ratio'])), '#fbbf24', { type: 'line', fill: false, yAxisID: 'ratio' })
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: true, text: 'Compression Efficiency (Bitrate + Ratio)', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
-                        legend: { labels: { boxWidth: 10, padding: 12 } }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
-                        bitrate: { position: 'left', min: 0, grid: { color: 'rgba(255,255,255,0.04)' } },
-                        ratio: { position: 'right', min: 0, grid: { drawOnChartArea: false } }
-                    }
-                }
+                options: chartOpts('Compression Efficiency (Bitrate & Ratio)', {
+                    y: undefined,
+                    bitrate: commonYScale({ position: 'left', min: 0 }),
+                    ratio: commonYScale({ position: 'right', min: 0, grid: { drawOnChartArea: false } })
+                })
             }));
 
+            // 11. HFDR Behavior Distribution
             chartRefs.push(new Chart(document.getElementById('hfdrBehaviorChart'), {
                 type: 'bar',
+                plugins: [versionEpochOverlayPlugin],
                 data: {
                     labels,
                     datasets: [
-                        { label: 'HFDR Fresh', data: records.map(r => metricNumOrNull(r, ['hfdr_fresh_count'])), backgroundColor: 'rgba(16,185,129,0.72)', stack: 'hfdr' },
-                        { label: 'HFDR Cached', data: records.map(r => metricNumOrNull(r, ['hfdr_cached_count'])), backgroundColor: 'rgba(59,130,246,0.72)', stack: 'hfdr' },
-                        { label: 'HFDR Gated', data: records.map(r => metricNumOrNull(r, ['hfdr_gated_count'])), backgroundColor: 'rgba(245,158,11,0.72)', stack: 'hfdr' }
+                        { label: 'HFDR Fresh', data: records.map(r => metricNumOrNull(r, ['hfdr_fresh_count'])), backgroundColor: vGrad('rgba(16,185,129,0.86)', 'rgba(16,185,129,0.32)'), stack: 'hfdr', borderRadius: 4 },
+                        { label: 'HFDR Cached', data: records.map(r => metricNumOrNull(r, ['hfdr_cached_count'])), backgroundColor: vGrad('rgba(59,130,246,0.86)', 'rgba(59,130,246,0.32)'), stack: 'hfdr', borderRadius: 4 },
+                        { label: 'HFDR Gated', data: records.map(r => metricNumOrNull(r, ['hfdr_gated_count'])), backgroundColor: vGrad('rgba(245,158,11,0.86)', 'rgba(245,158,11,0.32)'), stack: 'hfdr', borderRadius: 4 }
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: true, text: 'HFDR Behavior Distribution', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
-                        legend: { labels: { boxWidth: 10, padding: 12 } }
-                    },
-                    scales: {
-                        x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 45 } },
-                        y: { stacked: true, min: 0, grid: { color: 'rgba(255,255,255,0.04)' } }
-                    }
-                }
+                options: chartOpts('HFDR Behavior Distribution', {
+                    x: { ...commonXScale, stacked: true },
+                    y: commonYScale({ stacked: true, min: 0 })
+                })
             }));
 
+            // 12. Detection Quality + Confidence
             chartRefs.push(new Chart(document.getElementById('detectionQualityChart'), {
                 type: 'line',
+                plugins: [versionEpochOverlayPlugin],
                 data: {
                     labels,
                     datasets: [
-                        { label: 'YOLO Count', data: records.map(r => metricNumOrNull(r, ['YOLO_Count', 'total_detections', 'Total_Detections'])), borderColor: '#38bdf8', tension: 0.25, pointRadius: 2.5, yAxisID: 'count' },
-                        { label: 'Avg Confidence', data: records.map(r => metricNumOrNull(r, ['avg_confidence', 'YOLO_Confidence_Avg'])).map(v => Number.isFinite(v) ? v * (v <= 1.0 ? 100 : 1) : null), borderColor: '#facc15', tension: 0.25, pointRadius: 2.5, yAxisID: 'score' },
-                        { label: 'mAP@0.5', data: records.map(r => metricNumOrNull(r, ['mAP@0.5'])).map(v => Number.isFinite(v) ? v * (v <= 1.0 ? 100 : 1) : null), borderColor: '#34d399', tension: 0.25, pointRadius: 2.5, yAxisID: 'score' },
-                        { label: 'mAP@0.5:0.95', data: records.map(r => metricNumOrNull(r, ['mAP@0.5:0.95'])).map(v => Number.isFinite(v) ? v * (v <= 1.0 ? 100 : 1) : null), borderColor: '#a78bfa', tension: 0.25, pointRadius: 2.5, yAxisID: 'score' }
+                        areaSeries('YOLO Count', records.map(r => metricNumOrNull(r, ['YOLO_Count', 'total_detections', 'Total_Detections'])), '#38bdf8', { yAxisID: 'count' }),
+                        areaSeries('Avg Conf', records.map(r => metricNumOrNull(r, ['avg_confidence', 'YOLO_Confidence_Avg'])).map(v => Number.isFinite(v) ? v * (v <= 1.0 ? 100 : 1) : null), '#facc15', { yAxisID: 'score', fill: false }),
+                        areaSeries('mAP@0.5', records.map(r => metricNumOrNull(r, ['mAP@0.5'])).map(v => Number.isFinite(v) ? v * (v <= 1.0 ? 100 : 1) : null), '#34d399', { yAxisID: 'score', fill: false }),
+                        areaSeries('mAP@0.5:0.95', records.map(r => metricNumOrNull(r, ['mAP@0.5:0.95'])).map(v => Number.isFinite(v) ? v * (v <= 1.0 ? 100 : 1) : null), '#a78bfa', { yAxisID: 'score', fill: false })
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: true, text: 'Detection Quality + Confidence', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
-                        legend: { labels: { boxWidth: 10, padding: 12 } }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
-                        count: { position: 'left', min: 0, grid: { color: 'rgba(255,255,255,0.04)' } },
-                        score: { position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false } }
-                    }
-                }
+                options: chartOpts('Detection Quality & Confidence', {
+                    y: undefined,
+                    count: commonYScale({ position: 'left', min: 0 }),
+                    score: commonYScale({ position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false } })
+                })
             }));
 
+            // 13. Wide Multi-Metric Tracking Timeline (xl:col-span-2)
             chartRefs.push(new Chart(document.getElementById('perfScatterChart'), {
                 type: 'line',
+                plugins: [versionEpochOverlayPlugin],
                 data: {
                     labels,
                     datasets: [
-                        { label: 'DetA', data: records.map(r => metricNumOrNull(r, ['DetA_Score', 'deta_score', 'DetA', 'deta'])), borderColor: '#f472b6', tension: 0.28, pointRadius: 2.5 },
-                        { label: 'MOTA', data: records.map(r => metricNumOrNull(r, ['MOTA_Score', 'mota_score', 'MOTA', 'mota'])), borderColor: '#22d3ee', tension: 0.28, pointRadius: 2.5 },
-                        { label: 'HOTA', data: records.map(r => metricNumOrNull(r, ['HOTA_Score', 'hota_score', 'HOTA', 'hota'])), borderColor: '#34d399', tension: 0.28, pointRadius: 2.5 },
-                        { label: 'IDF1', data: records.map(r => metricNumOrNull(r, ['IDF1_Score', 'idf1_score', 'IDF1', 'idf1'])), borderColor: '#a78bfa', tension: 0.28, pointRadius: 2.5 }
+                        areaSeries('DetA', records.map(r => metricNumOrNull(r, ['DetA_Score', 'deta_score', 'DetA', 'deta'])), '#f472b6', { fill: false }),
+                        areaSeries('MOTA', records.map(r => metricNumOrNull(r, ['MOTA_Score', 'mota_score', 'MOTA', 'mota'])), '#22d3ee'),
+                        areaSeries('HOTA', records.map(r => metricNumOrNull(r, ['HOTA_Score', 'hota_score', 'HOTA', 'hota'])), '#34d399', { fill: false }),
+                        areaSeries('IDF1', records.map(r => metricNumOrNull(r, ['IDF1_Score', 'idf1_score', 'IDF1', 'idf1'])), '#a78bfa', { fill: false })
                     ]
                 },
+                options: chartOpts('Detection + Tracking Quality Trends (Full Chronology)', {
+                    y: commonYScale({ min: 40, max: 100 })
+                })
+            }));
+
+            // 14. Horizontal Gradient Bar Chart — Top 12 Detected Classes (xl:col-span-2)
+            const cm = {};
+            records.forEach(r => {
+                const d = r.class_distribution || {};
+                if (d && typeof d === 'object') Object.keys(d).forEach(k => cm[k] = (cm[k] || 0) + Number(d[k] || 0));
+            });
+            const cls = Object.entries(cm).sort((a, b) => b[1] - a[1]).slice(0, 12);
+            chartRefs.push(new Chart(document.getElementById('classChart'), {
+                type: 'bar',
+                data: {
+                    labels: cls.map(x => x[0]),
+                    datasets: [{
+                        label: 'Total Detections',
+                        data: cls.map(x => x[1]),
+                        backgroundColor: hGrad('rgba(16, 185, 129, 0.25)', 'rgba(34, 211, 238, 0.9)'),
+                        borderColor: '#34d399',
+                        borderWidth: 1,
+                        borderRadius: 8,
+                        barPercentage: 0.72
+                    }]
+                },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    ...chartOpts('Detected Object Classes (Top 12)', {
+                        x: commonYScale({ min: 0 }),
+                        y: { grid: { display: false }, border: { display: false }, ticks: { color: '#e4e4e7', font: { family: 'JetBrains Mono', size: 10 } } }
+                    }),
+                    indexAxis: 'y',
                     plugins: {
-                        title: { display: true, text: 'Detection + Tracking Quality Trends', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: '600' } },
-                        legend: { labels: { boxWidth: 10, padding: 12 } }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { maxRotation: 45 } },
-                        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.04)' } }
+                        ...chartOpts('Detected Object Classes (Top 12)').plugins,
+                        tooltip: { ...sharedTooltip, callbacks: { title: items => items?.[0]?.label || '' } }
                     }
                 }
             }));
-
-            const cm = {}; records.forEach(r => { const d = r.class_distribution || {}; if (d && typeof d === 'object') Object.keys(d).forEach(k => cm[k] = (cm[k] || 0) + Number(d[k] || 0)); });
-            const cls = Object.entries(cm).sort((a, b) => b[1] - a[1]).slice(0, 12);
-            chartRefs.push(new Chart(document.getElementById('classChart'), { type: 'bar', data: { labels: cls.map(x => x[0]), datasets: [{ label: 'Detections', data: cls.map(x => x[1]), backgroundColor: '#10b981', borderRadius: 6 }] }, options: chartOpts('Class Distribution (Top 12)') }));
         }
 
         function videoMetricPill(label, value, accent = 'text-amber-300', description = '') { return `<div class="rounded-lg border border-white/10 bg-black/35 px-2.5 py-2 cursor-help group relative" ${description ? `title="${description.replace(/"/g, '&quot;')}"` : ''}><div class="text-[10px] uppercase tracking-wide text-zinc-400 mono">${label}</div><div class="text-sm ${accent} mono">${value}</div>${description ? `<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-[10px] text-zinc-300 whitespace-nowrap">${description.split(' — ')[0]}</div>` : ''}</div>`; }
@@ -3045,11 +4294,97 @@
 
         function renderVideoGallery(items) {
             const gallery = document.getElementById('videoGallery'); const nv = document.getElementById('noVideos'); gallery.innerHTML = '';
-            if (!items.length) { nv.classList.remove('hidden'); return; } nv.classList.add('hidden');
-            items.forEach(item => {
-                const rec = item.benchmark || {}; const fid = resolveDriveFileId(item.googleDriveFileId, item.embedUrl, item.downloadUrl);
-                const card = document.createElement('div'); card.className = 'doc-card p-4';
-                card.innerHTML = `<div class="mb-3 flex items-start justify-between gap-3"><div class="min-w-0 flex-1"><div class="flex items-center gap-2"><p class="text-zinc-200 text-sm font-medium font-outfit truncate flex-1">${item.title}</p><button type="button" class="copy-video-btn px-2 py-1 rounded text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40 transition-colors flex-shrink-0" title="Copy metrics" aria-label="Copy video metrics"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button></div><p class="text-[11px] text-zinc-500 mono mt-1">Commit: ${rec.commit_sha ? rec.commit_sha.slice(0, 12) : 'N/A'}</p><p class="text-[11px] text-zinc-500 mono mt-0.5">Time: ${formatIstExact(rec.timestamp_iso || rec.timestamp || item.timestamp)}</p></div><div class="flex items-center gap-2 shrink-0"><a href="${item.downloadUrl || item.embedUrl}" target="_blank" class="px-2.5 py-1.5 rounded-md text-xs bg-amber-500 text-black font-medium hover:bg-amber-400 transition-colors">Open</a></div></div><div class="video-container mb-3"><div class="video-thumbnail-placeholder" data-embed-url="${item.embedUrl}" data-file-id="${fid}"><img loading="lazy" decoding="async" alt="thumb" /><div class="play-overlay"><svg class="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div></div><div class="grid grid-cols-2 gap-2">${videoMetricPill('VMAF', num(rec.vmaf, 2), 'text-emerald-300', METRIC_DESCRIPTIONS.vmaf)}${videoMetricPill('MOTA', num(getMetricNumber(rec, ['MOTA_Score', 'mota_score', 'MOTA', 'mota']) || 0, 2), 'text-cyan-300', METRIC_DESCRIPTIONS.MOTA)}${videoMetricPill('SSIM', num(rec.ssim, 4), 'text-cyan-300', METRIC_DESCRIPTIONS.SSIM)}${videoMetricPill('PSNR', num(rec.psnr, 2), 'text-violet-300', METRIC_DESCRIPTIONS.PSNR)}</div>`;
+            const scoped = (items || []).filter(item => isRowInActiveVersion(item.benchmark || item))
+                .sort((a, b) => getRecordTimestampMs(b.benchmark || b) - getRecordTimestampMs(a.benchmark || a));
+
+            if (!scoped.length) { nv.classList.remove('hidden'); return; } nv.classList.add('hidden');
+
+            const v45Count = scoped.filter(it => isV45Record(it.benchmark || it)).length;
+            const v40Count = scoped.length - v45Count;
+            let insertedMainBanner = false;
+
+            scoped.forEach((item, idx) => {
+                const rec = item.benchmark || {};
+                const verSource = rec.timestamp_iso || rec.timestamp ? rec : item;
+                const nowV45 = isV45Record(verSource);
+                const prevSource = idx > 0 ? ((scoped[idx - 1].benchmark?.timestamp || scoped[idx - 1].benchmark?.timestamp_iso) ? scoped[idx - 1].benchmark : scoped[idx - 1]) : null;
+                const prevV45 = prevSource ? isV45Record(prevSource) : false;
+
+                if (activeVersionTab === 'all' && !insertedMainBanner && prevSource && prevV45 && !nowV45) {
+                    insertedMainBanner = true;
+                    const divider = document.createElement('div');
+                    divider.className = 'version-intersection-banner flex flex-col lg:flex-row items-center justify-between gap-4';
+                    divider.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <span class="ver-badge ver-badge-v45">▲ Above: v4.5 (${v45Count} videos)</span>
+                            <span class="text-xs text-zinc-400 font-outfit hidden sm:inline">5-stage Batch-8 FP16 + 16t libvmaf</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs font-mono font-bold text-amber-200 tracking-wider uppercase">
+                            <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                <line x1="3" y1="12" x2="21" y2="12" />
+                                <polyline points="8 7 12 3 16 7" />
+                                <polyline points="8 17 12 21 16 17" />
+                            </svg>
+                            <span>v4.5 / v4.0 Architectural Intersection Gap</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-zinc-400 font-outfit hidden sm:inline">Baseline Adaptive HFDR</span>
+                            <span class="ver-badge ver-badge-v40">▼ Below: v4.0 (${v40Count} videos)</span>
+                        </div>`;
+                    gallery.appendChild(divider);
+                }
+
+                const fid = resolveDriveFileId(item.googleDriveFileId, item.embedUrl, item.downloadUrl);
+                const fpsVal = getMetricNumber(rec, ['Avg_Pipeline_FPS', 'avg_fps']);
+                const latVal = getMetricNumber(rec, ['Avg_Latency_ms', 'avg_latency_ms']);
+                const card = document.createElement('div');
+                card.className = 'doc-card video-card glass-effect p-4 flex flex-col';
+                card.style.setProperty('--card-i', String(Math.min(idx, 12)));
+                card.innerHTML = `
+                    <div class="flex items-center justify-between gap-2 mb-2 relative z-10">
+                        <div class="flex items-center gap-2 min-w-0">
+                            ${getVersionBadgeHtml(verSource)}
+                            <span class="text-[11px] text-zinc-400 mono truncate">${rec.commit_sha ? rec.commit_sha.slice(0, 7) : 'N/A'}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button" class="copy-video-btn control-pill !h-7 !w-7 !p-0 justify-center text-cyan-300" title="Copy metrics" aria-label="Copy video metrics">
+                                <svg class="ui-icon !w-3.5 !h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <rect x="9" y="9" width="12" height="12" rx="2" fill="currentColor" fill-opacity="0.2" />
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                </svg>
+                            </button>
+                            <a href="${item.downloadUrl || item.embedUrl}" target="_blank" class="control-pill !h-7 !px-3 !bg-amber-500/90 !text-black font-semibold hover:!bg-amber-400">
+                                <svg class="ui-icon !w-3.5 !h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                    <polyline points="15 3 21 3 21 9" />
+                                    <line x1="10" y1="14" x2="21" y2="3" />
+                                </svg>
+                                <span>Open</span>
+                            </a>
+                        </div>
+                    </div>
+                    <p class="text-zinc-100 text-sm font-semibold font-outfit truncate mb-0.5 relative z-10" title="${String(item.title || '').replace(/"/g, '&quot;')}">${item.title}</p>
+                    <p class="text-[11px] text-zinc-400 mono mb-3 relative z-10">${formatIstExact(rec.timestamp_iso || rec.timestamp || item.timestamp)}</p>
+                    <div class="mt-auto relative z-10">
+                        <div class="video-container mb-3">
+                            <div class="video-thumbnail-placeholder" data-embed-url="${item.embedUrl}" data-file-id="${fid}">
+                                <img loading="lazy" decoding="async" alt="thumb" />
+                                <div class="play-overlay">
+                                    <div class="play-glass-capsule">
+                                        <svg class="play-icon !w-6 !h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            ${videoMetricPill('FPS', fpsVal !== null ? num(fpsVal, 1) : '--', nowV45 ? 'text-amber-300 font-bold' : 'text-zinc-200', METRIC_DESCRIPTIONS.Avg_Pipeline_FPS)}
+                            ${videoMetricPill('VMAF', num(rec.vmaf, 2), 'text-emerald-300', METRIC_DESCRIPTIONS.vmaf)}
+                            ${videoMetricPill('MOTA', num(getMetricNumber(rec, ['MOTA_Score', 'mota_score', 'MOTA', 'mota']) || 0, 2), 'text-cyan-300', METRIC_DESCRIPTIONS.MOTA)}
+                            ${videoMetricPill('Latency', latVal !== null ? `${num(latVal, 1)}ms` : '--', nowV45 ? 'text-emerald-300' : 'text-zinc-300', METRIC_DESCRIPTIONS.Avg_Latency_ms)}
+                            ${videoMetricPill('SSIM', num(rec.ssim, 4), 'text-indigo-300', METRIC_DESCRIPTIONS.SSIM)}
+                            ${videoMetricPill('PSNR', num(rec.psnr, 2), 'text-violet-300', METRIC_DESCRIPTIONS.PSNR)}
+                        </div>
+                    </div>`;
                 attachRobustThumbnailFallback(card.querySelector('img'), fid);
                 card.querySelector('.video-thumbnail-placeholder').addEventListener('click', handleThumbnailClick);
                 card.querySelector('.copy-video-btn').addEventListener('click', async (event) => {
@@ -3270,19 +4605,14 @@
             const noDataBanner = document.getElementById('noBenchmarkDataBanner');
             if (noDataBanner) noDataBanner.classList.toggle('hidden', records.length > 0);
 
-            renderSummary(cachedPayload);
-            renderAggregateTable(cachedPayload);
-            renderRecordsTable(records);
-            await new Promise(requestAnimationFrame);
-            renderCharts(cachedPayload);
-
             let videos = [];
             try {
                 const latestBenchmarkTs = records.reduce((acc, row) => Math.max(acc, Number(row?.timestamp || 0)), 0);
                 videos = await fetchVideosJsonFromSources(latestBenchmarkTs);
             } catch (_) { }
             const merged = mergeBenchmarkVideos(videos, records); latestMergedVideos = merged;
-            renderVideoGallery(merged);
+            await new Promise(requestAnimationFrame);
+            applyActiveVersionView();
             if (options.reconnectSync) {
                 const delta = buildReconnectDeltaSummary(reconnectBasePayload, benchmarkPayload);
                 showToast(`Backend online. Data is up to date now. ${delta}`, 'success', 2600);
@@ -3292,8 +4622,23 @@
         }
 
         // ==================== EVENT LISTENERS ====================
-        document.getElementById('aggregateFilter').addEventListener('input', e => renderAggregateTable(cachedPayload, e.target.value || ''));
+        document.getElementById('aggregateFilter').addEventListener('input', e => {
+            const q = e.target.value || '';
+            const scopedRecords = (cachedPayload.records || []).filter(isRowInActiveVersion);
+            const scopedAggregates = (activeVersionTab === 'all' && cachedPayload.aggregates && Object.keys(cachedPayload.aggregates).length)
+                ? cachedPayload.aggregates
+                : computeAggregatesFromRecords(scopedRecords);
+            renderAggregateTable({ ...cachedPayload, records: scopedRecords, aggregates: scopedAggregates }, q);
+        });
         document.getElementById('recordsFilter').addEventListener('input', e => renderRecordsTable(cachedPayload.records || [], e.target.value || ''));
+        document.querySelectorAll('.version-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const nextTab = btn.dataset.versionTab || 'all';
+                if (nextTab === activeVersionTab) return;
+                activeVersionTab = nextTab;
+                applyActiveVersionView();
+            });
+        });
         document.getElementById('toggleRecordSelectionModeBtn').addEventListener('click', () => {
             setRecordSelectionMode(!recordSelectionModeEnabled, true);
         });
@@ -3409,6 +4754,80 @@
             const REF = 1920, MIN = 0.6, MAX = 1.0;
             function apply() { const vw = window.innerWidth, vh = window.innerHeight; if (vw <= 1024) { document.documentElement.style.zoom = '1'; document.documentElement.style.setProperty('--real-vh', vh + 'px'); return; } let z = vw / REF; z = Math.max(MIN, Math.min(MAX, z)); document.documentElement.style.zoom = z; document.documentElement.style.setProperty('--real-vh', (vh / z) + 'px'); }
             apply(); let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(apply, 100); });
+        })();
+
+        // Apple Liquid Glass specular pointer sheen & sliding rail highlight (matches index.html)
+        (function initLiquidGlassUI() {
+            const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const isFinePointer = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+
+            if (isFinePointer && !prefersReducedMotion) {
+                const trackPointer = (el, clientX, clientY) => {
+                    const rect = el.getBoundingClientRect();
+                    el.style.setProperty('--mx', `${clientX - rect.left}px`);
+                    el.style.setProperty('--my', `${clientY - rect.top}px`);
+                };
+
+                ['.hero-title', '#desktopNavRail', '#versionTabRail', '.version-dock-card'].forEach(sel => {
+                    const el = document.querySelector(sel);
+                    if (!el) return;
+                    let rafId = 0;
+                    el.addEventListener('pointermove', (e) => {
+                        const { clientX, clientY } = e;
+                        if (rafId) cancelAnimationFrame(rafId);
+                        rafId = requestAnimationFrame(() => trackPointer(el, clientX, clientY));
+                    }, { passive: true });
+                });
+
+                document.addEventListener('pointermove', (e) => {
+                    const card = e.target.closest('.video-card, .stat-card, .chart-box, .rich-table-card, .doc-card');
+                    if (!card) return;
+                    trackPointer(card, e.clientX, e.clientY);
+                }, { passive: true });
+            }
+
+            const bindSlidingRail = (railId, pillId, itemSelector) => {
+                const rail = document.getElementById(railId);
+                const pill = document.getElementById(pillId);
+                if (!rail || !pill) return;
+                let visible = false;
+                const movePill = (target) => {
+                    if (!target) {
+                        visible = false;
+                        pill.style.opacity = '0';
+                        return;
+                    }
+                    const railRect = rail.getBoundingClientRect();
+                    const itemRect = target.getBoundingClientRect();
+                    const x = itemRect.left - railRect.left;
+                    const y = itemRect.top - railRect.top;
+                    if (!visible) {
+                        pill.style.transition = 'none';
+                        pill.style.width = `${itemRect.width}px`;
+                        pill.style.height = `${itemRect.height}px`;
+                        pill.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+                        void pill.offsetWidth;
+                        pill.style.transition = '';
+                        visible = true;
+                    } else {
+                        pill.style.width = `${itemRect.width}px`;
+                        pill.style.height = `${itemRect.height}px`;
+                        pill.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+                    }
+                    pill.style.opacity = '1';
+                };
+                rail.querySelectorAll(itemSelector).forEach(btn => {
+                    btn.addEventListener('pointerenter', () => movePill(btn));
+                    btn.addEventListener('focus', () => movePill(btn));
+                });
+                rail.addEventListener('pointerleave', () => movePill(null));
+                rail.addEventListener('focusout', (e) => {
+                    if (!rail.contains(e.relatedTarget)) movePill(null);
+                });
+            };
+
+            bindSlidingRail('desktopNavRail', 'navSlidingPill', '.nav-pill');
+            bindSlidingRail('versionTabRail', 'versionSlidingPill', '.version-tab-btn');
         })();
 
         window.addEventListener('beforeunload', () => {

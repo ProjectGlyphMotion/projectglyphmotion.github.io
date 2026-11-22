@@ -21,51 +21,109 @@
         }
     </script>
     <style>
+        :root {
+            --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-hover: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease-press: cubic-bezier(0.2, 0, 0, 1);
+            --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+        }
+        * { -webkit-tap-highlight-color: transparent; }
         body { background-color:#030303; color:#e4e4e7; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
-        .bg-glow-main { position:fixed; top:-30vh; left:50%; transform:translateX(-50%); width:150vw; height:100vh; background:radial-gradient(ellipse at 50% 30%,rgba(245,158,11,0.15)0%,transparent 60%); pointer-events:none; z-index:0; }
-        .bg-mesh { position:fixed; inset:0; background-size:35px 35px; background-position:center top; background-image:linear-gradient(to right,rgba(255,255,255,0.03)1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.03)1px,transparent 1px); mask-image:linear-gradient(to bottom,transparent 0%,black 15%,black 85%,transparent 100%); -webkit-mask-image:linear-gradient(to bottom,transparent 0%,black 15%,black 85%,transparent 100%); z-index:1; pointer-events:none; }
-        .scanlines { position:fixed; inset:0; pointer-events:none; z-index:2; background:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,0)50%,rgba(0,0,0,0.2)50%,rgba(0,0,0,0.2)); background-size:100% 4px; opacity:0.3; }
-        .doc-card { background:linear-gradient(180deg,rgba(16,16,20,0.85)0%,rgba(10,10,12,0.98)100%); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.05); border-top:1px solid rgba(255,255,255,0.1); box-shadow:0 10px 40px -10px rgba(0,0,0,0.9); border-radius:1.25rem; position:relative; transition:all 0.4s cubic-bezier(0.25,1,0.5,1); z-index:10; }
-        .doc-card:hover { transform:translateY(-4px); border-color:rgba(245,158,11,0.4); border-top-color:rgba(245,158,11,0.7); box-shadow:0 15px 35px -10px rgba(0,0,0,0.8),0 0 25px -5px rgba(245,158,11,0.15); }
-        .stat-card { background:rgba(10,10,12,0.8); border:1px solid rgba(255,255,255,0.06); border-radius:1rem; padding:1.5rem; text-align:center; transition:all 0.3s; min-width:0; display:flex; flex-direction:column; justify-content:center; }
-        .stat-card:hover { border-color:rgba(245,158,11,0.3); transform:translateY(-2px); }
-        .stat-value { font-family:'Outfit',sans-serif; font-size:2.2rem; font-weight:700; background:linear-gradient(135deg,#f59e0b,#ea580c); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
-        .stat-value-compact { font-size:clamp(0.92rem, 1.3vw, 1.18rem); }
-        .stat-label { font-family:'JetBrains Mono',monospace; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em; color:#71717a; margin-top:0.25rem; }
-        .status-widget { display:inline-flex; align-items:center; gap:.45rem; padding:.45rem .72rem; width:fit-content; max-width:100%; border-radius:.65rem; border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.35); font-size:11px; font-family:'JetBrains Mono',monospace; white-space:nowrap; }
-        .chart-box { background:rgba(0,0,0,0.30); border:1px solid rgba(255,255,255,0.10); border-radius:.85rem; padding:.75rem; height:300px; position:relative; }
-        .chart-box.with-toolbar { display:flex; flex-direction:column; gap:.55rem; }
+        .ui-icon { width:1rem; height:1rem; flex-shrink:0; transition:transform 0.36s var(--ease-hover), opacity 0.26s ease; }
+        .bg-glow-main { position:fixed; top:-30vh; left:50%; transform:translateX(-50%); width:150vw; height:100vh; background:radial-gradient(ellipse at 50% 30%,rgba(245,158,11,0.16) 0%,rgba(14,165,233,0.04) 45%,transparent 66%); pointer-events:none; z-index:0; will-change:transform; }
+        .bg-mesh { position:fixed; inset:0; background-size:35px 35px; background-position:center top; background-image:linear-gradient(to right,rgba(255,255,255,0.024) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.024) 1px,transparent 1px); mask-image:linear-gradient(to bottom,transparent 0%,black 15%,black 85%,transparent 100%); -webkit-mask-image:linear-gradient(to bottom,transparent 0%,black 15%,black 85%,transparent 100%); z-index:1; pointer-events:none; }
+        .scanlines { position:fixed; inset:0; pointer-events:none; z-index:2; background:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,0) 50%,rgba(0,0,0,0.18) 50%,rgba(0,0,0,0.18)); background-size:100% 4px; opacity:0.24; }
+
+        /* ==================== APPLE LIQUID GLASS HERO & NAV ==================== */
+        .hero-header { position:relative; isolation:isolate; padding:0.5rem 0 0.75rem; }
+        .hero-header::before { content:""; position:absolute; top:-1.8rem; left:50%; transform:translateX(-50%); width:min(860px,96vw); height:12rem; background:radial-gradient(ellipse 62% 58% at 50% 42%,rgba(245,158,11,0.18) 0%,rgba(253,161,54,0.05) 50%,transparent 76%),radial-gradient(ellipse 38% 34% at 50% 35%,rgba(254,240,138,0.08) 0%,transparent 72%); pointer-events:none; z-index:-1; }
+        .hero-title { display:inline-block; background-image:radial-gradient(220px circle at var(--mx,50%) var(--my,35%),rgba(255,255,255,0.65),transparent 62%),linear-gradient(180deg,#fef9c3 0%,#fcd34d 40%,#f59e0b 84%,#d97706 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:#f59e0b; filter:drop-shadow(0 0 32px rgba(245,158,11,0.44)) drop-shadow(0 6px 14px rgba(0,0,0,0.88)); cursor:default; }
+        .hero-horizon-rule { position:relative; width:min(460px,72vw); height:1px; margin:0.25rem auto 0.85rem; background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.12) 22%,rgba(253,161,54,0.45) 50%,rgba(255,255,255,0.12) 78%,transparent 100%); }
+        .hero-horizon-rule::after { content:""; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:82px; height:6px; border-radius:9999px; filter:blur(3px); background:radial-gradient(ellipse at center,rgba(253,186,116,0.5) 0%,transparent 74%); pointer-events:none; }
+        .hero-subtitle-pill { display:inline-flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:0.45rem; margin:0 auto 1.2rem; max-width:min(92vw,48rem); padding:0.44rem 0.6rem 0.44rem 0.95rem; border-radius:9999px; background:linear-gradient(180deg,rgba(255,255,255,0.042),rgba(255,255,255,0.018)); backdrop-filter:blur(18px) saturate(165%); -webkit-backdrop-filter:blur(18px) saturate(165%); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08),inset 0 1px 0 rgba(255,255,255,0.12),0 10px 24px -12px rgba(0,0,0,0.75); color:#cbd5e1; font-family:'Outfit',sans-serif; font-size:0.86rem; line-height:1.4; }
+        .hero-subtitle-accent { display:inline-flex; align-items:center; padding:0.14rem 0.62rem; border-radius:9999px; background:rgba(16,185,129,0.13); box-shadow:inset 0 0 0 1px rgba(16,185,129,0.3); font-family:'JetBrains Mono',monospace; font-size:0.72rem; font-weight:600; color:#6ee7b7; letter-spacing:0.03em; }
+
+        .desktop-nav-rail { position:relative; display:inline-flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:0.24rem; padding:0.3rem; border-radius:9999px; background:linear-gradient(180deg,rgba(28,28,36,0.62),rgba(14,14,20,0.62)); backdrop-filter:blur(26px) saturate(190%) brightness(1.06); -webkit-backdrop-filter:blur(26px) saturate(190%) brightness(1.06); box-shadow:0 14px 36px -14px rgba(0,0,0,0.78),inset 0 1px 0 rgba(255,255,255,0.16); overflow:hidden; }
+        .desktop-nav-rail::before { content:""; position:absolute; inset:0; border-radius:inherit; padding:1px; background:linear-gradient(140deg,rgba(255,255,255,0.24) 0%,rgba(255,255,255,0.08) 32%,rgba(255,255,255,0.02) 68%,rgba(255,255,255,0.11) 100%); -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; z-index:2; }
+        .desktop-nav-rail::after { content:""; position:absolute; inset:0; background:radial-gradient(220px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,0.09),transparent 70%); opacity:0; transition:opacity 0.35s var(--ease-hover); pointer-events:none; z-index:0; }
+        .desktop-nav-rail:hover::after { opacity:1; }
+        .nav-sliding-pill { position:absolute; top:0; left:0; height:0; width:0; border-radius:9999px; background:linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05)); box-shadow:0 4px 14px rgba(0,0,0,0.28),inset 0 1px 0 rgba(255,255,255,0.22); opacity:0; pointer-events:none; will-change:transform,width,height,opacity; transition:transform 0.42s var(--ease-hover),width 0.42s var(--ease-hover),height 0.42s var(--ease-hover),opacity 0.26s ease; z-index:0; }
+        .nav-pill { position:relative; z-index:1; display:inline-flex; align-items:center; gap:0.46rem; padding:0.44rem 0.96rem; border-radius:9999px; font-size:0.78rem; font-weight:500; font-family:'Inter',sans-serif; color:#cbd5e1; text-decoration:none; transition:color 0.26s ease,transform 0.24s var(--ease-press),background 0.3s var(--ease-hover); }
+        .nav-pill:hover { color:#ffffff; }
+        .nav-pill:hover .ui-icon { transform:scale(1.08); }
+        .nav-pill-active { background:linear-gradient(180deg,rgba(245,158,11,0.26),rgba(217,119,6,0.16)); color:#fef3c7; box-shadow:inset 0 1px 0 rgba(255,255,255,0.22),0 4px 14px -4px rgba(245,158,11,0.4); }
+
+        /* ==================== PILLS & STATUS CAPSULES ==================== */
+        .control-pill { display:inline-flex; align-items:center; gap:.45rem; height:2.15rem; padding:0 .9rem; border-radius:9999px; border:0; background:rgba(255,255,255,0.05); backdrop-filter:blur(16px) saturate(165%); -webkit-backdrop-filter:blur(16px) saturate(165%); box-shadow:0 6px 18px -10px rgba(0,0,0,0.65),inset 0 0 0 1px rgba(255,255,255,0.09),inset 0 1px 0 rgba(255,255,255,0.16); color:#e4e4e7; font-size:11px; font-weight:500; font-family:'JetBrains Mono',monospace; transition:transform 0.34s var(--ease-hover),background 0.3s var(--ease-hover),box-shadow 0.34s var(--ease-hover),color 0.24s ease; cursor:pointer; text-decoration:none; }
+        .control-pill:hover { transform:translateY(-1px); background:rgba(253,161,54,0.12); color:#fde68a; box-shadow:0 10px 24px -10px rgba(245,158,11,0.28),inset 0 0 0 1px rgba(253,161,54,0.32),inset 0 1px 0 rgba(255,255,255,0.22); }
+        .control-pill:hover .ui-icon { transform:scale(1.08); }
+        .control-pill:active:not([disabled]) { transform:scale(0.96); transition-duration:0.12s; transition-timing-function:var(--ease-press); }
+        .control-pill.control-pill-blue { background:rgba(59,130,246,0.14); color:#93c5fd; box-shadow:0 6px 18px -10px rgba(59,130,246,0.35),inset 0 0 0 1px rgba(59,130,246,0.32),inset 0 1px 0 rgba(255,255,255,0.16); }
+        .control-pill.control-pill-blue:hover { background:rgba(59,130,246,0.24); color:#dbeafe; box-shadow:0 10px 22px -10px rgba(59,130,246,0.45),inset 0 0 0 1px rgba(96,165,250,0.48),inset 0 1px 0 rgba(255,255,255,0.22); }
+        .control-pill.control-pill-emerald { background:rgba(16,185,129,0.14); color:#6ee7b7; box-shadow:0 6px 18px -10px rgba(16,185,129,0.35),inset 0 0 0 1px rgba(16,185,129,0.32),inset 0 1px 0 rgba(255,255,255,0.16); }
+        .control-pill.control-pill-emerald:hover { background:rgba(16,185,129,0.24); color:#d1fae5; box-shadow:0 10px 22px -10px rgba(16,185,129,0.45),inset 0 0 0 1px rgba(52,211,153,0.48),inset 0 1px 0 rgba(255,255,255,0.22); }
+        .status-widget { display:inline-flex; align-items:center; gap:.45rem; height:2.15rem; padding:0 .88rem; width:fit-content; max-width:100%; border-radius:9999px; border:0; background:rgba(255,255,255,0.045); backdrop-filter:blur(16px) saturate(165%); -webkit-backdrop-filter:blur(16px) saturate(165%); box-shadow:0 6px 18px -10px rgba(0,0,0,0.65),inset 0 0 0 1px rgba(255,255,255,0.09),inset 0 1px 0 rgba(255,255,255,0.15); font-size:11px; font-family:'JetBrains Mono',monospace; white-space:nowrap; transition:transform 0.34s var(--ease-hover),box-shadow 0.34s var(--ease-hover); }
+        .status-widget:hover { transform:translateY(-1px); }
+        .status-widget.border-emerald-500\/35 { box-shadow:0 6px 18px -10px rgba(16,185,129,0.35),inset 0 0 0 1px rgba(16,185,129,0.36),inset 0 1px 0 rgba(255,255,255,0.16); }
+        .status-widget.border-amber-500\/35 { box-shadow:0 6px 18px -10px rgba(245,158,11,0.35),inset 0 0 0 1px rgba(245,158,11,0.36),inset 0 1px 0 rgba(255,255,255,0.16); }
+
+        /* ==================== GLASS CARDS & STAT TILES ==================== */
+        .doc-card { background:radial-gradient(380px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,0.06),transparent 68%),linear-gradient(180deg,rgba(24,24,32,0.66) 0%,rgba(11,11,16,0.84) 100%); backdrop-filter:blur(22px) saturate(180%) brightness(1.04); -webkit-backdrop-filter:blur(22px) saturate(180%) brightness(1.04); border:0; box-shadow:0 20px 48px -18px rgba(0,0,0,0.88),inset 0 0 0 1px rgba(255,255,255,0.08),inset 0 1px 0 rgba(255,255,255,0.16); border-radius:1.35rem; position:relative; transition:transform 0.4s var(--ease-hover),box-shadow 0.4s var(--ease-hover); z-index:10; }
+        .doc-card::before { content:""; position:absolute; inset:0; border-radius:inherit; padding:1px; background:linear-gradient(135deg,rgba(255,255,255,0.22) 0%,rgba(253,161,54,0.16) 28%,rgba(255,255,255,0.03) 68%,rgba(255,255,255,0.1) 100%); -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; z-index:2; }
+        .doc-card:hover { transform:translateY(-2px); box-shadow:0 24px 54px -18px rgba(0,0,0,0.9),0 0 30px -12px rgba(245,158,11,0.2),inset 0 0 0 1px rgba(253,161,54,0.2),inset 0 1px 0 rgba(255,255,255,0.2); }
+
+        .stat-card { position:relative; overflow:hidden; background:radial-gradient(200px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,0.085),transparent 68%),linear-gradient(180deg,rgba(28,28,36,0.58) 0%,rgba(13,13,19,0.72) 100%); backdrop-filter:blur(18px) saturate(175%); -webkit-backdrop-filter:blur(18px) saturate(175%); border:0; box-shadow:0 14px 32px -16px rgba(0,0,0,0.8),inset 0 0 0 1px rgba(255,255,255,0.085),inset 0 1px 0 rgba(255,255,255,0.16); border-radius:1.15rem; padding:1.35rem 1rem; text-align:center; transition:transform 0.36s var(--ease-hover),box-shadow 0.36s var(--ease-hover); min-width:0; display:flex; flex-direction:column; justify-content:center; }
+        .stat-card:hover { transform:translateY(-2px); box-shadow:0 18px 36px -16px rgba(0,0,0,0.85),0 0 22px -10px rgba(245,158,11,0.26),inset 0 0 0 1px rgba(245,158,11,0.3),inset 0 1px 0 rgba(255,255,255,0.22); }
+        .stat-value { font-family:'Outfit',sans-serif; font-size:2.1rem; font-weight:700; background:linear-gradient(135deg,#fde68a 0%,#f59e0b 52%,#ea580c 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; max-width:100%; overflow:hidden; text-overflow:ellipsis; line-height:1.18; }
+        .stat-value-compact { font-size:clamp(0.92rem,1.25vw,1.15rem); }
+        .stat-label { font-family:'JetBrains Mono',monospace; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em; color:#8b8b97; margin-top:0.32rem; }
+        #statLastTime { white-space:nowrap; font-size:clamp(0.92rem,1.25vw,1.15rem); line-height:1.25; display:inline-block; letter-spacing:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+
+        .section-icon-badge { padding:0.9rem; border-radius:1.1rem; display:inline-flex; align-items:center; justify-content:center; margin-bottom:1.25rem; backdrop-filter:blur(16px) saturate(180%); -webkit-backdrop-filter:blur(16px) saturate(180%); box-shadow:inset 0 1px 0 rgba(255,255,255,0.22),0 14px 30px -12px rgba(0,0,0,0.8); }
+
+        /* ==================== CHARTS & TELEMETRY TOOLBARS ==================== */
+        .chart-box { background:radial-gradient(280px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,0.055),transparent 65%),linear-gradient(180deg,rgba(20,20,28,0.62) 0%,rgba(10,10,15,0.78) 100%); backdrop-filter:blur(18px) saturate(175%); -webkit-backdrop-filter:blur(18px) saturate(175%); border:0; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.085),inset 0 1px 0 rgba(255,255,255,0.14),0 14px 32px -18px rgba(0,0,0,0.85); border-radius:1.15rem; padding:1rem; height:335px; position:relative; transition:transform 0.36s var(--ease-hover),box-shadow 0.36s var(--ease-hover); }
+        .chart-box:hover { box-shadow:inset 0 0 0 1px rgba(245,158,11,0.26),inset 0 1px 0 rgba(255,255,255,0.2),0 18px 36px -18px rgba(0,0,0,0.9); }
+        .chart-box.with-toolbar { display:flex; flex-direction:column; gap:.65rem; height:365px; }
         .chart-box.with-toolbar canvas { flex:1; min-height:0; }
         .chart-toolbar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; flex-wrap:wrap; }
-        .chart-toolbar-left { display:flex; align-items:center; gap:.35rem; }
-        .chart-toolbar-right { font-family:'JetBrains Mono',monospace; font-size:10px; color:#a1a1aa; padding:.25rem .5rem; border-radius:.5rem; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); }
-        .chart-tool-btn { border:1px solid rgba(245,158,11,0.35); background:rgba(245,158,11,0.09); color:#fcd34d; font-family:'JetBrains Mono',monospace; font-size:10px; line-height:1; padding:.34rem .52rem; border-radius:.45rem; cursor:pointer; transition:all .18s ease; }
-        .chart-tool-btn:hover { background:rgba(245,158,11,0.18); border-color:rgba(245,158,11,0.55); }
-        .chart-tool-btn:disabled { opacity:.45; cursor:not-allowed; }
-        .rich-table-card { position:relative; border:1px solid rgba(255,255,255,0.08); background:radial-gradient(120% 100% at 0% 0%,rgba(245,158,11,0.09)0%,rgba(245,158,11,0)42%),linear-gradient(180deg,rgba(16,16,20,0.93)0%,rgba(9,9,12,0.98)100%); overflow:hidden; box-shadow:0 20px 38px -26px rgba(0,0,0,0.92),0 0 0 1px rgba(245,158,11,0.06),inset 0 1px 0 rgba(255,255,255,0.06); border-radius:1.25rem; }
-        .table-shell { background:#0f0f12; border:1px solid rgba(255,255,255,0.1); border-radius:1rem; overflow:hidden; overscroll-behavior:contain; box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 18px 30px -24px rgba(0,0,0,0.85); position:relative; }
+        .chart-toolbar-left { display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; }
+        .chart-toolbar-right { font-family:'JetBrains Mono',monospace; font-size:10px; color:#cbd5e1; padding:.3rem .65rem; border-radius:9999px; background:rgba(255,255,255,0.045); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1),inset 0 1px 0 rgba(255,255,255,0.12); }
+        .chart-tool-btn { border:0; background:rgba(245,158,11,0.1); box-shadow:inset 0 0 0 1px rgba(245,158,11,0.32),inset 0 1px 0 rgba(255,255,255,0.14); color:#fde68a; font-family:'JetBrains Mono',monospace; font-size:10px; line-height:1; padding:.36rem .62rem; border-radius:9999px; cursor:pointer; transition:all .24s var(--ease-hover); }
+        .chart-tool-btn:hover { background:rgba(245,158,11,0.22); box-shadow:inset 0 0 0 1px rgba(251,191,36,0.55),0 6px 14px -6px rgba(245,158,11,0.4); transform:translateY(-1px); }
+        .chart-tool-btn:active:not(:disabled) { transform:scale(0.95); }
+        .chart-tool-btn:disabled { opacity:.42; cursor:not-allowed; }
+
+        /* ==================== HEATMAP ==================== */
+        .heatmap-wrap { margin-top:1.25rem; background:linear-gradient(180deg,rgba(20,20,28,0.62) 0%,rgba(10,10,15,0.78) 100%); backdrop-filter:blur(18px) saturate(175%); -webkit-backdrop-filter:blur(18px) saturate(175%); border:0; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.085),inset 0 1px 0 rgba(255,255,255,0.14); border-radius:1.15rem; padding:1.1rem; overflow:auto; }
+        .heatmap-grid { display:grid; grid-template-columns:88px repeat(12,minmax(52px,1fr)); gap:0.38rem; min-width:860px; }
+        .heatmap-cell { min-height:34px; border:1px solid rgba(255,255,255,0.08); border-radius:0.55rem; display:flex; align-items:center; justify-content:center; font-size:10px; font-family:'JetBrains Mono',monospace; color:#e4e4e7; transition:transform 0.2s var(--ease-hover),box-shadow 0.2s ease; }
+        .heatmap-cell:hover { transform:scale(1.04); z-index:2; box-shadow:0 4px 12px rgba(0,0,0,0.55); }
+        .heatmap-cell.header { background:rgba(255,255,255,0.055); color:#cbd5e1; border-color:rgba(255,255,255,0.12); }
+        .heatmap-cell.day { background:rgba(245,158,11,0.14); color:#fde68a; border-color:rgba(245,158,11,0.28); justify-content:flex-start; padding-left:0.6rem; font-weight:600; }
+        .heatmap-meta { display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:.85rem; }
+        .heatmap-pill { background:rgba(255,255,255,0.045); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1),inset 0 1px 0 rgba(255,255,255,0.12); color:#e4e4e7; border-radius:9999px; padding:.34rem .72rem; font-size:10px; font-family:'JetBrains Mono',monospace; }
+
+        /* ==================== RICH TRACKING TABLE ==================== */
+        .rich-table-card { position:relative; border:0; border-radius:1.35rem; background:radial-gradient(120% 100% at 0% 0%,rgba(245,158,11,0.1) 0%,rgba(245,158,11,0) 46%),radial-gradient(340px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,0.055),transparent 68%),linear-gradient(180deg,rgba(24,24,34,0.68) 0%,rgba(10,10,16,0.84) 100%); backdrop-filter:blur(22px) saturate(180%) brightness(1.04); -webkit-backdrop-filter:blur(22px) saturate(180%) brightness(1.04); overflow:hidden; box-shadow:0 22px 48px -20px rgba(0,0,0,0.92),inset 0 0 0 1px rgba(255,255,255,0.08),inset 0 1px 0 rgba(255,255,255,0.16); }
+        .rich-table-card::before { content:''; position:absolute; inset:0; border-radius:1.35rem; padding:1px; background:linear-gradient(135deg,rgba(255,255,255,0.22) 0%,rgba(245,158,11,0.22) 30%,rgba(255,255,255,0.03) 70%,rgba(255,255,255,0.1) 100%); -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; z-index:2; }
+        .table-shell { background:#0f0f12; border:1px solid rgba(255,255,255,0.1); border-radius:1rem; overflow:auto; overscroll-behavior:contain; box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 18px 30px -24px rgba(0,0,0,0.85); position:relative; }
         .data-table { width:100%; border-collapse:separate; border-spacing:0; font-size:0.8rem; }
         .data-table th { position:sticky; top:0; background:#2a1c05; color:#f59e0b; font-family:'JetBrains Mono',monospace; font-size:0.65rem; text-transform:uppercase; letter-spacing:.05em; padding:.75rem 1rem; text-align:left; border-bottom:1px solid rgba(245,158,11,0.2); z-index:1; }
         .data-table td { padding:.65rem 1rem; border-bottom:1px solid rgba(255,255,255,0.04); color:#a1a1aa; font-family:'JetBrains Mono',monospace; font-size:0.75rem; white-space:nowrap; background:#0f0f12; }
         .data-table tr:hover td { background:#18120b; color:#e4e4e7; }
-        .table-headline { display:flex; align-items:center; gap:0.7rem; }
-        .table-header-icon { width:2.2rem; height:2.2rem; border-radius:0.8rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid rgba(245,158,11,0.3); background:rgba(245,158,11,0.1); box-shadow:inset 0 1px 0 rgba(255,255,255,0.07),0 8px 18px -12px rgba(245,158,11,0.75); flex-shrink:0; }
+        .table-headline { display:flex; align-items:center; gap:0.75rem; }
+        .table-headline span:last-child::after { content:''; display:block; width:70%; height:1px; margin-top:0.32rem; background:linear-gradient(90deg,rgba(245,158,11,0.55),rgba(245,158,11,0)); }
+        .table-header-icon { width:2.3rem; height:2.3rem; border-radius:0.85rem; display:inline-flex; align-items:center; justify-content:center; border:0; background:rgba(245,158,11,0.14); box-shadow:inset 0 0 0 1px rgba(245,158,11,0.34),inset 0 1px 0 rgba(255,255,255,0.14),0 8px 18px -12px rgba(245,158,11,0.75); flex-shrink:0; }
         .table-subtitle { color:#a1a1aa; font-size:0.78rem; font-family:'Outfit',sans-serif; letter-spacing:0.01em; margin-top:0.2rem; }
-        .table-filter-input { background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.16); box-shadow:inset 0 1px 0 rgba(255,255,255,0.05); transition:border-color 0.2s ease,box-shadow 0.2s ease; }
-        .table-filter-input:focus { outline:none; border-color:rgba(245,158,11,0.5); box-shadow:0 0 0 3px rgba(245,158,11,0.12); }
+        .table-filter-input { background:rgba(6,6,12,0.56); border:0; border-radius:9999px; box-shadow:inset 0 2px 6px rgba(0,0,0,0.42),inset 0 0 0 1px rgba(255,255,255,0.1); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); transition:background 0.24s ease,box-shadow 0.24s ease; }
+        .table-filter-input:focus { outline:none; background:rgba(6,6,12,0.74); box-shadow:inset 0 2px 6px rgba(0,0,0,0.42),inset 0 0 0 1px rgba(245,158,11,0.52),0 0 0 3px rgba(245,158,11,0.14); }
         .table-kpis { display:flex; flex-wrap:wrap; align-items:center; gap:0.55rem; padding-top:0.2rem; }
-        .table-kpi { display:inline-flex; align-items:center; gap:0.4rem; padding:0.35rem 0.62rem; border-radius:0.6rem; border:1px solid #3a3a41; background:#121218; color:#d4d4d8; font-size:10px; letter-spacing:0.03em; text-transform:uppercase; font-family:'JetBrains Mono',monospace; box-shadow:inset 0 1px 0 rgba(255,255,255,0.05); }
+        .table-kpi { display:inline-flex; align-items:center; gap:0.42rem; padding:0.36rem 0.78rem; border-radius:9999px; border:0; background:rgba(255,255,255,0.045); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); color:#d4d4d8; font-size:10px; letter-spacing:0.03em; text-transform:uppercase; font-family:'JetBrains Mono',monospace; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.09),inset 0 1px 0 rgba(255,255,255,0.12); }
         .table-kpi .val { color:#fbbf24; font-weight:700; font-size:11px; }
-        #statLastTime { white-space:nowrap; font-size:clamp(0.92rem, 1.3vw, 1.18rem); line-height:1.25; display:inline-block; letter-spacing:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
-        .heatmap-wrap { margin-top:1rem; background:rgba(0,0,0,0.26); border:1px solid rgba(255,255,255,0.1); border-radius:.85rem; padding:1rem; overflow:auto; }
-        .heatmap-grid { display:grid; grid-template-columns:88px repeat(12, minmax(52px, 1fr)); gap:0.35rem; min-width:860px; }
-        .heatmap-cell { min-height:34px; border:1px solid rgba(255,255,255,0.08); border-radius:0.45rem; display:flex; align-items:center; justify-content:center; font-size:10px; font-family:'JetBrains Mono',monospace; color:#e4e4e7; }
-        .heatmap-cell.header { background:rgba(255,255,255,0.06); color:#cbd5e1; border-color:rgba(255,255,255,0.12); }
-        .heatmap-cell.day { background:rgba(245,158,11,0.12); color:#fcd34d; border-color:rgba(245,158,11,0.25); justify-content:flex-start; padding-left:0.55rem; }
-        .heatmap-meta { display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:.8rem; }
-        .heatmap-pill { border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); color:#d4d4d8; border-radius:999px; padding:.3rem .6rem; font-size:10px; font-family:'JetBrains Mono',monospace; }
-        @media(max-width:768px) { .stat-value { font-size:1.5rem; } .stat-card { padding:0.9rem; } .chart-box { height:220px; } }
-        @media(max-width:480px) { .stat-value { font-size:1.3rem; } #statLastTime { font-size:0.96rem; } }
+
+        /* ==================== STATUS BANNERS, MODAL & UTILITIES ==================== */
+        .glass-banner { backdrop-filter:blur(18px) saturate(170%); -webkit-backdrop-filter:blur(18px) saturate(170%); box-shadow:0 12px 30px -14px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.12); }
         .spinner { border:4px solid rgba(245,158,11,0.2); border-top:4px solid #f59e0b; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:2rem auto; }
         @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
         ::-webkit-scrollbar { width:8px; height:8px; }
@@ -73,19 +131,39 @@
         ::-webkit-scrollbar-thumb { background:#27272a; border-radius:4px; border:2px solid #030303; }
         ::-webkit-scrollbar-thumb:hover { background:#f59e0b; }
         .mono { font-family:'JetBrains Mono',monospace; }
-        #centralMessageOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1002; opacity:0; pointer-events:none; transition:opacity 0.3s ease-in-out; }
-        #centralMessageContent { background-color:rgba(10,10,15,0.95); border:1px solid rgba(245,158,11,0.5); border-radius:0.75rem; padding:2rem; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-width:80%; color:#EDEDF3; font-size:1.25rem; font-weight:500; transform:translateY(-20px); opacity:0; transition:transform 0.4s cubic-bezier(0.25,0.8,0.25,1.25),opacity 0.4s ease-out; }
+        #centralMessageOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.72); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; z-index:1002; opacity:0; pointer-events:none; transition:opacity 0.3s ease-in-out; }
+        #centralMessageContent { background:linear-gradient(180deg,rgba(24,24,34,0.88),rgba(10,10,16,0.95)); border:1px solid rgba(245,158,11,0.45); border-radius:1.25rem; padding:2rem; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.75),inset 0 1px 0 rgba(255,255,255,0.16); max-width:80%; color:#EDEDF3; font-size:1.25rem; font-weight:500; transform:translateY(-20px); opacity:0; transition:transform 0.4s cubic-bezier(0.25,0.8,0.25,1.25),opacity 0.4s ease-out; }
         #centralMessageOverlay.show { opacity:1; pointer-events:auto; }
         #centralMessageOverlay.show #centralMessageContent { opacity:1; transform:translateY(0); }
         #centralMessageOverlay.hide #centralMessageContent { transform:translateY(20px); opacity:0; }
-        .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0); z-index:50; display:flex; align-items:center; justify-content:center; padding:1rem; pointer-events:none; transition:background 0.4s ease; opacity:0; }
-        .modal-backdrop.active { background:rgba(0,0,0,0.85); pointer-events:auto; opacity:1; }
-        .modal-panel { transform:scale(0.85) translateY(30px); opacity:0; transition:transform 0.5s cubic-bezier(0.16,1,0.3,1),opacity 0.4s ease; max-width:min(96vw,1100px); width:100%; max-height:90vh; overflow-y:auto; }
+        .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0); backdrop-filter:blur(0px); -webkit-backdrop-filter:blur(0px); z-index:50; display:flex; align-items:center; justify-content:center; padding:1rem; pointer-events:none; transition:background 0.4s ease,backdrop-filter 0.4s ease; opacity:0; }
+        .modal-backdrop.active { background:rgba(0,0,0,0.82); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); pointer-events:auto; opacity:1; }
+        .modal-panel { transform:scale(0.88) translateY(28px); opacity:0; transition:transform 0.5s var(--ease-spring),opacity 0.4s ease; max-width:min(96vw,1100px); width:100%; max-height:90vh; overflow-y:auto; }
         .modal-backdrop.active .modal-panel { transform:scale(1) translateY(0); opacity:1; }
-        .info-detail-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:0.75rem; }
-        .info-detail-grid div { background-color:rgba(255,255,255,0.05); border-radius:0.3rem; padding:0.65rem 0.85rem; font-size:0.82rem; box-shadow:inset 0 1px 3px rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); }
-        .info-detail-grid strong { color:#f59e0b; display:block; margin-bottom:0.15rem; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; }
+        .info-detail-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(205px,1fr)); gap:0.75rem; }
+        .info-detail-grid div { background:linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.025)); border-radius:0.85rem; padding:0.72rem 0.9rem; font-size:0.82rem; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08),inset 0 1px 0 rgba(255,255,255,0.12); color:#e4e4e7; }
+        .info-detail-grid strong { color:#fbbf24; display:block; margin-bottom:0.2rem; font-size:0.68rem; font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:0.06em; }
         #refreshProgressBar { position:fixed; top:0; left:0; width:100vw; height:3px; background:linear-gradient(to right,#fcd34d,#f59e0b,#ea580c); z-index:99999; transform-origin:left center; transform:scaleX(0); opacity:0; transition:opacity .2s ease; box-shadow:0 0 12px rgba(245,158,11,0.8); }
+
+        @media(max-width:768px) { .stat-value { font-size:1.5rem; } .stat-card { padding:0.9rem; border-radius:0.9rem; } .chart-box { height:250px; padding:0.65rem; } .chart-box.with-toolbar { height:285px; } }
+        @media(max-width:640px) {
+            main { padding-top:1.15rem !important; padding-left:0.75rem !important; padding-right:0.75rem !important; }
+            .hero-header { padding:0.15rem 0 0.35rem; margin-bottom:1rem !important; }
+            .hero-header h2 { font-size:0.65rem; letter-spacing:0.28em; margin-bottom:0.45rem; }
+            .hero-title, .font-retro { font-size:1.15rem !important; line-height:1.35 !important; }
+            .hero-horizon-rule { margin:0.2rem auto 0.55rem; }
+            .hero-subtitle-pill { font-size:0.72rem; padding:0.3rem 0.65rem; gap:0.32rem; margin-bottom:0.75rem; }
+            .hero-subtitle-pill .ui-icon { width:0.82rem; height:0.82rem; }
+            .hero-subtitle-accent { font-size:0.62rem; padding:0.1rem 0.48rem; }
+            nav { width:100%; margin-bottom:0.75rem !important; }
+            #desktopNavRail { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); width:min(100%,350px); border-radius:1rem; padding:0.24rem; gap:0.2rem; }
+            #desktopNavRail .nav-sliding-pill { display:none; }
+            #desktopNavRail .nav-pill { justify-content:center; height:1.88rem; padding:0 0.35rem; font-size:0.67rem; gap:0.28rem; border-radius:0.72rem; white-space:nowrap; }
+            #desktopNavRail .nav-pill .ui-icon { width:0.78rem; height:0.78rem; }
+            .control-pill, .status-widget { height:1.86rem; padding:0 0.68rem; font-size:10px; gap:0.32rem; }
+            .control-pill .ui-icon, .status-widget .ui-icon { width:0.82rem; height:0.82rem; }
+        }
+        @media(max-width:480px) { .stat-value { font-size:1.3rem; } #statLastTime { font-size:0.96rem; } }
     </style>
 </head>
 <body class="relative min-h-screen">
@@ -94,23 +172,89 @@
     <div class="bg-mesh"></div>
     <div class="scanlines"></div>
 
-    <main class="relative z-10 w-full max-w-full px-4 md:px-8 lg:px-12 xl:px-16 pt-12 md:pt-20 pb-32">
-        <!-- HEADER -->
-        <header class="flex flex-col items-center justify-center text-center mb-0 relative z-10">
-            <h2 class="text-zinc-500 font-mono font-bold uppercase tracking-[0.4em] text-xs sm:text-sm mb-4 flex items-center gap-3">
+    <main class="relative z-10 w-full max-w-full px-4 md:px-8 lg:px-12 xl:px-16 pt-8 md:pt-12 pb-32">
+        <!-- HEADER (Hero Title Above -> Segmented Liquid Glass Nav Rail -> Action/Status Strip) -->
+        <header class="hero-header flex flex-col items-center justify-center text-center mb-6 relative z-10">
+            <h2 class="text-zinc-500 font-mono font-bold uppercase tracking-[0.38em] text-xs sm:text-sm mb-3 flex items-center gap-3">
                 <span class="w-8 h-px bg-zinc-700"></span> Admin Tracker <span class="w-8 h-px bg-zinc-700"></span>
             </h2>
-            <h1 class="font-retro text-2xl sm:text-3xl md:text-4xl lg:text-[40px] text-amber-500 leading-loose md:leading-[1.6] drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] mb-6">
+            <h1 class="hero-title font-retro text-2xl sm:text-3xl md:text-4xl lg:text-[40px] leading-loose md:leading-[1.5] mb-2">
                 PROJECT GLYPHMOTION
             </h1>
-            <p class="font-outfit text-zinc-400 max-w-3xl mx-auto text-base md:text-lg leading-relaxed mb-8">
-                Real-time analytics dashboard — processing statistics, behavioral trends, and comprehensive tracking data across all processed videos.
+            <div class="hero-horizon-rule"></div>
+            <p class="hero-subtitle-pill">
+                <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 12h3.5l2.2-6 4.6 12 2.4-6H21"/>
+                </svg>
+                <span>Real-time analytics — request velocity, power telemetry &amp; geo intelligence</span>
+                <span class="hero-subtitle-accent">IST Live SSE</span>
             </p>
-            <div class="flex flex-wrap items-center justify-center gap-3 text-xs font-mono text-zinc-500">
-                <a href="index.html" class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all">
-                    <i data-lucide="home" class="w-3 h-3 text-amber-500"></i> Home</a>
-                <button id="refreshDataBtn" class="flex items-center gap-1.5 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hover:border-amber-500/40 transition-all cursor-pointer">
-                    <i data-lucide="refresh-cw" class="w-3 h-3 text-amber-500"></i> Refresh</button>
+
+            <!-- APPLE LIQUID GLASS NAV RAIL -->
+            <nav class="flex justify-center mb-5" aria-label="Primary Navigation">
+                <div class="desktop-nav-rail" id="desktopNavRail">
+                    <span class="nav-sliding-pill" id="navSlidingPill" aria-hidden="true"></span>
+                    <a href="index.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 10.5 12 3l9 7.5"/>
+                            <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" fill="currentColor" fill-opacity="0.16"/>
+                            <path d="M9.5 21v-6h5v6"/>
+                        </svg>
+                        <span>Home</span>
+                    </a>
+                    <a href="playground.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M9.5 3.5h5"/>
+                            <path d="M10.25 3.5v5.1a2 2 0 0 1-.38 1.18l-4.6 6.45A2.2 2.2 0 0 0 7.06 19.8h9.88a2.2 2.2 0 0 0 1.79-3.57l-4.6-6.45a2 2 0 0 1-.38-1.18V3.5"/>
+                            <path d="M7.2 14.5h9.6l1.7 2.4a1.5 1.5 0 0 1-1.22 2.4H6.72a1.5 1.5 0 0 1-1.22-2.4l1.7-2.4Z" fill="currentColor" fill-opacity="0.24" stroke="none"/>
+                        </svg>
+                        <span>Playground</span>
+                    </a>
+                    <a href="admin_tracker.html" class="nav-pill nav-pill-active" aria-current="page">
+                        <svg class="ui-icon text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 3v18h18"/>
+                            <path d="m7 14 4-4 3 3 6-6"/>
+                            <circle cx="20" cy="7" r="2" fill="currentColor" fill-opacity="0.35"/>
+                        </svg>
+                        <span>Tracker</span>
+                    </a>
+                    <a href="documentation.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M4.5 19.2v-14A2.4 2.4 0 0 1 6.9 2.8H19.5v18.4H6.9a2.4 2.4 0 0 1 0-4.8h12.6" fill="currentColor" fill-opacity="0.16"/>
+                        </svg>
+                        <span>Docs</span>
+                    </a>
+                    <a href="changelogs.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity="0.14" stroke="none"/>
+                            <path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3L3.5 8"/>
+                            <path d="M3.5 3.5V8H8"/>
+                            <path d="M12 7.5V12l3 1.8"/>
+                        </svg>
+                        <span>Changelogs</span>
+                    </a>
+                    <a href="benchmark.html" class="nav-pill">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="4" y="13" width="3.5" height="7" rx="1" fill="currentColor" fill-opacity="0.24"/>
+                            <rect x="10.25" y="9" width="3.5" height="11" rx="1" fill="currentColor" fill-opacity="0.24"/>
+                            <rect x="16.5" y="4" width="3.5" height="16" rx="1" fill="currentColor" fill-opacity="0.24"/>
+                        </svg>
+                        <span>Benchmark</span>
+                    </a>
+                </div>
+            </nav>
+
+            <!-- ACTION & LIVE TELEMETRY PILL STRIP -->
+            <div class="flex flex-wrap items-center justify-center gap-2.5 text-xs font-mono text-zinc-400">
+                <button id="refreshDataBtn" class="control-pill cursor-pointer">
+                    <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                        <path d="M3 3v5h5"/>
+                        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                        <path d="M16 16h5v5"/>
+                    </svg>
+                    <span>Refresh</span>
+                </button>
                 <div id="serverStatusWidget" class="status-widget">
                     <div class="relative flex h-2.5 w-2.5">
                         <span id="serverStatusPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-75"></span>
@@ -118,31 +262,47 @@
                     </div>
                     <span id="serverStatusText" class="text-zinc-300">CONNECTING...</span>
                 </div>
-                <div id="snapshotStatusWidget" class="status-widget border-zinc-700/70 bg-zinc-900/40">
+                <div id="snapshotStatusWidget" class="status-widget border-zinc-500/35 bg-zinc-500/10">
+                    <svg class="ui-icon text-zinc-400" style="width:0.82rem;height:0.82rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" aria-hidden="true">
+                        <ellipse cx="12" cy="5.5" rx="7.5" ry="2.5" fill="currentColor" fill-opacity="0.18"/>
+                        <path d="M4.5 5.5v13c0 1.38 3.36 2.5 7.5 2.5s7.5-1.12 7.5-2.5v-13"/>
+                    </svg>
                     <span id="snapshotStatusText" class="text-zinc-300">SNAPSHOT: --</span>
                 </div>
-                <div id="freshnessStatusWidget" class="status-widget border-zinc-700/70 bg-zinc-900/40">
+                <div id="freshnessStatusWidget" class="status-widget border-zinc-500/35 bg-zinc-500/10">
+                    <svg class="ui-icon text-zinc-400" style="width:0.82rem;height:0.82rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="0.14"/>
+                        <path d="M12 7v5l3 2"/>
+                    </svg>
                     <span id="freshnessStatusText" class="text-zinc-300">FRESHNESS: --</span>
                 </div>
-                <span id="loggedInUsername" class="hidden text-xs font-mono text-zinc-400 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full"></span>
+                <span id="loggedInUsername" class="hidden control-pill text-zinc-300"></span>
             </div>
         </header>
 
         <!-- STATUS / ERROR BANNERS -->
-        <div id="statusArea" class="mt-6 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 hidden text-sm flex items-start gap-3">
-            <i data-lucide="info" class="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0"></i>
-            <p id="statusMessage" class="font-outfit text-zinc-300"></p>
+        <div id="statusArea" class="glass-banner mt-6 p-3.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 hidden text-sm flex items-start gap-3">
+            <svg class="ui-icon text-amber-400 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9.5" fill="currentColor" fill-opacity="0.18"/>
+                <path d="M12 16v-4"/>
+                <path d="M12 8h.01"/>
+            </svg>
+            <p id="statusMessage" class="font-outfit text-zinc-200"></p>
         </div>
-        <div id="errorArea" class="mt-4 p-3 rounded-xl border border-red-500/30 bg-red-500/5 hidden text-sm flex items-start gap-3">
-            <i data-lucide="alert-circle" class="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0"></i>
-            <p id="errorMessage" class="font-outfit text-red-300"></p>
+        <div id="errorArea" class="glass-banner mt-4 p-3.5 rounded-2xl border border-red-500/35 bg-red-500/10 hidden text-sm flex items-start gap-3">
+            <svg class="ui-icon text-red-400 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9.5" fill="currentColor" fill-opacity="0.18"/>
+                <path d="M12 8v4"/>
+                <path d="M12 16h.01"/>
+            </svg>
+            <p id="errorMessage" class="font-outfit text-red-200"></p>
         </div>
 
         <!-- LOADING -->
         <div id="loadingSpinner" class="spinner"></div>
 
         <!-- STATS CARDS -->
-        <section id="statsSection" class="hidden grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-10 mb-10">
+        <section id="statsSection" class="hidden grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-8 mb-10">
             <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total Processed</div></div>
             <div class="stat-card"><div class="stat-value" id="statLocations">0</div><div class="stat-label">Unique Locations</div></div>
             <div class="stat-card"><div class="stat-value" id="statTopCity">—</div><div class="stat-label">Most Active City</div></div>
@@ -155,11 +315,17 @@
         <section id="insightsSection" class="hidden mb-10">
             <div class="doc-card p-6 md:p-8">
                 <header class="flex flex-col items-center text-center mb-8">
-                    <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 mb-6 inline-flex shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-                        <i data-lucide="radar" class="w-8 h-8 text-emerald-400"></i>
+                    <div class="section-icon-badge bg-emerald-500/15 border border-emerald-400/30 shadow-[0_0_32px_rgba(16,185,129,0.24)]">
+                        <svg class="w-8 h-8 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity="0.14"/>
+                            <circle cx="12" cy="12" r="5" stroke-opacity="0.65"/>
+                            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                            <path d="M12 3v3"/>
+                            <path d="M18.36 5.64 13.06 10.94"/>
+                        </svg>
                     </div>
-                    <h2 class="font-outfit text-2xl md:text-3xl font-bold text-white mb-3">Operational Intelligence</h2>
-                    <p class="text-zinc-400 max-w-2xl mx-auto font-outfit text-sm">Actionable metrics for traffic quality, request velocity, repeat visitor behavior, and security posture.</p>
+                    <h2 class="font-outfit text-2xl md:text-3xl font-bold text-white mb-2.5">Operational Intelligence</h2>
+                    <p class="text-zinc-400 max-w-2xl mx-auto font-outfit text-sm">Actionable metrics for traffic quality, request velocity, server uptime, and power telemetry.</p>
                 </header>
                 <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
                     <div class="stat-card"><div class="stat-value text-[1.6rem] md:text-[1.8rem]" id="insightRepeatRate">0%</div><div class="stat-label">Repeat Request Rate</div></div>
@@ -169,7 +335,7 @@
                     <div class="stat-card"><div class="stat-value text-[1.6rem] md:text-[1.8rem]" id="insightTopProvider">N/A</div><div class="stat-label">Top Provider</div></div>
                     <div class="stat-card"><div class="stat-value text-[1.6rem] md:text-[1.8rem]" id="insightSpikeRisk">Low</div><div class="stat-label">Spike Risk</div></div>
                 </div>
-                <div class="table-kpis mb-4">
+                <div class="table-kpis mb-5">
                     <span class="table-kpi">Suspicious Traffic <span id="insightSuspiciousRate" class="val">0%</span></span>
                     <span class="table-kpi">Geo Coverage <span id="insightGeoCoverage" class="val">0%</span></span>
                     <span class="table-kpi">New IP Rate (24h) <span id="insightNewIpRate" class="val">0%</span></span>
@@ -198,7 +364,7 @@
                     <span class="table-kpi">Last Change <span id="uptimeLastChange" class="val">—</span></span>
                     <span class="table-kpi">Transitions (14d) <span id="uptimeTransitions14d" class="val">0</span></span>
                 </div>
-                <div class="chart-box with-toolbar mt-4">
+                <div class="chart-box with-toolbar mt-5">
                     <div class="chart-toolbar">
                         <div class="chart-toolbar-left">
                             <button id="powerPreset10mBtn" class="chart-tool-btn" type="button" title="Set 10 minute window">10M</button>
@@ -224,10 +390,10 @@
                     <span class="table-kpi">Depletion Rate <span id="powerDepletionRate" class="val">—</span></span>
                     <span class="table-kpi">Last Outage <span id="powerLastOutage" class="val">—</span></span>
                 </div>
-                <div class="chart-box with-toolbar mt-8">
+                <div class="chart-box with-toolbar mt-6">
                     <div class="chart-toolbar">
                         <div class="chart-toolbar-left">
-                            <span class="chart-toolbar-right text-emerald-400 font-medium mr-2">Detailed Electrical Metrics</span>
+                            <span class="chart-toolbar-right text-emerald-300 font-medium mr-1">Detailed Electrical Metrics</span>
                             <button id="detailedPreset10mBtn" class="chart-tool-btn" type="button" title="10 min window">10M</button>
                             <button id="detailedPreset30mBtn" class="chart-tool-btn" type="button" title="30 min window">30M</button>
                             <button id="detailedPreset1hBtn" class="chart-tool-btn" type="button" title="1 hour window">1H</button>
@@ -238,7 +404,7 @@
                         </div>
                         <div id="detailedPowerLabel" class="chart-toolbar-right">Tracking Live</div>
                     </div>
-                    <canvas id="detailedPowerMetricsChart" style="max-height: 280px;"></canvas>
+                    <canvas id="detailedPowerMetricsChart"></canvas>
                 </div>
                 <div class="table-kpis mt-4">
                     <span class="table-kpi">Outage Energy Consumed <span id="powerOutageEnergy" class="val">—</span></span>
@@ -251,10 +417,14 @@
         <section id="chartsSection" class="hidden mb-10">
             <div class="doc-card p-6 md:p-8">
                 <header class="flex flex-col items-center text-center mb-8">
-                    <div class="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 mb-6 inline-flex shadow-[0_0_30px_rgba(59,130,246,0.2)]">
-                        <i data-lucide="bar-chart-3" class="w-8 h-8 text-blue-400"></i>
+                    <div class="section-icon-badge bg-cyan-500/15 border border-cyan-400/30 shadow-[0_0_32px_rgba(34,211,238,0.22)]">
+                        <svg class="w-8 h-8 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="4" y="13" width="3.5" height="7" rx="1" fill="currentColor" fill-opacity="0.28"/>
+                            <rect x="10.25" y="8" width="3.5" height="12" rx="1" fill="currentColor" fill-opacity="0.28"/>
+                            <rect x="16.5" y="4" width="3.5" height="16" rx="1" fill="currentColor" fill-opacity="0.28"/>
+                        </svg>
                     </div>
-                    <h2 class="font-outfit text-2xl md:text-3xl font-bold text-white mb-3">Processing Analytics</h2>
+                    <h2 class="font-outfit text-2xl md:text-3xl font-bold text-white mb-2.5">Processing Analytics</h2>
                     <p class="text-zinc-400 max-w-2xl mx-auto font-outfit text-sm">Location distribution, IST activity windows, provider distribution, and weekday demand trend.</p>
                 </header>
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -266,7 +436,7 @@
                     <div class="chart-box"><canvas id="serverHourlyPatternChart"></canvas></div>
                     <div class="chart-box xl:col-span-2"><canvas id="weekdayTrendChart"></canvas></div>
                 </div>
-                <div class="heatmap-wrap mt-4">
+                <div class="heatmap-wrap mt-5">
                     <div class="heatmap-meta">
                         <span class="heatmap-pill">Heatmap: IST weekday x 2-hour windows</span>
                         <span class="heatmap-pill" id="heatmapPeakSlot">Peak slot: —</span>
@@ -285,12 +455,18 @@
                         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div>
                                 <h2 class="font-outfit text-2xl font-bold text-white table-headline">
-                                    <span class="table-header-icon"><i data-lucide="list" class="w-5 h-5 text-amber-300"></i></span>
+                                    <span class="table-header-icon">
+                                        <svg class="ui-icon text-amber-300" style="width:1.25rem;height:1.25rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <ellipse cx="12" cy="5.5" rx="7.5" ry="2.5" fill="currentColor" fill-opacity="0.22"/>
+                                            <path d="M4.5 5.5v13c0 1.38 3.36 2.5 7.5 2.5s7.5-1.12 7.5-2.5v-13"/>
+                                            <path d="M4.5 12c0 1.38 3.36 2.5 7.5 2.5s7.5-1.12 7.5-2.5"/>
+                                        </svg>
+                                    </span>
                                     <span>All Tracking Records</span>
                                 </h2>
                                 <p class="table-subtitle">Full processing history with geolocation, timestamps, and commit details.</p>
                             </div>
-                            <input id="tableFilter" type="text" class="table-filter-input rounded-lg px-3 py-2 text-xs text-zinc-200 w-full md:w-72 max-w-full font-mono" placeholder="Filter by city, IP, title...">
+                            <input id="tableFilter" type="text" class="table-filter-input px-4 py-2 text-xs text-zinc-200 w-full md:w-72 max-w-full font-mono" placeholder="Filter by city, IP, title...">
                         </div>
                         <div class="table-kpis">
                             <span class="table-kpi">Total Records <span id="kpiTotal" class="val">0</span></span>
@@ -299,7 +475,7 @@
                         </div>
                     </div>
                 </header>
-                <div id="trackingTableShell" class="table-shell max-h-[36rem] overflow-auto">
+                <div id="trackingTableShell" class="table-shell max-h-[36rem]">
                     <table class="data-table" id="trackingTable">
                         <thead>
                             <tr>
@@ -325,10 +501,14 @@
     </main>
 
     <!-- FOOTER -->
-    <footer class="relative z-10 pb-8 pt-4 mt-auto w-full">
-        <div class="max-w-max mx-auto px-6 py-3 rounded-full bg-surface/80 backdrop-blur-md border border-zinc-800/60 shadow-[0_0_20px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 transition-all hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(245,158,11,0.1)]">
-            <i data-lucide="terminal-square" class="w-4 h-4 text-amber-500"></i>
-            <p class="text-zinc-400 text-sm font-mono tracking-wide">Maintained by <span class="text-zinc-200 font-semibold">Project GlyphMotion</span></p>
+    <footer class="relative z-10 pb-10 pt-4 mt-auto w-full flex justify-center px-4">
+        <div class="desktop-nav-rail px-6 py-2.5 gap-3">
+            <svg class="ui-icon text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="3" fill="currentColor" fill-opacity="0.16"/>
+                <path d="m8 10 3 2.5L8 15"/>
+                <path d="M13 15h4"/>
+            </svg>
+            <p class="text-zinc-400 text-xs sm:text-sm font-mono tracking-wide">Maintained by <span class="text-amber-300 font-semibold">Project GlyphMotion</span></p>
         </div>
     </footer>
 
@@ -341,8 +521,21 @@
     <div id="infoModal" class="modal-backdrop">
         <div class="modal-panel doc-card p-6 md:p-8">
             <div class="flex items-center justify-between mb-6">
-                <h3 class="font-outfit text-xl font-bold text-amber-400 flex items-center gap-2"><i data-lucide="map-pin" class="w-5 h-5"></i> Geolocation Details</h3>
-                <button id="infoModalCloseBtn" class="text-zinc-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <h3 class="font-outfit text-xl font-bold text-amber-300 flex items-center gap-2.5">
+                    <span class="table-header-icon" style="width:2rem;height:2rem;border-radius:0.65rem;">
+                        <svg class="ui-icon text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" fill="currentColor" fill-opacity="0.22"/>
+                            <circle cx="12" cy="10" r="2.8" fill="currentColor" fill-opacity="0.35"/>
+                        </svg>
+                    </span>
+                    <span>Geolocation Details</span>
+                </h3>
+                <button id="infoModalCloseBtn" class="control-pill" style="padding:0 0.65rem;" title="Close Modal" aria-label="Close modal">
+                    <svg class="ui-icon text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M18 6 6 18"/>
+                        <path d="m6 6 12 12"/>
+                    </svg>
+                </button>
             </div>
             <div id="infoModalDetailsContent" class="info-detail-grid"></div>
             <div id="infoModalMapLinks" class="flex flex-wrap gap-3 mt-6"></div>
@@ -1610,13 +1803,20 @@ function updatePowerTelemetryIndicators(series = null) {
     let avgWattage = 0;
     let validSamples = 0;
     
-    if (lastOff && !lastOnAfterOff) {
+    const telemetrySamples = (snapshot?.samples || []);
+    let targetSamples = [];
+    if (lastOff) {
         const startTs = lastOff.ts;
-        const endTs = Math.floor(Date.now() / 1000);
-        const outageSamples = (snapshot?.samples || []).filter(s => s.ts >= startTs && s.ts <= endTs);
-        
-        let previousTs = startTs;
-        for (const sample of outageSamples) {
+        const endTs = lastOnAfterOff ? lastOnAfterOff.ts : Math.floor(Date.now() / 1000);
+        targetSamples = telemetrySamples.filter(s => s.ts >= startTs && s.ts <= endTs);
+    }
+    if (targetSamples.length === 0 && telemetrySamples.length > 0) {
+        targetSamples = telemetrySamples.slice(-120);
+    }
+
+    if (targetSamples.length > 0) {
+        let previousTs = targetSamples[0].ts;
+        for (const sample of targetSamples) {
             if (Number.isFinite(Number(sample.currentNowUa)) && Number.isFinite(Number(sample.voltageNowUv))) {
                 const w = Math.abs(Number(sample.currentNowUa) / 1000000) * (Number(sample.voltageNowUv) / 1000000);
                 if (w > peakWattage) peakWattage = w;
@@ -1636,7 +1836,7 @@ function updatePowerTelemetryIndicators(series = null) {
     const peakEl = document.getElementById('powerOutagePeakW');
     const avgEl = document.getElementById('powerOutageAvgW');
     
-    if (energyEl) energyEl.textContent = outageEnergyWh > 0 ? `${outageEnergyWh.toFixed(3)} Wh` : '—';
+    if (energyEl) energyEl.textContent = outageEnergyWh > 0 ? `${outageEnergyWh.toFixed(3)} Wh` : (validSamples > 0 ? '0.000 Wh' : '—');
     if (peakEl) peakEl.textContent = peakWattage > 0 ? `${peakWattage.toFixed(2)} W` : '—';
     if (avgEl) avgEl.textContent = validSamples > 0 ? `${(avgWattage / validSamples).toFixed(2)} W` : '—';
 }
@@ -1650,13 +1850,13 @@ function refreshServerStatusCharts() {
         const timelineData = series.statuses.map(() => 1);
         const timelineColors = series.statuses.map((status) => {
             const isOnline = status === 'on' || status === 'connected' || status === 'polling';
-            if (status === 'mixed') return 'rgba(251,191,36,0.55)';
-            return isOnline ? 'rgba(16,185,129,0.86)' : 'rgba(239,68,68,0.38)';
+            if (status === 'mixed') return 'rgba(251,191,36,0.62)';
+            return isOnline ? 'rgba(16,185,129,0.78)' : 'rgba(239,68,68,0.42)';
         });
         const timelineBorderColors = series.statuses.map((status) => {
             const isOnline = status === 'on' || status === 'connected' || status === 'polling';
-            if (status === 'mixed') return 'rgba(251,191,36,0.9)';
-            return isOnline ? 'rgba(16,185,129,0.95)' : 'rgba(239,68,68,0.62)';
+            if (status === 'mixed') return 'rgba(251,191,36,0.95)';
+            return isOnline ? 'rgba(52,211,153,0.95)' : 'rgba(248,113,113,0.68)';
         });
         destroyChart('serverTimelineChart');
         chartInstances['serverTimelineChart'] = new Chart(timelineCanvas, {
@@ -1667,15 +1867,15 @@ function refreshServerStatusCharts() {
                     label: 'Server timeline',
                     data: timelineData,
                     borderWidth: 1,
-                    borderRadius: 0,
+                    borderRadius: 4,
                     borderSkipped: false,
                     backgroundColor: timelineColors,
                     borderColor: timelineBorderColors,
                     barThickness: 'flex',
                     maxBarThickness: 14,
-                    categoryPercentage: 1.0,
-                    barPercentage: 1.0,
-                    hoverBorderWidth: 1,
+                    categoryPercentage: 0.94,
+                    barPercentage: 0.92,
+                    hoverBorderWidth: 1.5,
                     hoverBackgroundColor: timelineColors,
                     hoverBorderColor: timelineBorderColors
                 }]
@@ -1697,8 +1897,9 @@ function refreshServerStatusCharts() {
                 scales: {
                     x: {
                         ...CHART_DEFAULTS.scales.x,
-                        grid: { color: 'rgba(255,255,255,0.02)' },
-                        ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                        grid: { color: 'rgba(255,255,255,0.02)', tickLength: 0 },
+                        border: { color: 'rgba(255,255,255,0.08)' },
+                        ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }
                     },
                     y: {
                         ...CHART_DEFAULTS.scales.y,
@@ -1712,6 +1913,7 @@ function refreshServerStatusCharts() {
                 plugins: {
                     ...CHART_DEFAULTS.plugins,
                     tooltip: {
+                        ...glassTooltipStyle(),
                         mode: 'index',
                         intersect: false,
                         callbacks: {
@@ -1736,7 +1938,7 @@ function refreshServerStatusCharts() {
                             }
                         }
                     },
-                    title: { display: true, text: `Server Timeline (${formatWindowHoursLabel(series.hoursBack)} window, IST)`, color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } },
+                    title: { display: true, align: 'start', text: `Server Timeline (${formatWindowHoursLabel(series.hoursBack)} window, IST)`, color: '#f4f4f5', padding: { top: 2, bottom: 8 }, font: { family: 'Outfit', size: 14, weight: 600 } },
                     legend: { display: false }
                 }
             }
@@ -1756,18 +1958,20 @@ function refreshServerStatusCharts() {
                         type: 'bar',
                         label: 'ON minutes',
                         data: onMinutes,
-                        backgroundColor: CHART_COLORS.greenBg,
-                        borderColor: CHART_COLORS.green,
+                        backgroundColor: vGrad('rgba(16,185,129,0.84)', 'rgba(16,185,129,0.22)'),
+                        borderColor: '#34d399',
                         borderWidth: 1,
+                        borderRadius: 4,
                         stack: 'uptime'
                     },
                     {
                         type: 'bar',
                         label: 'OFF minutes',
                         data: offMinutes,
-                        backgroundColor: CHART_COLORS.redBg,
-                        borderColor: CHART_COLORS.red,
+                        backgroundColor: vGrad('rgba(244,63,94,0.82)', 'rgba(244,63,94,0.2)'),
+                        borderColor: '#fb7185',
                         borderWidth: 1,
+                        borderRadius: 4,
                         stack: 'uptime'
                     }
                 ]
@@ -1775,21 +1979,25 @@ function refreshServerStatusCharts() {
             options: {
                 ...CHART_DEFAULTS,
                 scales: {
-                    x: CHART_DEFAULTS.scales.x,
+                    x: {
+                        ...CHART_DEFAULTS.scales.x,
+                        ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }
+                    },
                     y: {
                         ...CHART_DEFAULTS.scales.y,
                         stacked: true,
-                        title: { display: true, text: 'Minutes per hour', color: '#71717a' }
+                        title: { display: true, text: 'Minutes / hr', color: '#8b8b97', font: { family: 'JetBrains Mono', size: 9 } }
                     }
                 },
                 plugins: {
                     ...CHART_DEFAULTS.plugins,
                     tooltip: {
+                        ...glassTooltipStyle(),
                         callbacks: {
                             label: (ctx) => `${ctx.dataset.label}: ${formatMinutesAsDuration(ctx.parsed.y)}`
                         }
                     },
-                    title: { display: true, text: `Server On/Off Pattern by Hour (14d, IST) | Uptime ${metrics.uptimePct.toFixed(1)}%`, color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } }
+                    title: { display: true, align: 'start', text: `Server On/Off Pattern by Hour (14d, IST) · Uptime ${metrics.uptimePct.toFixed(1)}%`, color: '#f4f4f5', padding: { top: 2, bottom: 10 }, font: { family: 'Outfit', size: 14, weight: 600 } }
                 }
             }
         });
@@ -1854,16 +2062,16 @@ function refreshPowerTelemetryChart() {
     const powerPresence = normalizePowerPresence(series.latest, snapshot);
     const statusData = series.statuses.map(() => 1);
     const statusColors = series.statuses.map((status) => {
-        if (status === 'backend_offline') return 'rgba(113,113,122,0.38)';
-        if (status === 'mixed') return 'rgba(251,191,36,0.55)';
-        if (status === 'unknown') return 'rgba(148,163,184,0.34)';
-        return status === 'on' ? 'rgba(16,185,129,0.86)' : 'rgba(239,68,68,0.38)';
+        if (status === 'backend_offline') return 'rgba(113,113,122,0.34)';
+        if (status === 'mixed') return 'rgba(251,191,36,0.52)';
+        if (status === 'unknown') return 'rgba(148,163,184,0.30)';
+        return status === 'on' ? 'rgba(16,185,129,0.58)' : 'rgba(244,63,94,0.42)';
     });
     const statusBorderColors = series.statuses.map((status) => {
-        if (status === 'backend_offline') return 'rgba(113,113,122,0.65)';
-        if (status === 'mixed') return 'rgba(251,191,36,0.9)';
-        if (status === 'unknown') return 'rgba(148,163,184,0.55)';
-        return status === 'on' ? 'rgba(16,185,129,0.95)' : 'rgba(239,68,68,0.65)';
+        if (status === 'backend_offline') return 'rgba(113,113,122,0.62)';
+        if (status === 'mixed') return 'rgba(251,191,36,0.88)';
+        if (status === 'unknown') return 'rgba(148,163,184,0.5)';
+        return status === 'on' ? 'rgba(52,211,153,0.88)' : 'rgba(251,113,133,0.72)';
     });
     const backendLabel = backendState === 'online'
         ? 'Backend live'
@@ -1880,15 +2088,15 @@ function refreshPowerTelemetryChart() {
                     label: 'AC power',
                     data: statusData,
                     borderWidth: 1,
-                    borderRadius: 0,
+                    borderRadius: 4,
                     borderSkipped: false,
                     backgroundColor: statusColors,
                     borderColor: statusBorderColors,
                     barThickness: 'flex',
                     maxBarThickness: 14,
-                    categoryPercentage: 1.0,
-                    barPercentage: 1.0,
-                    hoverBorderWidth: 1,
+                    categoryPercentage: 0.94,
+                    barPercentage: 0.92,
+                    hoverBorderWidth: 1.5,
                     hoverBackgroundColor: statusColors,
                     hoverBorderColor: statusBorderColors,
                     yAxisID: 'yStatus'
@@ -1897,14 +2105,17 @@ function refreshPowerTelemetryChart() {
                     type: 'line',
                     label: 'Battery %',
                     data: series.batteryPercents,
-                    borderColor: 'rgba(251,191,36,0.95)',
-                    backgroundColor: 'rgba(251,191,36,0.18)',
+                    borderColor: '#fbbf24',
+                    backgroundColor: vGrad('rgba(251,191,36,0.28)', 'rgba(251,191,36,0.0)'),
                     pointRadius: 0,
-                    pointHoverRadius: 3,
-                    borderWidth: 2,
-                    tension: 0.28,
+                    pointHoverRadius: 4.5,
+                    pointHoverBackgroundColor: '#fbbf24',
+                    pointHoverBorderColor: '#0a0a0f',
+                    borderWidth: 2.3,
+                    tension: 0.34,
+                    cubicInterpolationMode: 'monotone',
                     spanGaps: true,
-                    fill: false,
+                    fill: true,
                     yAxisID: 'yBattery'
                 }
             ]
@@ -1926,8 +2137,9 @@ function refreshPowerTelemetryChart() {
             scales: {
                 x: {
                     ...CHART_DEFAULTS.scales.x,
-                    grid: { color: 'rgba(255,255,255,0.02)' },
-                    ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                    grid: { color: 'rgba(255,255,255,0.02)', tickLength: 0 },
+                    border: { color: 'rgba(255,255,255,0.08)' },
+                    ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 11 }
                 },
                 yStatus: {
                     ...CHART_DEFAULTS.scales.y,
@@ -1946,13 +2158,15 @@ function refreshPowerTelemetryChart() {
                         ...CHART_DEFAULTS.scales.y.ticks,
                         callback: (value) => `${value}%`
                     },
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    title: { display: true, text: 'Battery %', color: '#71717a' }
+                    grid: { color: 'rgba(255,255,255,0.045)', tickLength: 0 },
+                    border: { display: false },
+                    title: { display: true, text: 'Battery %', color: '#fbbf24', font: { family: 'JetBrains Mono', size: 9 } }
                 }
             },
             plugins: {
                 ...CHART_DEFAULTS.plugins,
                 tooltip: {
+                    ...glassTooltipStyle(),
                     mode: 'index',
                     intersect: false,
                     callbacks: {
@@ -1986,7 +2200,7 @@ function refreshPowerTelemetryChart() {
                         }
                     }
                 },
-                title: { display: true, text: `Power Trace (${formatWindowHoursLabel(series.hoursBack)} window, IST) · ${backendLabel} · ${presenceLabel}`, color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } },
+                title: { display: true, align: 'start', text: `Power Trace (${formatWindowHoursLabel(series.hoursBack)} window, IST) · ${backendLabel} · ${presenceLabel}`, color: '#f4f4f5', padding: { top: 2, bottom: 8 }, font: { family: 'Outfit', size: 14, weight: 600 } },
                 legend: { display: false }
             }
         }
@@ -2017,7 +2231,10 @@ function buildDetailedPowerMetricsSeries() {
         startTs = Math.floor(Date.now() / 1000) - (Number(detailedPowerTimelineWindow) * 60);
     }
     
-    const windowSamples = samples.filter(s => s.ts >= startTs && s.ts <= endTs);
+    let windowSamples = samples.filter(s => s.ts >= startTs && s.ts <= endTs);
+    if (detailedPowerTimelineWindow === 'outage' && windowSamples.length === 0 && samples.length > 0) {
+        windowSamples = samples.slice(-120);
+    }
     
     const labels = [];
     const watts = [];
@@ -2068,7 +2285,7 @@ function refreshDetailedPowerMetricsChart() {
         chart.data.datasets[0].data = series.watts;
         chart.data.datasets[1].data = series.volts;
         chart.data.datasets[2].data = series.amps;
-        chart.update('none'); // Update without animation
+        chart.update('none');
     } else {
         chartInstances['detailedPowerMetricsChart'] = new Chart(canvas, {
         type: 'line',
@@ -2078,37 +2295,41 @@ function refreshDetailedPowerMetricsChart() {
                 {
                     label: 'Wattage (W)',
                     data: series.watts,
-                    borderColor: 'rgba(239, 68, 68, 0.9)',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderColor: '#f43f5e',
+                    backgroundColor: vGrad('rgba(244,63,94,0.28)', 'rgba(244,63,94,0.0)'),
                     yAxisID: 'yWatts',
-                    borderWidth: 2,
+                    borderWidth: 2.2,
                     pointRadius: 0,
-                    pointHoverRadius: 4,
+                    pointHoverRadius: 4.5,
+                    pointHoverBackgroundColor: '#f43f5e',
                     fill: true,
-                    tension: 0.3
+                    tension: 0.34,
+                    cubicInterpolationMode: 'monotone'
                 },
                 {
                     label: 'Voltage (V)',
                     data: series.volts,
-                    borderColor: 'rgba(59, 130, 246, 0.8)',
+                    borderColor: '#38bdf8',
                     yAxisID: 'yVolts',
-                    borderWidth: 1.5,
-                    borderDash: [5, 5],
+                    borderWidth: 1.75,
+                    borderDash: [5, 4],
                     pointRadius: 0,
-                    pointHoverRadius: 3,
+                    pointHoverRadius: 3.5,
                     fill: false,
-                    tension: 0.3
+                    tension: 0.34,
+                    cubicInterpolationMode: 'monotone'
                 },
                 {
                     label: 'Current (A)',
                     data: series.amps,
-                    borderColor: 'rgba(16, 185, 129, 0.8)',
+                    borderColor: '#10b981',
                     yAxisID: 'yAmps',
-                    borderWidth: 1.5,
+                    borderWidth: 1.75,
                     pointRadius: 0,
-                    pointHoverRadius: 3,
+                    pointHoverRadius: 3.5,
                     fill: false,
-                    tension: 0.3
+                    tension: 0.34,
+                    cubicInterpolationMode: 'monotone'
                 }
             ]
         },
@@ -2119,21 +2340,25 @@ function refreshDetailedPowerMetricsChart() {
             scales: {
                 x: {
                     ...CHART_DEFAULTS.scales.x,
-                    ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxTicksLimit: 12 }
+                    ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 11 }
                 },
                 yWatts: {
                     type: 'linear',
                     display: true,
                     position: 'left',
-                    title: { display: true, text: 'Watts (W)', color: 'rgba(239, 68, 68, 0.9)' },
-                    grid: { color: 'rgba(255,255,255,0.05)' }
+                    title: { display: true, text: 'Watts (W)', color: '#fb7185', font: { family: 'JetBrains Mono', size: 9 } },
+                    ticks: { color: '#71717a', font: { family: 'JetBrains Mono', size: 9 } },
+                    grid: { color: 'rgba(255,255,255,0.045)', tickLength: 0 },
+                    border: { display: false }
                 },
                 yVolts: {
                     type: 'linear',
                     display: true,
                     position: 'right',
-                    title: { display: true, text: 'Voltage (V)', color: 'rgba(59, 130, 246, 0.8)' },
+                    title: { display: true, text: 'Voltage (V)', color: '#38bdf8', font: { family: 'JetBrains Mono', size: 9 } },
+                    ticks: { color: '#71717a', font: { family: 'JetBrains Mono', size: 9 } },
                     grid: { drawOnChartArea: false },
+                    border: { display: false },
                     suggestedMin: 10,
                     suggestedMax: 14
                 },
@@ -2141,15 +2366,30 @@ function refreshDetailedPowerMetricsChart() {
                     type: 'linear',
                     display: true,
                     position: 'right',
-                    title: { display: true, text: 'Current (A)', color: 'rgba(16, 185, 129, 0.8)' },
+                    title: { display: true, text: 'Current (A)', color: '#34d399', font: { family: 'JetBrains Mono', size: 9 } },
+                    ticks: { color: '#71717a', font: { family: 'JetBrains Mono', size: 9 } },
                     grid: { drawOnChartArea: false },
+                    border: { display: false },
                     suggestedMin: 0,
                     suggestedMax: 5
                 }
             },
             plugins: {
                 ...CHART_DEFAULTS.plugins,
-                legend: { display: true, position: 'bottom', labels: { color: '#a1a1aa', font: { family: 'Outfit' }, boxWidth: 12 } },
+                tooltip: glassTooltipStyle(),
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        color: '#cbd5e1',
+                        font: { family: 'JetBrains Mono', size: 10 },
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        boxWidth: 8,
+                        boxHeight: 8,
+                        padding: 14
+                    }
+                },
                 title: { display: false }
             }
         }
@@ -2569,18 +2809,27 @@ function updateInsights(data) {
             datasets: [{
                 label: 'Requests / hour (IST)',
                 data: velocityData,
-                borderColor: CHART_COLORS.green,
-                backgroundColor: CHART_COLORS.greenBg,
+                borderColor: '#10b981',
+                backgroundColor: vGrad('rgba(16,185,129,0.34)', 'rgba(16,185,129,0.0)'),
                 fill: true,
-                tension: 0.35,
-                pointBackgroundColor: CHART_COLORS.green
+                borderWidth: 2.3,
+                tension: 0.36,
+                cubicInterpolationMode: 'monotone',
+                pointRadius: 2.5,
+                pointHoverRadius: 5.5,
+                pointHitRadius: 12,
+                pointBackgroundColor: '#34d399',
+                pointBorderColor: '#0a0a0f',
+                pointBorderWidth: 1.5
             }]
         },
         options: {
             ...CHART_DEFAULTS,
+            interaction: { mode: 'index', intersect: false },
             plugins: {
                 ...CHART_DEFAULTS.plugins,
                 tooltip: {
+                    ...glassTooltipStyle(),
                     callbacks: {
                         title: (items) => items?.[0]?.label ? `${items[0].label} IST` : '',
                         label: (ctx) => `Requests: ${ctx.parsed.y}`,
@@ -2594,7 +2843,7 @@ function updateInsights(data) {
                         }
                     }
                 },
-                title: { display: true, text: 'Request Velocity (Last 24h, IST)', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } }
+                title: { display: true, align: 'start', text: 'Request Velocity (Last 24h, IST)', color: '#f4f4f5', padding: { top: 2, bottom: 10 }, font: { family: 'Outfit', size: 14, weight: 600 } }
             }
         }
     });
@@ -2605,8 +2854,92 @@ function updateInsights(data) {
 // ═══════════════════════════════════════════
 // CHARTS
 // ═══════════════════════════════════════════
-const CHART_COLORS = { amber:'rgba(245,158,11,0.85)', amberBg:'rgba(245,158,11,0.15)', blue:'rgba(59,130,246,0.85)', blueBg:'rgba(59,130,246,0.15)', green:'rgba(16,185,129,0.85)', greenBg:'rgba(16,185,129,0.15)', purple:'rgba(139,92,246,0.85)', purpleBg:'rgba(139,92,246,0.15)', red:'rgba(239,68,68,0.85)', redBg:'rgba(239,68,68,0.15)' };
-const CHART_DEFAULTS = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#a1a1aa', font:{ family:'Inter', size:11 } } } }, scales:{ x:{ ticks:{ color:'#71717a', font:{ family:'JetBrains Mono', size:10 } }, grid:{ color:'rgba(255,255,255,0.04)' } }, y:{ ticks:{ color:'#71717a', font:{ family:'JetBrains Mono', size:10 } }, grid:{ color:'rgba(255,255,255,0.04)' } } } };
+function vGrad(topColor, bottomColor) {
+    return (context) => {
+        const chart = context.chart;
+        const area = chart.chartArea;
+        if (!area) return topColor;
+        const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+        g.addColorStop(0, topColor);
+        g.addColorStop(1, bottomColor);
+        return g;
+    };
+}
+
+function hGrad(leftColor, rightColor) {
+    return (context) => {
+        const chart = context.chart;
+        const area = chart.chartArea;
+        if (!area) return rightColor;
+        const g = chart.ctx.createLinearGradient(area.left, 0, area.right, 0);
+        g.addColorStop(0, leftColor);
+        g.addColorStop(1, rightColor);
+        return g;
+    };
+}
+
+function glassTooltipStyle() {
+    return {
+        backgroundColor: 'rgba(11, 11, 17, 0.94)',
+        titleColor: '#fef3c7',
+        bodyColor: '#e4e4e7',
+        borderColor: 'rgba(251, 191, 36, 0.36)',
+        borderWidth: 1,
+        padding: 11,
+        cornerRadius: 11,
+        boxPadding: 5,
+        usePointStyle: true,
+        titleFont: { family: 'Outfit', size: 12, weight: '600' },
+        bodyFont: { family: 'JetBrains Mono', size: 11 }
+    };
+}
+
+const CHART_COLORS = {
+    amber: 'rgba(245,158,11,0.9)',
+    amberBg: 'rgba(245,158,11,0.2)',
+    blue: 'rgba(56,189,248,0.9)',
+    blueBg: 'rgba(56,189,248,0.2)',
+    green: 'rgba(16,185,129,0.9)',
+    greenBg: 'rgba(16,185,129,0.2)',
+    purple: 'rgba(139,92,246,0.9)',
+    purpleBg: 'rgba(139,92,246,0.2)',
+    red: 'rgba(244,63,94,0.9)',
+    redBg: 'rgba(244,63,94,0.2)'
+};
+
+const CHART_DEFAULTS = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 600, easing: 'easeOutQuart' },
+    plugins: {
+        legend: {
+            position: 'top',
+            align: 'end',
+            labels: {
+                boxWidth: 8,
+                boxHeight: 8,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                padding: 12,
+                color: '#a1a1aa',
+                font: { family: 'JetBrains Mono', size: 10 }
+            }
+        },
+        tooltip: glassTooltipStyle()
+    },
+    scales: {
+        x: {
+            ticks: { color: '#71717a', font: { family: 'JetBrains Mono', size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+            grid: { color: 'rgba(255,255,255,0.025)', tickLength: 0 },
+            border: { color: 'rgba(255,255,255,0.08)' }
+        },
+        y: {
+            ticks: { color: '#71717a', font: { family: 'JetBrains Mono', size: 9 } },
+            grid: { color: 'rgba(255,255,255,0.045)', tickLength: 0 },
+            border: { display: false }
+        }
+    }
+};
 
 function destroyChart(id) { if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; } }
 
@@ -2617,8 +2950,31 @@ function updateCharts(data) {
     const topCities = Object.entries(cityCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
     destroyChart('locationChart');
     chartInstances['locationChart'] = new Chart(document.getElementById('locationChart'), {
-        type:'bar', data:{ labels:topCities.map(c=>c[0]), datasets:[{ label:'Videos Processed', data:topCities.map(c=>c[1]), backgroundColor:CHART_COLORS.amberBg, borderColor:CHART_COLORS.amber, borderWidth:1 }] },
-        options:{ ...CHART_DEFAULTS, indexAxis:'y', plugins:{ ...CHART_DEFAULTS.plugins, title:{ display:true, text:'Top Processing Locations', color:'#e4e4e7', font:{ family:'Outfit', size:14, weight:600 } } } }
+        type: 'bar',
+        data: {
+            labels: topCities.map(c => c[0]),
+            datasets: [{
+                label: 'Videos Processed',
+                data: topCities.map(c => c[1]),
+                backgroundColor: hGrad('rgba(245,158,11,0.22)', 'rgba(245,158,11,0.88)'),
+                borderColor: '#fbbf24',
+                borderWidth: 1,
+                borderRadius: 6,
+                barPercentage: 0.72
+            }]
+        },
+        options: {
+            ...CHART_DEFAULTS,
+            indexAxis: 'y',
+            scales: {
+                x: { ...CHART_DEFAULTS.scales.x, grid: { color: 'rgba(255,255,255,0.045)', tickLength: 0 }, border: { display: false } },
+                y: { ...CHART_DEFAULTS.scales.y, grid: { display: false }, ticks: { color: '#cbd5e1', font: { family: 'JetBrains Mono', size: 9.5 } } }
+            },
+            plugins: {
+                ...CHART_DEFAULTS.plugins,
+                title: { display: true, align: 'start', text: 'Top Processing Locations', color: '#f4f4f5', padding: { top: 2, bottom: 10 }, font: { family: 'Outfit', size: 14, weight: 600 } }
+            }
+        }
     });
 
     // 2. Activity timeline (by day)
@@ -2634,28 +2990,113 @@ function updateCharts(data) {
     const days = Object.values(dayMap).sort((a, b) => a.key.localeCompare(b.key)).slice(-14);
     destroyChart('activityChart');
     chartInstances['activityChart'] = new Chart(document.getElementById('activityChart'), {
-        type:'line', data:{ labels:days.map(d=>d.label), datasets:[{ label:'Videos/Day', data:days.map(d=>d.count), borderColor:CHART_COLORS.blue, backgroundColor:CHART_COLORS.blueBg, fill:true, tension:0.4, pointBackgroundColor:CHART_COLORS.blue }] },
-        options:{ ...CHART_DEFAULTS, plugins:{ ...CHART_DEFAULTS.plugins, title:{ display:true, text:'Activity Timeline (Last 14 Days, IST)', color:'#e4e4e7', font:{ family:'Outfit', size:14, weight:600 } } } }
+        type: 'line',
+        data: {
+            labels: days.map(d => d.label),
+            datasets: [{
+                label: 'Videos / Day',
+                data: days.map(d => d.count),
+                borderColor: '#38bdf8',
+                backgroundColor: vGrad('rgba(56,189,248,0.32)', 'rgba(56,189,248,0.0)'),
+                fill: true,
+                borderWidth: 2.3,
+                tension: 0.36,
+                cubicInterpolationMode: 'monotone',
+                pointRadius: 3,
+                pointHoverRadius: 5.5,
+                pointHitRadius: 12,
+                pointBackgroundColor: '#38bdf8',
+                pointBorderColor: '#0a0a0f',
+                pointBorderWidth: 1.5
+            }]
+        },
+        options: {
+            ...CHART_DEFAULTS,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                ...CHART_DEFAULTS.plugins,
+                title: { display: true, align: 'start', text: 'Activity Timeline (Last 14 Days, IST)', color: '#f4f4f5', padding: { top: 2, bottom: 10 }, font: { family: 'Outfit', size: 14, weight: 600 } }
+            }
+        }
     });
 
     // 3. Peak hours
     const hourCount = new Array(24).fill(0);
     data.forEach(e => { if (e.timestamp) hourCount[getIstHour(e.timestamp)]++; });
+    const maxHourVal = Math.max(...hourCount);
     destroyChart('peakHoursChart');
     chartInstances['peakHoursChart'] = new Chart(document.getElementById('peakHoursChart'), {
-        type:'bar', data:{ labels:hourCount.map((_,i)=> `${getIstHourLabel(i)} IST`), datasets:[{ label:'Videos', data:hourCount, backgroundColor:hourCount.map((v)=>{ const max=Math.max(...hourCount); return v===max?CHART_COLORS.amber:CHART_COLORS.greenBg; }), borderColor:hourCount.map((v)=>{ const max=Math.max(...hourCount); return v===max?CHART_COLORS.amber:CHART_COLORS.green; }), borderWidth:1 }] },
-        options:{ ...CHART_DEFAULTS, plugins:{ ...CHART_DEFAULTS.plugins, title:{ display:true, text:'Processing by Hour of Day (IST)', color:'#e4e4e7', font:{ family:'Outfit', size:14, weight:600 } }, legend:{display:false} } }
+        type: 'bar',
+        data: {
+            labels: hourCount.map((_, i) => `${getIstHourLabel(i)} IST`),
+            datasets: [{
+                label: 'Videos',
+                data: hourCount,
+                backgroundColor: (context) => {
+                    const v = context.raw || 0;
+                    return v === maxHourVal && maxHourVal > 0
+                        ? vGrad('rgba(251,191,36,0.95)', 'rgba(245,158,11,0.3)')(context)
+                        : vGrad('rgba(16,185,129,0.72)', 'rgba(16,185,129,0.16)')(context);
+                },
+                borderColor: hourCount.map((v) => v === maxHourVal && maxHourVal > 0 ? '#fbbf24' : '#34d399'),
+                borderWidth: 1,
+                borderRadius: 5
+            }]
+        },
+        options: {
+            ...CHART_DEFAULTS,
+            scales: {
+                ...CHART_DEFAULTS.scales,
+                x: { ...CHART_DEFAULTS.scales.x, ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxTicksLimit: 8 } }
+            },
+            plugins: {
+                ...CHART_DEFAULTS.plugins,
+                title: { display: true, align: 'start', text: 'Processing by Hour of Day (IST)', color: '#f4f4f5', padding: { top: 2, bottom: 10 }, font: { family: 'Outfit', size: 14, weight: 600 } },
+                legend: { display: false }
+            }
+        }
     });
 
     // 4. ISP distribution
     const ispCount = {};
     data.forEach(e => { const isp = normalizeProviderName(e.geolocation?.isp); if (isp && isp !== 'N/A') ispCount[isp] = (ispCount[isp]||0)+1; });
     const topISPs = Object.entries(ispCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
-    const doughnutColors = [CHART_COLORS.amber, CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.purple, CHART_COLORS.red, 'rgba(100,100,100,0.6)'];
+    const doughnutColors = ['rgba(245,158,11,0.88)', 'rgba(56,189,248,0.88)', 'rgba(16,185,129,0.88)', 'rgba(167,139,250,0.88)', 'rgba(244,63,94,0.88)', 'rgba(148,163,184,0.65)'];
     destroyChart('ispChart');
     chartInstances['ispChart'] = new Chart(document.getElementById('ispChart'), {
-        type:'doughnut', data:{ labels:topISPs.map(i=>i[0]), datasets:[{ data:topISPs.map(i=>i[1]), backgroundColor:doughnutColors.slice(0,topISPs.length), borderColor:'#0a0a0c', borderWidth:2 }] },
-        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ color:'#a1a1aa', font:{ family:'Inter', size:10 }, padding:12, boxWidth:12 } }, title:{ display:true, text:'ISP Distribution (Normalized)', color:'#e4e4e7', font:{ family:'Outfit', size:14, weight:600 } } } }
+        type: 'doughnut',
+        data: {
+            labels: topISPs.map(i => i[0]),
+            datasets: [{
+                data: topISPs.map(i => i[1]),
+                backgroundColor: doughnutColors.slice(0, topISPs.length),
+                borderColor: '#0c0c12',
+                borderWidth: 2.5,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '64%',
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            plugins: {
+                tooltip: glassTooltipStyle(),
+                legend: {
+                    position: 'right',
+                    labels: {
+                        color: '#cbd5e1',
+                        font: { family: 'JetBrains Mono', size: 10 },
+                        padding: 12,
+                        boxWidth: 9,
+                        boxHeight: 9,
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                title: { display: true, align: 'start', text: 'ISP Distribution (Normalized)', color: '#f4f4f5', padding: { top: 2, bottom: 10 }, font: { family: 'Outfit', size: 14, weight: 600 } }
+            }
+        }
     });
 
     // 5. Country distribution
@@ -2674,16 +3115,17 @@ function updateCharts(data) {
             datasets: [{
                 label: 'Requests by country',
                 data: topCountries.map(([, count]) => count),
-                backgroundColor: CHART_COLORS.blueBg,
-                borderColor: CHART_COLORS.blue,
-                borderWidth: 1
+                backgroundColor: vGrad('rgba(56,189,248,0.82)', 'rgba(59,130,246,0.22)'),
+                borderColor: '#38bdf8',
+                borderWidth: 1,
+                borderRadius: 6
             }]
         },
         options: {
             ...CHART_DEFAULTS,
             plugins: {
                 ...CHART_DEFAULTS.plugins,
-                title: { display: true, text: 'Country Distribution', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } }
+                title: { display: true, align: 'start', text: 'Country Distribution', color: '#f4f4f5', padding: { top: 2, bottom: 10 }, font: { family: 'Outfit', size: 14, weight: 600 } }
             }
         }
     });
@@ -2705,16 +3147,18 @@ function updateCharts(data) {
             datasets: [{
                 label: 'Requests by weekday (IST)',
                 data: weekdayOrder.map((d) => weekdayCount[d]),
-                backgroundColor: CHART_COLORS.redBg,
-                borderColor: CHART_COLORS.red,
-                borderWidth: 1
+                backgroundColor: vGrad('rgba(244,63,94,0.82)', 'rgba(244,63,94,0.2)'),
+                borderColor: '#fb7185',
+                borderWidth: 1,
+                borderRadius: 7,
+                maxBarThickness: 54
             }]
         },
         options: {
             ...CHART_DEFAULTS,
             plugins: {
                 ...CHART_DEFAULTS.plugins,
-                title: { display: true, text: 'Weekday Demand Trend (IST)', color: '#e4e4e7', font: { family: 'Outfit', size: 14, weight: 600 } }
+                title: { display: true, align: 'start', text: 'Weekday Demand Trend (IST)', color: '#f4f4f5', padding: { top: 2, bottom: 10 }, font: { family: 'Outfit', size: 14, weight: 600 } }
             }
         }
     });
@@ -2765,9 +3209,14 @@ function updateTrafficHeatmap(data) {
         cells.push(`<div class="heatmap-cell day">${day}</div>`);
         matrix[day].forEach((count) => {
             const intensity = maxValue > 0 ? count / maxValue : 0;
-            const bg = `rgba(245,158,11,${0.10 + (intensity * 0.72)})`;
-            const border = `rgba(245,158,11,${0.18 + (intensity * 0.62)})`;
-            cells.push(`<div class="heatmap-cell" title="${day} ${count} events" style="background:${bg};border-color:${border};">${count || '·'}</div>`);
+            const bg = count > 0
+                ? `rgba(245,158,11,${(0.14 + (intensity * 0.68)).toFixed(2)})`
+                : 'rgba(255,255,255,0.03)';
+            const border = count > 0
+                ? `rgba(251,191,36,${(0.24 + (intensity * 0.56)).toFixed(2)})`
+                : 'rgba(255,255,255,0.07)';
+            const glow = intensity >= 0.5 ? `box-shadow:0 0 12px -4px rgba(245,158,11,${(intensity * 0.55).toFixed(2)});` : '';
+            cells.push(`<div class="heatmap-cell" title="${day} ${count} events" style="background:${bg};border-color:${border};${glow}">${count || '·'}</div>`);
         });
     });
 
@@ -2810,15 +3259,18 @@ function renderTable(data) {
             <td class="max-w-[160px] overflow-hidden text-ellipsis" title="${g.isp||''}">${normalizedIsp}</td>
             <td class="max-w-[120px] overflow-hidden text-ellipsis" title="${entry.commitSha||''}">${entry.commitSha ? entry.commitSha.substring(0,8)+'…' : 'N/A'}</td>
             <td>
-                <button class="info-btn text-amber-500 hover:text-amber-300 transition-colors text-xs" title="View Details">
-                    <i data-lucide="info" class="w-4 h-4"></i>
+                <button class="info-btn control-pill" style="height:1.7rem;padding:0 0.55rem;" title="View Geolocation Details" aria-label="View Geolocation Details">
+                    <svg class="ui-icon text-amber-300" style="width:0.88rem;height:0.88rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9.5" fill="currentColor" fill-opacity="0.18"/>
+                        <path d="M12 16v-4"/>
+                        <path d="M12 8h.01"/>
+                    </svg>
                 </button>
             </td>
         `;
         tr.querySelector('.info-btn').addEventListener('click', (ev) => { ev.stopPropagation(); showInfoModal(g); });
         tbody.appendChild(tr);
     });
-    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 document.getElementById('tableFilter').addEventListener('input', () => renderTable(allTrackingData));
@@ -2846,13 +3298,26 @@ function showInfoModal(geo) {
     mapLinks.innerHTML = '';
     if (geo.lat && geo.lon && geo.lat !== 'N/A' && geo.lon !== 'N/A') {
         mapLinks.innerHTML = `
-            <a href="https://www.google.com/maps/search/?api=1&query=${geo.lat},${geo.lon}" target="_blank" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-blue-600/30 transition-all text-sm font-mono"><i data-lucide="map-pin" class="w-4 h-4"></i> Google Maps</a>
-            <a href="https://earth.google.com/web/@${geo.lat},${geo.lon},0a,10000d,1000y,0h,0t,0r" target="_blank" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 transition-all text-sm font-mono"><i data-lucide="globe" class="w-4 h-4"></i> Google Earth</a>`;
+            <a href="https://www.google.com/maps/search/?api=1&query=${geo.lat},${geo.lon}" target="_blank" rel="noopener noreferrer" class="control-pill control-pill-blue">
+                <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" fill="currentColor" fill-opacity="0.2"/>
+                    <circle cx="12" cy="10" r="2.6"/>
+                </svg>
+                <span>Google Maps</span>
+            </a>
+            <a href="https://earth.google.com/web/@${geo.lat},${geo.lon},0a,10000d,1000y,0h,0t,0r" target="_blank" rel="noopener noreferrer" class="control-pill control-pill-emerald">
+                <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9.5" fill="currentColor" fill-opacity="0.16"/>
+                    <path d="M2.5 12h19"/>
+                    <path d="M12 2.5a14 14 0 0 1 0 19"/>
+                    <path d="M12 2.5a14 14 0 0 0 0 19"/>
+                </svg>
+                <span>Google Earth</span>
+            </a>`;
     } else {
-        mapLinks.innerHTML = '<p class="text-zinc-500 text-sm">Map links unavailable (missing coordinates)</p>';
+        mapLinks.innerHTML = '<p class="text-zinc-500 text-sm font-outfit">Map links unavailable (missing coordinates)</p>';
     }
     modal.classList.add('active');
-    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function closeInfoModal() {
@@ -2885,7 +3350,6 @@ document.addEventListener('DOMContentLoaded', () => {
     usernameEl.classList.add('hidden');
 
     initializeUptimeZoomControls();
-    if (typeof lucide !== 'undefined') lucide.createIcons();
     restoreSnapshotIfAvailable();
     reportAdminLandingOnce();
     fetchTrackingData();
@@ -2902,6 +3366,78 @@ window.addEventListener('beforeunload', () => {
     disconnectAuthEvents();
     stopTrackerFallbackPolling();
 });
+
+// ═══════════════════════════════════════════
+// APPLE LIQUID GLASS SPECULAR & SLIDING RAIL
+// ═══════════════════════════════════════════
+(function initLiquidGlassUI() {
+    const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isFinePointer = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+
+    if (isFinePointer && !prefersReducedMotion) {
+        const trackPointer = (el, clientX, clientY) => {
+            const rect = el.getBoundingClientRect();
+            el.style.setProperty('--mx', `${clientX - rect.left}px`);
+            el.style.setProperty('--my', `${clientY - rect.top}px`);
+        };
+
+        ['.hero-title', '#desktopNavRail'].forEach(sel => {
+            const el = document.querySelector(sel);
+            if (!el) return;
+            let rafId = 0;
+            el.addEventListener('pointermove', (e) => {
+                const { clientX, clientY } = e;
+                if (rafId) cancelAnimationFrame(rafId);
+                rafId = requestAnimationFrame(() => trackPointer(el, clientX, clientY));
+            }, { passive: true });
+        });
+
+        document.addEventListener('pointermove', (e) => {
+            const card = e.target.closest('.doc-card, .stat-card, .chart-box, .rich-table-card');
+            if (!card) return;
+            trackPointer(card, e.clientX, e.clientY);
+        }, { passive: true });
+    }
+
+    const rail = document.getElementById('desktopNavRail');
+    const pill = document.getElementById('navSlidingPill');
+    if (rail && pill) {
+        let visible = false;
+        const movePill = (target) => {
+            if (!target) {
+                visible = false;
+                pill.style.opacity = '0';
+                return;
+            }
+            const railRect = rail.getBoundingClientRect();
+            const itemRect = target.getBoundingClientRect();
+            const x = itemRect.left - railRect.left;
+            const y = itemRect.top - railRect.top;
+            if (!visible) {
+                pill.style.transition = 'none';
+                pill.style.width = `${itemRect.width}px`;
+                pill.style.height = `${itemRect.height}px`;
+                pill.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+                void pill.offsetWidth;
+                pill.style.transition = '';
+                visible = true;
+            } else {
+                pill.style.width = `${itemRect.width}px`;
+                pill.style.height = `${itemRect.height}px`;
+                pill.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+            }
+            pill.style.opacity = '1';
+        };
+        rail.querySelectorAll('.nav-pill').forEach(btn => {
+            btn.addEventListener('pointerenter', () => movePill(btn));
+            btn.addEventListener('focus', () => movePill(btn));
+        });
+        rail.addEventListener('pointerleave', () => movePill(null));
+        rail.addEventListener('focusout', (e) => {
+            if (!rail.contains(e.relatedTarget)) movePill(null);
+        });
+    }
+})();
 
 // ═══════════════════════════════════════════
 // UNIVERSAL SCALING FIX

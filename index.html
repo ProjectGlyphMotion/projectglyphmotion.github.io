@@ -4969,26 +4969,24 @@
         }
 
         .bottom-input-bar.is-scrolled .bottom-input-bar-inner {
-            background:
-                radial-gradient(280px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.085), transparent 68%),
-                linear-gradient(180deg, rgba(26, 26, 34, 0.72) 0%, rgba(12, 12, 18, 0.8) 100%);
+            background: linear-gradient(180deg, #181821 0%, #0b0b10 100%);
             box-shadow:
-                0 26px 64px -10px rgba(0, 0, 0, 0.88),
-                inset 0 1px 0 rgba(255, 255, 255, 0.24),
-                inset 0 -1px 0 rgba(0, 0, 0, 0.42);
+                0 26px 64px -10px rgba(0, 0, 0, 0.92),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.5);
         }
 
         .bottom-input-bar.has-input .bottom-input-bar-inner {
             box-shadow:
-                0 24px 60px -10px rgba(0, 0, 0, 0.84),
-                inset 0 1px 0 rgba(255, 255, 255, 0.24),
+                0 24px 60px -10px rgba(0, 0, 0, 0.88),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
                 0 0 26px -6px rgba(253, 161, 54, 0.22);
         }
 
         .bottom-input-bar.is-processing .bottom-input-bar-inner {
             box-shadow:
-                0 24px 60px -10px rgba(0, 0, 0, 0.86),
-                inset 0 1px 0 rgba(255, 255, 255, 0.24),
+                0 24px 60px -10px rgba(0, 0, 0, 0.9),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
                 0 0 34px -4px rgba(253, 161, 54, 0.28);
         }
 
@@ -4999,24 +4997,22 @@
 
         .bottom-input-bar.drag-over .bottom-input-bar-inner {
             box-shadow:
-                0 24px 62px rgba(0, 0, 0, 0.86),
+                0 24px 62px rgba(0, 0, 0, 0.9),
                 0 0 0 1.5px rgba(253, 161, 54, 0.58),
                 0 0 42px rgba(253, 161, 54, 0.32),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                inset 0 1px 0 rgba(255, 255, 255, 0.28);
         }
 
         .bottom-input-bar-inner {
             border-radius: 1.85rem;
-            background:
-                radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.085), transparent 68%),
-                linear-gradient(180deg, rgba(32, 32, 40, 0.56) 0%, rgba(15, 15, 21, 0.68) 100%);
-            backdrop-filter: blur(30px) saturate(190%) brightness(1.05);
-            -webkit-backdrop-filter: blur(30px) saturate(190%) brightness(1.05);
+            background: linear-gradient(180deg, #1b1b24 0%, #0d0d13 100%);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
             border: 0 !important;
             box-shadow:
-                0 24px 60px -12px rgba(0, 0, 0, 0.85),
-                inset 0 1px 0 rgba(255, 255, 255, 0.22),
-                inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+                0 24px 60px -12px rgba(0, 0, 0, 0.9),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.48);
             transition: background 0.35s var(--ease-hover), box-shadow 0.4s var(--ease-hover);
         }
 
@@ -5122,7 +5118,7 @@
             opacity: 0;
             overflow: hidden;
             border-top: 0 !important;
-            background: rgba(6, 6, 12, 0.26);
+            background: #0b0b11;
             border-bottom-left-radius: 1.85rem;
             border-bottom-right-radius: 1.85rem;
             transition:
@@ -6737,17 +6733,18 @@
 
             .bottom-input-bar-inner {
                 border-radius: 1.25rem;
-                backdrop-filter: blur(22px) saturate(175%) brightness(1.05) !important;
-                -webkit-backdrop-filter: blur(22px) saturate(175%) brightness(1.05) !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
                 background:
-                    radial-gradient(240px circle at 50% 0%, rgba(255, 255, 255, 0.08), transparent 65%),
-                    linear-gradient(180deg, rgba(28, 28, 36, 0.72) 0%, rgba(15, 15, 21, 0.8) 100%) !important;
+                    radial-gradient(240px circle at 50% 0%, rgba(255, 255, 255, 0.05), transparent 65%),
+                    linear-gradient(180deg, #16161e 0%, #0b0b10 100%) !important;
             }
 
-            .bottom-input-bar-inner:focus-within {
+            .bottom-input-bar-inner:focus-within,
+            .bottom-input-bar.is-scrolled .bottom-input-bar-inner {
                 background:
-                    radial-gradient(240px circle at 50% 0%, rgba(255, 255, 255, 0.1), transparent 65%),
-                    linear-gradient(180deg, rgba(30, 30, 40, 0.8) 0%, rgba(17, 17, 25, 0.86) 100%) !important;
+                    radial-gradient(240px circle at 50% 0%, rgba(255, 255, 255, 0.07), transparent 65%),
+                    linear-gradient(180deg, #191922 0%, #0c0c12 100%) !important;
             }
 
             .bar-input-row {
@@ -6839,7 +6836,7 @@
             }
 
             .bar-status-row {
-                background: rgba(0, 0, 0, 0.18) !important;
+                background: #0a0a0f !important;
                 border-bottom-left-radius: 1.25rem;
                 border-bottom-right-radius: 1.25rem;
             }
@@ -7079,15 +7076,35 @@
                 display: none;
             }
 
-            .bottom-input-bar-inner {
-                background: linear-gradient(180deg, rgba(22, 22, 29, 0.94) 0%, rgba(11, 11, 16, 0.97) 100%);
+            #bottomInputBar .bottom-input-bar-inner,
+            #bottomInputBar.is-scrolled .bottom-input-bar-inner,
+            #bottomInputBar.has-input .bottom-input-bar-inner,
+            #bottomInputBar.is-processing .bottom-input-bar-inner,
+            #bottomInputBar.drag-over .bottom-input-bar-inner,
+            #bottomInputBar .bottom-input-bar-inner:focus-within {
+                background-color: #0e0e14 !important;
+                background: linear-gradient(180deg, #191923 0%, #0b0b10 100%) !important;
                 backdrop-filter: none !important;
                 -webkit-backdrop-filter: none !important;
                 box-shadow:
-                    0 14px 32px -10px rgba(0, 0, 0, 0.85),
-                    inset 0 0 0 1px rgba(255, 255, 255, 0.11),
+                    0 14px 32px -10px rgba(0, 0, 0, 0.94),
+                    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
                     inset 0 1px 0 rgba(255, 255, 255, 0.22),
-                    inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+                    inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+            }
+
+            #bottomInputBar .bar-status-row {
+                background: #0a0a0f !important;
+            }
+
+            #bottomInputBar .bar-url-input {
+                background: #09090e !important;
+            }
+
+            #bottomInputBar .bar-roi-btn,
+            #bottomInputBar .bar-browse-btn,
+            #bottomInputBar .bar-info-group {
+                background: #1a1a24 !important;
             }
 
             .bottom-input-bar-inner::before {
